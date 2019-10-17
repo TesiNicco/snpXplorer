@@ -11,10 +11,10 @@ cd SNPbrowser/
 ```
 
 `SNPbrowser` requires R to be correctly installed on your machine. To work, few R libraries need to be installed: 
-`shiny`
-`data.table`
-`stringr`
-`ggplot2`
+\n`shiny`
+\n`data.table`
+\n`stringr`
+\n`ggplot2`
 
 If you don't have these packages installed, or you don't know, you can run the following:
 ```
