@@ -16,7 +16,7 @@ cd SNPbrowser/
 `shiny`, `data.table`, `stringr`, `ggplot2`.
 
 
-If you don't have these packages installed, or you don't know, you can run the following within R:
+If you don't have these packages installed, or you don't know, you can run the following in R:
 
 ```
 if(!require("package_name"))install.packages("package_name")
