@@ -14,10 +14,10 @@ function.plot <- function(snp.info, y.lim, type, plt.type, windows.number, smoot
   #prepare title
   t <- function.title(gwas)
   title = paste(t, " ~ chr", snp.info$chr[1], ": ", min(snp.info$pos), " - ", max(snp.info$pos), sep = "")
-
+  
   #assign dot sizes (function for this)
   snp.info <- function.pointSize(dat = snp.info, range = seq(2, 7, 0.5))
-
+  
   #independently from plot type, I need the genes that are in the window to adjust y-axis -- here it is
   genes <- function.dynamicGene(snp.info = snp.info)
   if (nrow(genes) > 0){
@@ -46,7 +46,7 @@ function.plot <- function(snp.info, y.lim, type, plt.type, windows.number, smoot
     #then points
     snp.info$"-log10(P-value)" <- -log10(as.numeric(snp.info$p))
     points(x = snp.info$pos, y = snp.info$"-log10(P-value)", xlab='Chromosomal position (Mb)', cex.lab=1.5, xaxt='none',
-                      pch=16, col=alpha("navy", 0.6), cex=snp.info$size, type = "p", xaxs="i", yaxt='none', xlim=c(min(snp.info$pos), max(snp.info$pos)))
+           pch=16, col=alpha("navy", 0.6), cex=snp.info$size, type = "p", xaxs="i", yaxt='none', xlim=c(min(snp.info$pos), max(snp.info$pos)))
     
     #if input type was a single snp (either position or rs id), then color the searched variant differently
     if (type %in% c("Position", "Rs ID")){
@@ -196,7 +196,7 @@ function.multiPlot <- function(snp.info, snp.info.f2, y.lim, type, plt.type, win
   #assign dot sizes (function for this)
   snp.info <- function.pointSize(dat = snp.info, range = seq(2, 7, 0.5))
   snp.info.f2 <- function.pointSize(dat = snp.info.f2, range = seq(1.5, 7, 0.5))
-
+  
   #independently from plot type, I need the genes that are in the window to adjust y-axis -- here it is
   genes <- function.dynamicGene(snp.info = snp.info)
   if (nrow(genes) > 0){
@@ -563,7 +563,7 @@ function.InputGenes <- function(gene){
     gene.info <- gene.info[!duplicated(gene.info$"#geneName"),]
   } else {
     #if there is no input gene, then take a random integer (now in chr19) and plot a random gene
-    gene.db <- gene.db[which(gene.db$chrom == "chr19"),]
+    gene.db <- gene.db[which(gene.db$chrom == "chr21"),]
     #random.numer <- sample(x = seq(1, nrow(gene.db)), size = 1)
     #take corresponding gene
     #gene.info <- gene.db[random.numer, ]
@@ -690,14 +690,14 @@ function.dynamicGene <- function(snp.info){
 #function to manage which input data to plot -- still 1 dataset only for now
 function.manageInput <- function(inp){
   if (length(inp) == 0){
-    dat <- fread("/Users/nicco/Desktop/2k19_work/SNPbrowser/data/AD_CTR/chr19.PHENO1.glm.logistic", h=T, stringsAsFactors = F)
-    colnames(dat) <- c("chr", "pos", "locus", "ref", "alt", "a1", "a1_frq", "a1_case_frq", "a1_ctr_frq", "r2", "test", "n", "beta", "se", "z-stat", "p")      
-    dat <- dat[, c("chr", "pos", "locus", "ref", "alt", "a1", "test", "n", "beta",
-                   "se", "z-stat", "p")]
+    dat <- fread("/Users/nicco/Desktop/2k19_work/SNPbrowser/data/IGAP_2k19/chr21_IGAP_2k19.txt", h=T, stringsAsFactors = F)
+    colnames(dat) <- c("iid", "locus", "chr", "pos", "a1", "a2", "beta", "se", "p", "freq_a1", "OR", "95ci", "rsid", "stage")      
+    dat <- dat[, c("chr", "pos", "locus", "a1", "a2", "beta", "se", "p")]
     dat <- dat[!which(is.na(dat$p)),]
-    dat$"-log10(P-value)" <- -log10(as.numeric(dat$p))
     chrom = dat$chr[1]
-    gwas = "ad"
+    dat$p <- as.numeric(dat$p)
+    dat$"-log10(P-value)" <- -log10(as.numeric(dat$p))
+    gwas = "igap"
     
   } else if (inp == "ad"){
     
@@ -744,7 +744,7 @@ function.manageInput <- function(inp){
     dat$p <- as.numeric(dat$p)
     dat$"-log10(P-value)" <- -log10(as.numeric(dat$p))
     gwas = "metaAge"
-
+    
   }
   
   return(list(dat, chrom, gwas))
@@ -853,7 +853,7 @@ shinyServer(
           
           #find gwas info around the gene
           snp.info <- function.GWASfromGene(dat = dat, gene.info = gene.info, window = input$x, gwas)
-
+          
           #plot
           function.plot(snp.info = snp.info, y.lim = input$y, type = input$sel, plt.type = input$ploType, 
                         windows.number = input$sliding.window, smooth.par = input$smooth, int.locus = NA, gwas = gwas)
@@ -918,10 +918,10 @@ shinyServer(
         }
       }
     })
-  
+    
     #manage click on points
     output$click_info <- renderPrint({
-
+      
       ####################
       #manage which input to plot in two cases: beginning of app and 1 gwas as input
       res = function.manageInput(as.character(input$gwas))
@@ -942,8 +942,8 @@ shinyServer(
           snp.info$"-log10(P-value)" <- -log10(snp.info$p)
           if (length(input$plot1_click) == 0 || length(input$plot1_brush) > 0){
             print("Click on SNPs to get info")
-            } else {
-              nearPoints(df = snp.info, input$plot1_click, addDist = FALSE, xvar = "pos", yvar = "-log10(P-value)")
+          } else {
+            nearPoints(df = snp.info, input$plot1_click, addDist = FALSE, xvar = "pos", yvar = "-log10(P-value)")
           }    
           ###################
           
@@ -1024,7 +1024,7 @@ shinyServer(
         }
         ####################
       }
-  })
+    })
     
     #manage brush on points
     output$brush_info <- renderPrint({
@@ -1132,7 +1132,7 @@ shinyServer(
         ####################
       }
     })
-})
+  })
 
 
 
