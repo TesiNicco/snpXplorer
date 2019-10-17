@@ -550,8 +550,7 @@ function.InputManualScrollGeneric <- function(dat, window, input.scroll){
 #function to manage genes as input
 function.InputGenes <- function(gene){
   #read gene informations -- first command (commented) was to load directly from server -- now I copied the file into app folder
-  #gene.db <- fread('sshpass -p "Ciccia22101991!" ssh ntesi@linux-bastion.tudelft.nl "cat /tudelft.net/staff-bulk/ewi/insy/DBL/niccolo/databases/geneLocation_ncbi_hg19/hg19_geneListandPos"')
-  gene.db <- fread("/Users/nicco/Desktop/2k19_work/SNPbrowser/data/databases/hg19_geneListandPos", h=T)
+  gene.db <- fread("/Users/nicco/Desktop/2k19_work/SNPbrowser/data/databases/hg19_geneListandPos.txt", h=T)
   
   if (gene != "Type gene symbol..."){
     #make sure the gene input is uppercase
@@ -581,7 +580,7 @@ function.rsIDasInput <- function(rsID){
   #check whether there is an input snp, otherwise take a random one -- now is APOE e2
   if (rsID == "Type variant identifier..."){
     #get snp information -- chromosome and position basically
-    snp.info <- fread('sshpass -p "Ciccia22101991!" ssh ntesi@linux-bastion.tudelft.nl "grep -w rs7412 /tudelft.net/staff-bulk/ewi/insy/DBL/niccolo/databases/variants_DB/1kGenome/plink/chrAll_red.bim"')
+    snp.info <- fread('sshpass -p "blablablabla" ssh ntesi@XXXXXX.nl "grep -w rs7412 1kGenome/plink/chrAll_red.bim"')
     
     #take position out
     pos <- colnames(snp.info)[2]
@@ -666,7 +665,7 @@ function.dynamicGene <- function(snp.info){
   max.x <- max(snp.info$pos)
   
   #input for genes
-  gene.db <- fread("/Users/nicco/Desktop/2k19_work/SNPbrowser/data/databases/hg19_geneListandPos", h=T)
+  gene.db <- fread("/Users/nicco/Desktop/2k19_work/SNPbrowser/data/databases/hg19_geneListandPos.txt", h=T)
   
   #find genes in interval (min.x -- max.x) -- then clean up a bit
   gene.loc.res <- subset(gene.db, gene.db$chrom == paste("chr", snp.info$chr[1], sep=""))
