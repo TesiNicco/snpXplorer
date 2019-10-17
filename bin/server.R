@@ -1,9 +1,3 @@
-# the following to connect
-# rsconnect::setAccountInfo(name='snpbrowser',
-#                           token='110AFCCB2EF217424FB37B9B180D4C8F',
-#                           secret='UI/1L5rw2v8Rp781XVJ3PHebba6oGMAy2tv5U/4p')
-
-
 #SERVER SNP BROWSER
 
 #LIBRARIES
@@ -11,9 +5,6 @@ library(shiny)
 library(data.table)
 library(stringr)
 library(ggplot2)
-
-#TO RUN THE APPLICATION, GO TO THE CORRESPONDING FOLDER (NOT INSIDE THE FOLDER, JUST A DIRECTORY UP) AND TYPE
-#Rscript -e 'library(methods); shiny::runApp("yabbu_v1.0/", launch.browser=TRUE)'
 
 #FUNCTIONS
 #basic function to plot stuff 
