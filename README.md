@@ -5,23 +5,28 @@
 
 ## Getting Started
 In order to download `SNPbrowser`, you should clone this repository via the commands
+
 ```  
 git clone https://github.com/TesiNicco/SNPbrowser.git
 cd SNPbrowser/
 ```
 
-`SNPbrowser` requires R to be correctly installed on your machine. To work, few R libraries need to be installed: 
-\n`shiny`
-\n`data.table`
-\n`stringr`
-\n`ggplot2`
 
-If you don't have these packages installed, or you don't know, you can run the following:
+`SNPbrowser` requires R to be correctly installed on your machine. To work, few R libraries need to be installed: 
+`shiny`
+`data.table`
+`stringr`
+`ggplot2`
+
+
+If you don't have these packages installed, or you don't know, you can run the following within R:
+
 ```
-R
 if(!require("package_name"))install.packages("package_name")
 ```
+
 This will check for the presence of the package and in case it is not present, it will install it.
+
 
 Once the above has completed, you can exit R and move inside `SNPbrowser` folder. To execute, you can run: 
 
