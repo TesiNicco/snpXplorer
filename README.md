@@ -19,7 +19,7 @@ cd SNPbrowser/
 If you don't have these packages installed, or you don't know, you can run the following in R:
 
 ```
-if(!require("package_name"))install.packages("package_name")
+if(!require(c("shiny", "data.table", "stringr", "ggplot2")))install.packages(c("shiny", "data.table", "stringr", "ggplot2"))
 ```
 
 This will check for the presence of the package and in case it is not present, it will install it.
