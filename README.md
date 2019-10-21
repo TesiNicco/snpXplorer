@@ -3,6 +3,8 @@
 
 `SNPbrowser` is based on shiny library in R.
 
+`SNPbrowser` is undergoing active development and many additional features will be implemented in future versions of the application.
+
 ## Getting Started
 In order to download `SNPbrowser`, you should clone this repository via the commands
 
