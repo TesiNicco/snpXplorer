@@ -85,3 +85,22 @@ will add as repository for `SNPbrowser` the BLA GWAS dataset that underlies summ
 python bin/GetNewGWAS.py --slim-add trial_data/chr1_GWAS.txt BLA
 ```
 will add create a folder `data/BLA/`, put cleaned files in there, and add as repository for `SNPbrowser` the BLA GWAS dataset .
+
+## Example of working pipeline
+1. Get the tool
+```  
+git clone https://github.com/TesiNicco/SNPbrowser.git
+cd SNPbrowser/
+```
+2. Download a summary statistics GWAS (for example, Diabetes GWAS data from http://diagram-consortium.org/downloads.html)
+3. Make sure that the file is compressed with gzip `.gz` otherwise please convert it to `.gz`.
+4. Split GWAS and add repository
+```  
+SNPbrowser nicco$ python bin/GetNewGWAS.py --split-add /Users/nicco/Downloads/DIAGRAMv3.2012DEC17.txt.gz DIABETES
+```
+5. Start SNPbrowser
+```  
+Rscript -e 'library(methods); shiny::runApp("bin/", launch.browser=TRUE)'
+```
+
+
