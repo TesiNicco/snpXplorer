@@ -6,13 +6,9 @@ library(shiny)
 library(data.table)
 
 #need to do this otherwise error -- but weird, don't get why!
-dat <- fread("/Users/nicco/Desktop/2k19_work/SNPbrowser/data/AD_CTR/chr19.PHENO1.glm.logistic", h=T, check.names = F)
-colnames(dat) <- c("chr", "pos", "locus", "ref", "alt", "a1", "a1_frq", "a1_case_frq", "a1_ctr_frq", "r2", "test", "n", "beta", "se", "z-stat", "p")      
-dat <- dat[, c("chr", "pos", "locus", "ref", "alt", "a1", "test", "n", "beta",
-              "se", "z-stat", "p")]
-dat <- dat[!which(is.na(dat$p)),]
+dat <- fread("../data/example/chr21_IGAP_2k19.txt.gz", h=T, check.names = F)
+colnames(dat) <- c("chr", "pos", "p")      
 ###
-
 
 #increase maximum size of uploaded file -- now is 30MB
 options(shiny.maxRequestSize=30*1024^2)
@@ -21,7 +17,7 @@ options(shiny.maxRequestSize=30*1024^2)
 shinyServer(
   fluidPage(
     #title of the app
-    titlePanel(title = "SNP browser v1.0", windowTitle = "ciao"),
+    titlePanel(title = "SNP browser v1.0", windowTitle = "SNPbrowser session"),
     
     hr(),
 
@@ -32,8 +28,7 @@ shinyServer(
             
             h3("Input selection"),
             #select which gwas as input -- default is ad
-            checkboxGroupInput("gwas", "GWAS to show:", c("AD vs. CTR" = "ad","CHC vs. CTR" = "age", "IGAP 2k19" = "igap", "Your input" = "toLoad",
-                                                          "Meta-analysis of Aging" = "metaAge"), inline = T),
+            checkboxGroupInput("gwas", "GWAS to show:", c("Your input" = "toLoad"), inline = T),
         
             #select input file and/or additional files
             fileInput(inputId = "inp_f", label = "Add file", multiple = F, placeholder = "Loading file...")
