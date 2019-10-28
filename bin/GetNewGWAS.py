@@ -14,7 +14,7 @@ def download_data(url):
   return ("GWAS dataset downloaded correctly.")
   
 #function to understand header
-def split_one(MODE, GWAS, TIT):
+def split_one(MODE, GWAS, TIT, chrom_field, pos_field, p_field):
   #check mode in order to take either the downloaded file or user-downloaded GWAS
   if MODE == "1":
     cmd = "ls data/tmp0123/"
@@ -27,11 +27,6 @@ def split_one(MODE, GWAS, TIT):
   #prepare folder
   cmd = "mkdir data/%s" %(TIT)
   os.system(cmd)
-
-  #create list for pvalue, chromosome and position names to be recognized
-  chrom_field = ["chr", "Chr", "CHR", "chrom", "Chrom", "CHROM", "CHROMOSOME"]
-  pos_field = ["bp", "BP", "Bp", "pos", "POS", "Pos", "POSITION"]
-  p_field = ["p", "P", "pval", "PVAL", "pvalue", "PVALUE", "P_IGAP1", "P_VALUE", "p_value"]
 
   # parameters: c is general index of lines, h is for header, indexes is to store important column in file, prev_chr is to
   # keep track of chromosomes executed, snp is to keep track of snps per chromosome
@@ -53,7 +48,7 @@ def split_one(MODE, GWAS, TIT):
             indexes["chr"] = i+1
           elif h[i] in pos_field:
             indexes["pos"] = i+1
-          elif h[i] p_field:
+          elif h[i] in p_field:
             indexes["p"] = i+1
         c = c + 1
       
@@ -161,16 +156,11 @@ def addRepoUI(MODE, TIT):
   return ("Done!")
 
 #function to clean data if already present (take only 3 columns to save some space and speed up)
-def slimGWAS(GWAS, MODE, TIT):
+def slimGWAS(GWAS, MODE, TIT, chrom_field, pos_field, p_field):
   #prepare folder
   cmd = "mkdir data/%s" %(TIT)
   os.system(cmd)
   
-  #create list for pvalue, chromosome and position names to be recognized
-  chrom_field = ["chr", "Chr", "CHR", "chrom", "Chrom", "CHROM"]
-  pos_field = ["bp", "BP", "Bp", "pos", "POS", "Pos"]
-  p_field = ["p", "P", "pval", "PVAL", "pvalue", "PVALUE", "P_IGAP1", "P_VALUE", "p_value"]
-
   #main loop on chromosomes
   for chrom in range(1, 23):
     #uder update
@@ -297,6 +287,11 @@ def slimGWAS(GWAS, MODE, TIT):
 #running mode: 1=download+split+parse; 2=split+parse; 3=parse
 MODE = sys.argv[1]
 
+#create list for pvalue, chromosome and position names to be recognized
+chrom_field = ["chr", "Chr", "CHR", "chrom", "Chrom", "CHROM", "CHROMOSOME"]
+pos_field = ["bp", "BP", "Bp", "pos", "POS", "Pos", "POSITION"]
+p_field = ["p", "P", "pval", "PVAL", "pvalue", "PVALUE", "P_IGAP1", "P_VALUE", "p_value"]
+
 #healp mode
 if MODE == "--help":
   print("##### ADD NEW GWAS #####")
@@ -341,7 +336,7 @@ elif MODE == "--download-split-parse":
   print (download_data(url))
 
   #understand structure of gwas file
-  print split_one(MODE, GWAS, TIT)
+  print split_one(MODE, GWAS, TIT, chrom_field, pos_field, p_field)
   
   #clean tmp folder
   cmd = "rm -rf data/tmp0123"
@@ -374,7 +369,7 @@ elif MODE == "--split-add":
   print("##################\n\n")
   
   #split in file per chromosome after identifying the header
-  print split_one(MODE, GWAS, TIT)
+  print split_one(MODE, GWAS, TIT, chrom_field, pos_field, p_field)
 
   #need to add as repository -- server file
   print addRepoServer(MODE, TIT)
@@ -402,7 +397,7 @@ elif MODE == "--slim-add":
   print("##################\n\n")
 
   #run function to slim data
-  print(slimGWAS(GWAS, MODE, TIT))
+  print(slimGWAS(GWAS, MODE, TIT, chrom_field, pos_field, p_field))
 
   #need to add as repository -- server file
   print addRepoServer(MODE, TIT)
