@@ -28,6 +28,11 @@ def split_one(MODE, GWAS, TIT):
   cmd = "mkdir data/%s" %(TIT)
   os.system(cmd)
 
+  #create list for pvalue, chromosome and position names to be recognized
+  chrom_field = ["chr", "Chr", "CHR", "chrom", "Chrom", "CHROM", "CHROMOSOME"]
+  pos_field = ["bp", "BP", "Bp", "pos", "POS", "Pos", "POSITION"]
+  p_field = ["p", "P", "pval", "PVAL", "pvalue", "PVALUE", "P_IGAP1", "P_VALUE", "p_value"]
+
   # parameters: c is general index of lines, h is for header, indexes is to store important column in file, prev_chr is to
   # keep track of chromosomes executed, snp is to keep track of snps per chromosome
   c = 0
@@ -44,11 +49,11 @@ def split_one(MODE, GWAS, TIT):
         h = line
         #find indexes for chromosome, position, pvalue
         for i in range(len(h)):
-          if h[i] == "chr" or h[i] == "Chr" or h[i] == "CHR" or h[i] == "chrom" or h[i] == "Chrom" or h[i] == "CHROM":
+          if h[i] in chrom_field:
             indexes["chr"] = i+1
-          elif h[i] == "bp" or h[i] == "BP" or h[i] == "Bp" or h[i] == "pos" or h[i] == "POS" or h[i] == "Pos":
+          elif h[i] in pos_field:
             indexes["pos"] = i+1
-          elif h[i] == "p" or h[i] == "P" or h[i] == "pval" or h[i] == "PVAL" or h[i] == "pvalue" or h[i] == "PVALUE" or h[i] == "P_VALUE" or h[i] == "p_value":
+          elif h[i] p_field:
             indexes["p"] = i+1
         c = c + 1
       
