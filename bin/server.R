@@ -9,15 +9,18 @@ library(ggplot2)
 #FUNCTIONS
 #basic function to plot stuff 
 function.plot <- function(snp.info, y.lim, type, plt.type, windows.number, smooth.par, int.locus, gwas){
-  par(mar=c(5, 5, 4, 1))
+  par(mar=c(5, 5, 4, 5))
+  
+  #these are standard values for minimun and maximum recombination rates genome-wide for hg19
+  chromatin.lower <- 0
+  chromatin.upper <- 100
   
   #prepare title
-  t <- function.title(gwas)
-  title = paste(t, " ~ chr", snp.info$chr[1], ": ", min(snp.info$pos), " - ", max(snp.info$pos), sep = "")
+  title <- function.title(gwas, int.locus, type, snp.info)
   
   #assign dot sizes (function for this)
   snp.info <- function.pointSize(dat = snp.info, range = seq(2, 7, 0.5))
-  
+
   #independently from plot type, I need the genes that are in the window to adjust y-axis -- here it is
   genes <- function.dynamicGene(snp.info = snp.info)
   if (nrow(genes) > 0){
@@ -26,10 +29,13 @@ function.plot <- function(snp.info, y.lim, type, plt.type, windows.number, smoot
     min.y <- 0
   }
   
+  #get recombination tracks, function for this
+  recomb <- findRecomb(snp.info)
+  
   if (plt.type == "Points"){
     #empty plot
     plot(x = 0, y = 0, xlab='Chromosomal position (Mb)', cex.lab=1.75, xaxt='none',
-         ylab="-log10(P-value)", ylim=c(min.y*y.lim/10, y.lim), cex.axis = 1.5,
+         ylab="", ylim=c(min.y*y.lim/10, y.lim), cex.axis = 1.5, 
          pch=16, col="white", cex=2, type = "p", xaxs="i", yaxt='none', xlim=c(min(snp.info$pos), max(snp.info$pos)), main=title, cex.main=2.50, bty='n')
     
     #add grid
@@ -37,6 +43,12 @@ function.plot <- function(snp.info, y.lim, type, plt.type, windows.number, smoot
     for (x in seq(min(snp.info$pos), max(snp.info$pos), (max(snp.info$pos)-min(snp.info$pos))/10)){
       segments(x0 = x, y0 = 0, x1 = x, y1 = y.lim, col = "grey80", lwd=0.4)
     }
+    
+    #add recombination rates: for this, need to normalize between 0 and max.y the recombination rate
+    recomb$norm.rate <- (y.lim - 1) * ((recomb$"Rate(cM/Mb)" - chromatin.lower) / (chromatin.upper - chromatin.lower))
+    y.axis.recomb <- seq(0, chromatin.upper, chromatin.upper/4)
+    y.axis.norm <- (y.lim - 1) * ((y.axis.recomb - min(y.axis.recomb))/(max(y.axis.recomb) - min(y.axis.recomb)))
+    points(recomb$"Position(bp)", recomb$norm.rate, type="l", lwd=1.5, col="darkolivegreen3")
     
     #add significance lines and corresponding legend -- for now two at 0.05 and genome-wide 5e-8
     abline(h=-log10(0.05), lty=2, col=alpha("darkgreen", 1))
@@ -63,6 +75,13 @@ function.plot <- function(snp.info, y.lim, type, plt.type, windows.number, smoot
     axis(side = 1, at=axes, cex.axis=1.5, labels=axes.labels)
     axes.x <- ceiling(seq(0, y.lim, y.lim/5))
     axis(side = 2, at = axes.x, labels = axes.x, cex.axis=1.5)
+    
+    #axis for recombination rates on the right
+    axis(side = 4, at = y.axis.norm, labels=seq(0, 100, 25), col='darkolivegreen3', col.axis = "darkolivegreen3", cex.axis=1.5, xpd=T)
+    text(x = max(snp.info$pos), y = y.lim/5*4, "Recombination rate (cM/Mb)",srt = -90, 
+         col='darkolivegreen3', xpd=T, pos = 4, offset = 4, cex=1.5, font=2)
+    text(x = min(snp.info$pos), y = y.lim/3*2, "-Log10(P-value)", srt = 90, 
+         xpd=T, pos = 2, offset = 4, cex=1.5, font=2)
     
     if (min.y != 0){
       #manage gene names
@@ -165,6 +184,23 @@ function.plot <- function(snp.info, y.lim, type, plt.type, windows.number, smoot
   }
 }
 
+#read recombination map and give coordinates of interests as output
+findRecomb <- function(snp.info){
+  chrom <- snp.info$chr[1]
+  min.p <- min(snp.info$pos)
+  max.p <- max(snp.info$pos)
+  
+  #read chromosome file
+  inpf <- paste("../data/databases/genetic_map_HapMapII_GRCh37/genetic_map_GRCh37_chr", chrom, ".txt.gz", sep="")
+  rf <- fread(inpf, h=T)
+  
+  #extract interval of interest
+  recomb <- rf[which(rf$"Position(bp)" >= min.p & rf$"Position(bp)" <= max.p),]
+  
+  return(recomb)
+  
+}
+
 #function to assign dot size -- define range
 function.pointSize <- function(dat, range){
   dat$size <- 2
@@ -177,11 +213,26 @@ function.pointSize <- function(dat, range){
 }
 
 #function to manage titles
-function.title <- function(gwas){
+function.title <- function(gwas, int.locus, type, snp.info){
   t = ""
-  if (gwas == "ad"){t = "AD vs. CTR"} else if (gwas == "age"){t = "CHC vs. CTR"} else if (gwas == "igap"){t = "IGAP"}
+  if (gwas == "example"){t = "Example ~ IGAP"} else {t = gwas}
   
-  return(t)
+  print(type)
+  print(int.locus)
+  if (type == "Position"){
+    if (int.locus == "Type position..."){
+      title = paste(t, " ~ chr", snp.info$chr[1], ":", floor(min(snp.info$pos) + (max(snp.info$pos) - min(snp.info$pos))/2), sep = "")
+    } else {
+      title = paste(t, " ~ chr", int.locus, sep = "")
+    }
+  } else if (type == "Gene"){
+    if (int.locus == "Type gene symbol..."){
+      title = paste(t, " ~ chr", snp.info$chr[1], ":", floor(min(snp.info$pos) + (max(snp.info$pos) - min(snp.info$pos))/2), sep = "")
+    } else {
+      title = paste(t, " ~ ", toupper(as.character(int.locus)), sep="")
+    }
+  }
+  return(title)
 }
 
 #plot in case of multiple files
@@ -191,7 +242,8 @@ function.multiPlot <- function(snp.info, snp.info.f2, y.lim, type, plt.type, win
   #prepare title
   t1 <- function.title(lab1)
   t2 <- function.title(lab2)
-  title = paste(t1, " AND ", t2, " ~ chr", snp.info$chr[1], ": ", min(snp.info$pos), " - ", max(snp.info$pos), sep = "")
+  #title = paste(t1, " AND ", t2, " ~ chr", snp.info$chr[1], ": ", min(snp.info$pos), " - ", max(snp.info$pos), sep = "")
+  title = paste("GWAS 1 and GWAS 2 ~ ", snp.info$chr[1], ": ", min(snp.info$pos), " - ", max(snp.info$pos), sep = "")
   
   #assign dot sizes (function for this)
   snp.info <- function.pointSize(dat = snp.info, range = seq(2, 7, 0.5))
@@ -207,7 +259,7 @@ function.multiPlot <- function(snp.info, snp.info.f2, y.lim, type, plt.type, win
   
   if (plt.type == "Points"){
     plot(x = 0, y = 0, xlab='Chromosomal position (Mb)', cex.lab=1.75, xaxt='none',
-         ylab="-log10(P-value)", ylim=c(min(genes$y)*y.lim/10, y.lim), cex.axis = 1.5,
+         ylab="-log10(P-value)", ylim=c(min(genes$y)*y.lim/10, y.lim), cex.axis = 1.5, bty='n',
          pch=16, col="white", cex=2, type = "p", xaxs="i", yaxt='none', xlim=c(min(snp.info$pos), max(snp.info$pos)), main=title, cex.main=2.50, bty='n')
     
     #add grid
@@ -254,8 +306,10 @@ function.multiPlot <- function(snp.info, snp.info.f2, y.lim, type, plt.type, win
     
     #add legend now
     if (snp.interest.flag == 0){
-      legend("topright", legend = c(t1, t2), col = c("navy","red"), pch=16, 
+      legend("topright", legend = c("GWAS 1", "GWAS 2"), col = c("navy","red"), pch=16, 
              cex=1.50, ncol=2, xpd=T, bty='n')
+#      legend("topright", legend = c(t1, t2), col = c("navy","red"), pch=16, 
+ #            cex=1.50, ncol=2, xpd=T, bty='n')
       
     } else {
       legend("topright", legend = c(t1, paste(t1, " - Input", sep=""), t2, paste(t2, " - Input", sep="")), col = c("navy", "lightblue", "red", "orange"), pch=16, 
@@ -315,9 +369,15 @@ function.multiPlot <- function(snp.info, snp.info.f2, y.lim, type, plt.type, win
     
     
     #main plot
-    plot(x = 0, y = 0, xlab='Chromosomal position (Mb)', cex.lab=1.5, xaxt='none',
+    plot(x = 0, y = 0, xlab='Chromosomal position (Mb)', cex.lab=1.5, xaxt='none', bty='n',
          ylab="-log10(P-value)", ylim=c(min.y*y.lim/10, y.lim), cex.axis = 1.25, xaxs="i", yaxt='none',
          pch=1, col="white", cex=1.75, type = "h", lwd=2, xlim=c(min(xl), max(xl)), main=title, cex.main=2.5)
+    
+    #add grid
+    for (x in seq(0, y.lim, (y.lim-min.y*y.lim/10)/10)){abline(h=x, lwd=0.4, col="grey80")}
+    for (x in seq(min(snp.info$pos), max(snp.info$pos), (max(snp.info$pos)-min(snp.info$pos))/10)){
+      segments(x0 = x, y0 = 0, x1 = x, y1 = y.lim, col = "grey80", lwd=0.4)
+    }
     
     #add significance lines and corresponding legend -- for now two at 0.05 and genome-wide 5e-8
     abline(h=-log10(0.05), lty=2, col=alpha("darkgreen", 1))
@@ -329,7 +389,7 @@ function.multiPlot <- function(snp.info, snp.info.f2, y.lim, type, plt.type, win
     
     #manage axes
     axes <- seq(min(snp.info$pos), max(snp.info$pos), (max(snp.info$pos) - min(snp.info$pos))/7)
-    axes.labels <- round(axes/1000000, 2)
+    axes.labels <- round(axes/1000000, 3)
     axis(side = 1, at=axes, cex.axis=1.5, labels=axes.labels)
     axes.x <- ceiling(seq(0, y.lim, y.lim/5))
     axis(side = 2, at = axes.x, labels = axes.x, cex.axis=1.5)
@@ -386,7 +446,9 @@ function.multiPlot <- function(snp.info, snp.info.f2, y.lim, type, plt.type, win
     
     #add legend now
     if (snp.interest.flag == 0){
-      legend("topright", legend = c(t1, t2), col = c("navy","red"), pch=16, 
+      #legend("topright", legend = c(t1, t2), col = c("navy","red"), pch=16, 
+      #       cex=1.50, ncol=2, xpd=T, bty='n')
+      legend("topright", legend = c("GWAS 1", "GWAS 2"), col = c("navy","red"), pch=16, 
              cex=1.50, ncol=2, xpd=T, bty='n')
       
     } else {
@@ -399,49 +461,30 @@ function.multiPlot <- function(snp.info, snp.info.f2, y.lim, type, plt.type, win
 
 #function to check if data is from the required chromosome
 function.catchChromosome <- function(chr, gwas){
-  if (gwas == "ad"){
+  if (gwas == "example"){
     #take path
-    fname = paste("/Users/nicco/Desktop/2k19_work/SNPbrowser/data/AD_CTR/chr", as.character(chr), ".PHENO1.glm.logistic", sep="")
-    
-    #read data
-    dat <- fread(fname, h=T)
-    colnames(dat) <- c("chr", "pos", "locus", "ref", "alt", "a1", "a1_frq", "a1_case_frq", "a1_ctr_frq", "r2", "test", "n", "beta", "se", "z-stat", "p")      
-    dat <- dat[, c("chr", "pos", "locus", "ref", "alt", "a1", "test", "n", "beta",
-                   "se", "z-stat", "p")]
-    dat <- dat[!which(is.na(dat$p)),]
-  } else if (gwas == "age"){
-    #take path
-    fname = paste("/Users/nicco/Desktop/2k19_work/SNPbrowser/data/CHC_CTR/chr", as.character(chr), ".PHENO1.glm.logistic", sep="")
-    
-    #read data
-    dat <- fread(fname, h=T)
-    colnames(dat) <- c("chr", "pos", "locus", "ref", "alt", "a1", "a1_frq", "a1_case_frq", "a1_ctr_frq", "r2", "test", "n", "beta", "se", "z-stat", "p")      
-    dat <- dat[, c("chr", "pos", "locus", "ref", "alt", "a1", "test", "n", "beta",
-                   "se", "z-stat", "p")]
-    dat <- dat[!which(is.na(dat$p)),]
-    
-  } else if (gwas == "igap"){
-    #take path
-    fname = paste("/Users/nicco/Desktop/2k19_work/SNPbrowser/data/IGAP_2k19/chr", as.character(chr), "_IGAP_2k19.txt", sep="")
+    fname = paste("../data/example/chr", as.character(chr), "_IGAP_2k19.txt.gz", sep="")
     
     #read data
     dat <- fread(fname, h=T, stringsAsFactors = F)
-    colnames(dat) <- c("iid", "locus", "chr", "pos", "a1", "a2", "beta", "se", "p", "freq_a1", "OR", "95ci", "rsid", "stage")      
-    dat <- dat[, c("chr", "pos", "locus", "a1", "a2", "beta", "se", "p")]
+    colnames(dat) <- c("chr", "pos", "p")      
     dat <- dat[!which(is.na(dat$p)),]
-  } else if (gwas == "metaAge"){
-    #take path
-    fname = paste("/Users/nicco/Desktop/2k19_work/SNPbrowser/data/META_AGING/chr", as.character(chr), "_meta.txt", sep="")
-    
-    #read data
-    dat <- fread(fname, h=T, stringsAsFactors = F)
-    colnames(dat) <- c("chr", "pos", "a1", "a2", "id", "z", "p", "Nsum", "Neff", "dir")      
-    dat$locus <- paste(dat$chr, dat$pos, sep=":")
-    dat <- dat[, c("chr", "pos", "locus", "a1", "a2", "p")]
     chrom = dat$chr[1]
     dat$p <- as.numeric(dat$p)
-    dat$"-log10(P-value)" <- -log10(as.numeric(dat$p))
+    dat$"-log10(P-value)" <- -log10(dat$p)
     
+  } else {
+    #in these cases, the GWAS is usually the name of the folder
+    #take path
+    fname = paste("../data/", gwas, "/chr", as.character(chr), "_", gwas, ".txt", sep="")
+    
+    #read data
+    dat <- fread(fname, h=F, stringsAsFactors = F)
+    colnames(dat) <- c('chr', 'pos', 'p')
+    dat <- dat[!which(is.na(dat$p)),]
+    chrom <- dat$chr[1]
+    dat$p <- as.numeric(dat$p)
+    dat$'-log10(P-value)' <- -log10(dat$p)
   }
   return(dat)
 }
@@ -449,27 +492,24 @@ function.catchChromosome <- function(chr, gwas){
 #function to manage position as input type
 function.InputPos <- function(dat, window, input.pos, gwas){
   if (input.pos == "Type position..."){
-    #initial position is halfway
-    #pos.init <- sample(x = seq(1, max(dat$pos)), size = 1)
+    #initial position is at random pos
     pos.init <- dat[ceiling(nrow(dat)/4), "pos"]
     
     #take data of interest
     snp.info <- dat[which((dat$pos >= pos.init - window) & (dat$pos <= pos.init + window)),]
-    if (gwas != "metaAge") {snp.info <- snp.info[which(is.na(snp.info$beta) == FALSE),]  }
-    
+
   } else {
     #split locus to find close positions and define intervals where to find snps
     locus <- str_split_fixed(input.pos, ":", 2)
-    interval <- seq(as.numeric(locus[, 2]) - window, as.numeric(locus[, 2]) + window)
     chr <- as.numeric(locus[, 1])
-    
+    pos.max <- as.numeric(locus[, 2]) + window
+    pos.min <- as.numeric(locus[, 2]) - window
+
     #check if data is relative to that chromosome, and in case change it
     dat <- function.catchChromosome(chr, gwas)
     
     #take data of interest
-    snp.info <- dat[which((dat$chr == chr) & (dat$pos %in% interval)), ]
-    if (gwas != "metaAge") {snp.info <- snp.info[which(is.na(snp.info$beta) == FALSE),]  }
-    
+    snp.info <- dat[which((dat$chr == chr) & (dat$pos >= pos.min & dat$pos <= pos.max)), ]
   }
   return(list(snp.info, dat))
 }
@@ -550,7 +590,7 @@ function.InputManualScrollGeneric <- function(dat, window, input.scroll){
 #function to manage genes as input
 function.InputGenes <- function(gene){
   #read gene informations -- first command (commented) was to load directly from server -- now I copied the file into app folder
-  gene.db <- fread("/Users/nicco/Desktop/2k19_work/SNPbrowser/data/databases/hg19_geneListandPos.txt", h=T)
+  gene.db <- fread("../data/databases/hg19_geneListandPos.txt.gz", h=T)
   
   if (gene != "Type gene symbol..."){
     #make sure the gene input is uppercase
@@ -561,13 +601,11 @@ function.InputGenes <- function(gene){
     gene.info <- gene.db[grep(gene, gene.db$"#geneName"),]
     gene.info <- gene.info[order(-gene.info$txEnd),]
     gene.info <- gene.info[!duplicated(gene.info$"#geneName"),]
+    
   } else {
     #if there is no input gene, then take a random integer (now in chr19) and plot a random gene
     gene.db <- gene.db[which(gene.db$chrom == "chr21"),]
-    #random.numer <- sample(x = seq(1, nrow(gene.db)), size = 1)
-    #take corresponding gene
-    #gene.info <- gene.db[random.numer, ]
-    
+
     gene.info <- gene.db[ceiling(nrow(gene.db)/4), ]
     
   }
@@ -611,8 +649,7 @@ function.GWASfromGene <- function(dat, gene.info, window, gwas){
   
   #define snps of interest
   snp.info <- dat[which((dat$chr == chr.n) & (dat$pos >= start) & (dat$pos <= end)),]
-  if (gwas != "metaAge") {snp.info <- snp.info[which(is.na(snp.info$beta) == FALSE),]  }
-  
+
   return(snp.info)
 }
 
@@ -665,7 +702,7 @@ function.dynamicGene <- function(snp.info){
   max.x <- max(snp.info$pos)
   
   #input for genes
-  gene.db <- fread("/Users/nicco/Desktop/2k19_work/SNPbrowser/data/databases/hg19_geneListandPos.txt", h=T)
+  gene.db <- fread("../data/databases/hg19_geneListandPos.txt.gz", h=T)
   
   #find genes in interval (min.x -- max.x) -- then clean up a bit
   gene.loc.res <- subset(gene.db, gene.db$chrom == paste("chr", snp.info$chr[1], sep=""))
@@ -690,63 +727,21 @@ function.dynamicGene <- function(snp.info){
 #function to manage which input data to plot -- still 1 dataset only for now
 function.manageInput <- function(inp){
   if (length(inp) == 0){
-    dat <- fread("/Users/nicco/Desktop/2k19_work/SNPbrowser/data/IGAP_2k19/chr21_IGAP_2k19.txt", h=T, stringsAsFactors = F)
-    colnames(dat) <- c("iid", "locus", "chr", "pos", "a1", "a2", "beta", "se", "p", "freq_a1", "OR", "95ci", "rsid", "stage")      
-    dat <- dat[, c("chr", "pos", "locus", "a1", "a2", "beta", "se", "p")]
+    dat <- fread("../data/example/chr21_IGAP_2k19.txt.gz", h=T, stringsAsFactors = F)
+    colnames(dat) <- c("chr", "pos", "p")      
     dat <- dat[!which(is.na(dat$p)),]
     chrom = dat$chr[1]
-    dat$p <- as.numeric(dat$p)
     dat$"-log10(P-value)" <- -log10(as.numeric(dat$p))
-    gwas = "igap"
-    
-  } else if (inp == "ad"){
-    
-    #read input for basic plot
-    dat <- fread("/Users/nicco/Desktop/2k19_work/SNPbrowser/data/AD_CTR/chr19.PHENO1.glm.logistic", h=T, stringsAsFactors = F)
-    colnames(dat) <- c("chr", "pos", "locus", "ref", "alt", "a1", "a1_frq", "a1_case_frq", "a1_ctr_frq", "r2", "test", "n", "beta", "se", "z-stat", "p")      
-    dat <- dat[, c("chr", "pos", "locus", "ref", "alt", "a1", "test", "n", "beta",
-                   "se", "z-stat", "p")]
-    dat <- dat[!which(is.na(dat$p)),]
-    dat$"-log10(P-value)" <- -log10(as.numeric(dat$p))
-    chrom = dat$chr[1]
-    gwas = "ad"
-    
-  } else if (inp == "age"){
-    dat <- fread("/Users/nicco/Desktop/2k19_work/SNPbrowser/data/CHC_CTR/chr19.PHENO1.glm.logistic", h=T, stringsAsFactors = F)
-    colnames(dat) <- c("chr", "pos", "locus", "ref", "alt", "a1", "a1_frq", "a1_case_frq", "a1_ctr_frq", "r2", "test", "n", "beta", "se", "z-stat", "p")      
-    dat <- dat[, c("chr", "pos", "locus", "ref", "alt", "a1", "test", "n", "beta",
-                   "se", "z-stat", "p")]
-    dat <- dat[!which(is.na(dat$p)),]
-    dat$"-log10(P-value)" <- -log10(as.numeric(dat$p))
-    chrom = dat$chr[1]
-    gwas = "age"
-    
-  } else if (inp == "igap"){
-    dat <- fread("/Users/nicco/Desktop/2k19_work/SNPbrowser/data/IGAP_2k19/chr19_IGAP_2k19.txt", h=T, stringsAsFactors = F)
-    colnames(dat) <- c("iid", "locus", "chr", "pos", "a1", "a2", "beta", "se", "p", "freq_a1", "OR", "95ci", "rsid", "stage")      
-    dat <- dat[, c("chr", "pos", "locus", "a1", "a2", "beta", "se", "p")]
-    dat <- dat[!which(is.na(dat$p)),]
-    chrom = dat$chr[1]
-    dat$p <- as.numeric(dat$p)
-    dat$"-log10(P-value)" <- -log10(as.numeric(dat$p))
-    gwas = "igap"
+    gwas = "example"
     
   } else if (inp == "toLoad"){
-    # dat <- fread("/Users/nicco/Desktop/2k19_work/SNPbrowser/data/trial.ass.txt", h=T, check.names = F)
-    # colnames(dat) <- c("chr", "pos", "locus", "ref", "alt", "a1", "test", "n", "beta",
-    #                    "se", "z-stat", "p")
-  } else if (inp == "metaAge"){
-    dat <- fread("/Users/nicco/Desktop/2k19_work/SNPbrowser/data/META_AGING/chr19_meta.txt", h=T, stringsAsFactors = F)
-    colnames(dat) <- c("chr", "pos", "a1", "a2", "id", "z", "p", "Nsum", "Neff", "dir")      
-    dat$locus <- paste(dat$chr, dat$pos, sep=":")
-    dat <- dat[, c("chr", "pos", "locus", "a1", "a2", "p")]
-    chrom = dat$chr[1]
-    dat$p <- as.numeric(dat$p)
-    dat$"-log10(P-value)" <- -log10(as.numeric(dat$p))
-    gwas = "metaAge"
-    
-  }
-  
+    ####################
+    # TO IMPLEMENT SOON
+    # HERE
+    ####################
+  } #else here to add repositories 
+
+
   return(list(dat, chrom, gwas))
   
 }
@@ -778,7 +773,8 @@ shinyServer(
       ####################
       #Browsing options -- default is Position -- by default take middle of chromosome
       if (input$sel == "Position"){
-        #check if only 1 gwas is selected
+        
+        #check number of GWAS to be plotted
         if (length(input$gwas) < 2){
           #manage different option of position as input type
           res <- function.InputPos(dat = dat, window = input$x, input.pos = input$pos, gwas)
@@ -856,7 +852,7 @@ shinyServer(
           
           #plot
           function.plot(snp.info = snp.info, y.lim = input$y, type = input$sel, plt.type = input$ploType, 
-                        windows.number = input$sliding.window, smooth.par = input$smooth, int.locus = NA, gwas = gwas)
+                        windows.number = input$sliding.window, smooth.par = input$smooth, int.locus = input$gene, gwas = gwas)
           ##################
           
           ##################
@@ -938,7 +934,6 @@ shinyServer(
           res <- function.InputPos(dat = dat, window = input$x, input.pos = input$pos, gwas)
           snp.info <- as.data.frame(res[[1]])
           dat <- as.data.frame(res[[2]])
-          
           snp.info$"-log10(P-value)" <- -log10(snp.info$p)
           if (length(input$plot1_click) == 0 || length(input$plot1_brush) > 0){
             print("Click on SNPs to get info")
