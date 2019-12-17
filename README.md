@@ -6,7 +6,7 @@
 `SNPbrowser` is undergoing active development and many additional features will be implemented in future versions of the application.
 
 ## Getting Started
-In order to download `SNPbrowser`, you should clone this repository via the commands
+In order to download `SNPbrowser`, you should clone this repository via the command below. It will take some time because the example datasets are relatively big (~400Mb).
 
 ```  
 git clone https://github.com/TesiNicco/SNPbrowser.git
@@ -14,29 +14,21 @@ cd SNPbrowser/
 ```
 
 
-`SNPbrowser` requires R to be correctly installed on your machine. To work, the following R libraries also need to be installed: 
-`shiny`, `data.table`, `stringr`, `ggplot2`.
+`SNPbrowser` requires R to be correctly installed on your machine. To work, few R packages need to be installed: 
+`shiny`, `data.table`, `stringr`, `ggplot2`, `shinyShortcut`. 
+`SNPbrowser` will take care of checking which packages are already installed and in case will install the missing. You just need to make sure you have `R` and `Rscript` correctly installed in your machine. Although not required in the most basic version of `SNPbrowser`, for more advanced usage we require `python` to be correctly installed and working on your machine.
 
 
-If you don't have these packages installed, or you don't know, you can run the following in R:
-
+Once you have cloned the repository and moved into the `SNPbrowser` folder, you can easily run by typing:
 ```
-if(!require(c("shiny", "data.table", "stringr", "ggplot2")))install.packages(c("shiny", "data.table", "stringr", "ggplot2"))
+Rscript bin/Check_and_Run.R
 ```
+This will check for the presence of the packages, make an executable depending on your machine and run `SNPbrowser`. This command should always be used to run `SNPbrowser`.
 
-This will check for the presence of the package and in case it is not present, it will install it.
-
-
-Once the above has completed, you can exit R and run the following to open a new window on your browser and start a `SNPbrowser` instance: 
-
-```
-Rscript -e 'library(methods); shiny::runApp("bin/", launch.browser=TRUE)'
-```
-
-`SNPbrowser` can run on it own at this point. In its most basic form (the one you will download), there are two main folders (bin and data). `bin/` contains the main scripts to execute `SNPbrowser`: `server.R` and `ui.R`. In addition, we provide the `python` script `GetNewGWAS.py` to download additional GWAS summary statistics, split them by chromosomes and make them suitable to be loaded by `SNPbrowser`. The second folder is `data/`, that contains the `databases/` and `example/` folders. `databases/` folder contains annotation files of the genes and recombination rates in human genome build hg19. The `example/` folder contains example data to try out the tool. These data consists of the summary statistics (chromosome 16 to 21) of the publicly available case-control meta-analysis of Alzheimer's disease as published in Kunkle et al., 2019.
+In its most basic form (the one you will download), there are two main folders (bin and data). `bin/` contains the main scripts to execute `SNPbrowser`: `server.R`, `ui.R` and `Check_and_Run.R`. In addition, we provide the `python` script `GetNewGWAS.py` to download additional GWAS summary statistics, split them by chromosomes and make them suitable to be loaded by `SNPbrowser` (see also `## Adding new GWAS file` section below). The second folder is `data/`, that contains the `databases/`, `example/` and two GWAS datasets (`IGAP` and `CARDIO`) folders. `databases/` folder contains annotation files of the genes and recombination rates in human genome build hg19. The `example/` folder contains example data to try out the tool. These data consists of the summary statistics (chromosome 16 to 21) of the publicly available case-control meta-analysis of Alzheimer's disease as published in Kunkle et al., 2019. `IGAP` is the full GWAS summary statistics of the case-control meta-analysis of Alzheimer's disease as published in Kunkle et al., 2019. `CARDIO` is the full GWAS summary statistics of coronary artery disease in diabetes (https://www.ebi.ac.uk/gwas/studies/GCST006405).
 
 
-It is possible to use your own data and additional data (for example, publicly available datasets), in two ways.
+It is possible to use your own data and additional data (for example, publicly available datasets), in two ways:
 1. The first option to use your data or piblicly available data (most recommended for us) is to use the `GetNewGWAS.py` script. 
 2. The second option to use your data or publicly available data is to load them through the `Load` button. In this way, every time you need to visualize data, you need to load files again.
 
@@ -96,11 +88,11 @@ cd SNPbrowser/
 3. Make sure that the file is compressed with gzip `.gz` otherwise please convert it to `.gz`.
 4. Split GWAS and add repository
 ```  
-SNPbrowser nicco$ python bin/GetNewGWAS.py --split-add /Users/nicco/Downloads/DIAGRAMv3.2012DEC17.txt.gz DIABETES
+python bin/GetNewGWAS.py --split-add /Users/nicco/Downloads/DIAGRAMv3.2012DEC17.txt.gz DIABETES
 ```
 5. Start SNPbrowser
 ```  
-Rscript -e 'library(methods); shiny::runApp("bin/", launch.browser=TRUE)'
+Rscript bin/Check_and_Run.R'
 ```
 
 
