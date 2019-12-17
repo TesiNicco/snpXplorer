@@ -5,10 +5,13 @@ library(shiny)
 library(data.table)
 library(stringr)
 library(ggplot2)
+library(colourpicker)
+library(rvest)
+library(stringr)
 
 #FUNCTIONS
 #basic function to plot stuff 
-function.plot <- function(snp.info, y.lim, type, plt.type, windows.number, smooth.par, int.locus, gwas){
+function.plot <- function(snp.info, y.lim, type, plt.type, windows.number, smooth.par, int.locus, gwas, colorPoint){
   par(mar=c(5, 5, 4, 5))
   
   #these are standard values for minimun and maximum recombination rates genome-wide for hg19
@@ -35,7 +38,7 @@ function.plot <- function(snp.info, y.lim, type, plt.type, windows.number, smoot
   if (plt.type == "Points"){
     #empty plot
     plot(x = 0, y = 0, xlab='Chromosomal position (Mb)', cex.lab=1.75, xaxt='none',
-         ylab="", ylim=c(min.y*y.lim/10, y.lim), cex.axis = 1.5, 
+         ylab="", ylim=c(min.y*y.lim/12, y.lim), cex.axis = 1.5, 
          pch=16, col="white", cex=2, type = "p", xaxs="i", yaxt='none', xlim=c(min(snp.info$pos), max(snp.info$pos)), main=title, cex.main=2.50, bty='n')
     
     #add grid
@@ -57,15 +60,15 @@ function.plot <- function(snp.info, y.lim, type, plt.type, windows.number, smoot
     
     #then points
     snp.info$"-log10(P-value)" <- -log10(as.numeric(snp.info$p))
-    points(x = snp.info$pos, y = snp.info$"-log10(P-value)", xlab='Chromosomal position (Mb)', cex.lab=1.5, xaxt='none',
-           pch=16, col=alpha("navy", 0.6), cex=snp.info$size, type = "p", xaxs="i", yaxt='none', xlim=c(min(snp.info$pos), max(snp.info$pos)))
+    points(x = snp.info$pos, y = snp.info$"-log10(P-value)", cex.lab=1.5, xaxt='none',
+           pch=16, col=alpha(colorPoint, 0.6), cex=snp.info$size, type = "p", xaxs="i", yaxt='none', xlim=c(min(snp.info$pos), max(snp.info$pos)))
     
     #if input type was a single snp (either position or rs id), then color the searched variant differently
     if (type %in% c("Position", "Rs ID")){
       #restrict to snp of interest, then plot it
       if (int.locus != "Type position..."){
         snp.interest <- snp.info[which(snp.info$locus == int.locus),]
-        points(x = snp.interest$pos, y = snp.interest$"-log10(P-value)", pch=16, col=alpha("orange", 0.8), cex=snp.interest$size)
+        points(x = snp.interest$pos, y = snp.interest$"-log10(P-value)", pch=23, lwd=1.5, col=alpha(colorPoint, 0.8), cex=snp.interest$size)
       }
     }
     
@@ -87,7 +90,7 @@ function.plot <- function(snp.info, y.lim, type, plt.type, windows.number, smoot
       #manage gene names
       for (g in 1:nrow(genes)){
         #main gene line -- full transcription sequence
-        segments(x0 = genes$txStart[g], y0 = genes$y[g]*y.lim/10, x1 = genes$txEnd[g], y1 = genes$y[g]*y.lim/10, lwd=3)
+        segments(x0 = genes$txStart[g], y0 = genes$y[g]*y.lim/12, x1 = genes$txEnd[g], y1 = genes$y[g]*y.lim/12, lwd=3)
         #need to divide exones from introns
         start <- as.data.frame(t(str_split_fixed(genes$exonStarts[g], ",", genes$exonCount[g]+1)))
         end <- as.data.frame(t(str_split_fixed(genes$exonEnds[g], ",", genes$exonCount[g]+1)))
@@ -97,10 +100,10 @@ function.plot <- function(snp.info, y.lim, type, plt.type, windows.number, smoot
         exons$end <- as.numeric(as.character(exons$end))
         #main loop over exons
         for (j in 1:nrow(exons)){
-          rect(xleft=exons$start[j], ybottom=genes$y[g]*y.lim/10-(y.lim/4/4*0.15), xright=exons$end[j], 
-               ytop = genes$y[g]*y.lim/10+(y.lim/4/4*0.15), col='grey80')
+          rect(xleft=exons$start[j], ybottom=genes$y[g]*y.lim/12-(y.lim/4/4*0.15), xright=exons$end[j], 
+               ytop = genes$y[g]*y.lim/12+(y.lim/4/4*0.15), col='grey80')
         }
-        text(x = genes$txStart[g] + (genes$txEnd[g] - genes$txStart[g])/2, y = genes$y[g]*y.lim/10 + (y.lim/4/4*0.5), 
+        text(x = genes$txStart[g] + (genes$txEnd[g] - genes$txStart[g])/2, y = genes$y[g]*y.lim/12 + (y.lim/4/4*0.5), 
              labels=genes$"#geneName"[g], font=3, cex=1)
         #        if (genes$strand[g] == "+"){
         #          arrows(x0 = genes$txEnd[g], y0 = genes$y[g], x1 = genes$txEnd[g] + (10*2/100), y1 = genes$y[g], 
@@ -126,13 +129,19 @@ function.plot <- function(snp.info, y.lim, type, plt.type, windows.number, smoot
     
     #main plot
     plot(x = 0, y = 0, xlab='Chromosomal position (Mb)', cex.lab=1.5, xaxt='none',
-         ylab="-log10(P-value)", ylim=c(min.y*y.lim/10, y.lim), cex.axis = 1.25, xaxs="i", yaxt='none',
+         ylab="-log10(P-value)", ylim=c(min.y*y.lim/12, y.lim), cex.axis = 1.25, xaxs="i", yaxt='none',
          pch=1, col="white", cex=1.75, type = "h", lwd=2, xlim=c(min(xl), max(xl)))
     
-    polygon(x = xl, y = pred, col = alpha("navy", 0.6), lwd=2, xaxs="i")
+    #add grid
+    for (x in seq(0, y.lim, (y.lim-min.y*y.lim/10)/10)){abline(h=x, lwd=0.4, col="grey80")}
+    for (x in seq(min(snp.info$pos), max(snp.info$pos), (max(snp.info$pos)-min(snp.info$pos))/10)){
+      segments(x0 = x, y0 = 0, x1 = x, y1 = y.lim, col = "grey80", lwd=0.4)
+    }
+    
+    polygon(x = xl, y = pred, col = alpha(colorPoint, 0.6), lwd=2, xaxs="i")
     
     #manage axes
-    axes <- seq(min(snp.info$pos), max(snp.info$pos), (max(snp.info$pos) - min(snp.info$pos))/7)
+    axes <- seq(min(snp.info$pos), max(snp.info$pos), (max(snp.info$pos) - min(snp.info$pos))/12)
     axes.labels <- round(axes/1000000, 2)
     axis(side = 1, at=axes, cex.axis=1.5, labels=axes.labels)
     axes.x <- ceiling(seq(0, y.lim, y.lim/5))
@@ -158,7 +167,7 @@ function.plot <- function(snp.info, y.lim, type, plt.type, windows.number, smoot
     #manage gene names
     for (g in 1:nrow(genes)){
       #main gene line -- full transcription sequence
-      segments(x0 = genes$txStart[g], y0 = genes$y[g]*y.lim/10, x1 = genes$txEnd[g], y1 = genes$y[g]*y.lim/10, lwd=3)
+      segments(x0 = genes$txStart[g], y0 = genes$y[g]*y.lim/12, x1 = genes$txEnd[g], y1 = genes$y[g]*y.lim/12, lwd=3)
       #need to divide exones from introns
       start <- as.data.frame(t(str_split_fixed(genes$exonStarts[g], ",", genes$exonCount[g]+1)))
       end <- as.data.frame(t(str_split_fixed(genes$exonEnds[g], ",", genes$exonCount[g]+1)))
@@ -168,10 +177,10 @@ function.plot <- function(snp.info, y.lim, type, plt.type, windows.number, smoot
       exons$end <- as.numeric(as.character(exons$end))
       #main loop over exons
       for (j in 1:nrow(exons)){
-        rect(xleft=exons$start[j], ybottom=genes$y[g]*y.lim/10-(y.lim/4/4*0.15), xright=exons$end[j], 
-             ytop = genes$y[g]*y.lim/10+(y.lim/4/4*0.15), col='grey80')
+        rect(xleft=exons$start[j], ybottom=genes$y[g]*y.lim/12-(y.lim/4/4*0.15), xright=exons$end[j], 
+             ytop = genes$y[g]*y.lim/12+(y.lim/4/4*0.15), col='grey80')
       }
-      text(x = genes$txStart[g] + (genes$txEnd[g] - genes$txStart[g])/2, y = genes$y[g]*y.lim/10 + (y.lim/4/4*0.5), 
+      text(x = genes$txStart[g] + (genes$txEnd[g] - genes$txStart[g])/12, y = genes$y[g]*y.lim/12 + (y.lim/4/4*0.5), 
            labels=genes$"#geneName"[g], font=3, cex=1)
       #     if (genes$strand[g] == "+"){
       #        arrows(x0 = genes$txEnd[g], y0 = genes$y[g], x1 = genes$txEnd[g] + (10*2/100), y1 = genes$y[g], 
@@ -215,40 +224,59 @@ function.pointSize <- function(dat, range){
 #function to manage titles
 function.title <- function(gwas, int.locus, type, snp.info){
   t = ""
-  if (gwas == "example"){t = "Example ~ IGAP"} else {t = gwas}
+  if (length(gwas) == 1){
+    if (gwas == "example"){t = "Example ~ IGAP"} else {t = gwas}
   
-  print(type)
-  print(int.locus)
-  if (type == "Position"){
-    if (int.locus == "Type position..."){
-      title = paste(t, " ~ chr", snp.info$chr[1], ":", floor(min(snp.info$pos) + (max(snp.info$pos) - min(snp.info$pos))/2), sep = "")
-    } else {
-      title = paste(t, " ~ chr", int.locus, sep = "")
+    if (type %in% c("Position", "RsID")){
+      if (int.locus %in% c("Type position...", "Type variant identifier...")){
+        title = paste(t, " ~ chr", snp.info$chr[1], ":", floor(min(snp.info$pos) + (max(snp.info$pos) - min(snp.info$pos))/2), sep = "")
+      } else {
+        title = paste(t, " ~ chr", int.locus, sep = "")
+      }
+    } else if (type == "Gene"){
+      if (int.locus == "Type gene symbol..."){
+        title = paste(t, " ~ chr", snp.info$chr[1], ":", floor(min(snp.info$pos) + (max(snp.info$pos) - min(snp.info$pos))/2), sep = "")
+      } else {
+        title = paste(t, " ~ ", toupper(as.character(int.locus)), " ~ chr", snp.info$chr[1], sep="")
+      }
+    } else if (type == "Manual scroll"){
+      title <- paste(t, " ~ chr", snp.info$chr[1], ":", floor(min(snp.info$pos) + (max(snp.info$pos) - min(snp.info$pos))/2), sep = "")
     }
-  } else if (type == "Gene"){
-    if (int.locus == "Type gene symbol..."){
-      title = paste(t, " ~ chr", snp.info$chr[1], ":", floor(min(snp.info$pos) + (max(snp.info$pos) - min(snp.info$pos))/2), sep = "")
-    } else {
-      title = paste(t, " ~ ", toupper(as.character(int.locus)), sep="")
+  } else {
+    #else=multiplot
+    if (type %in% c("Position", "RsID")){
+      if (int.locus == "Type position..."){
+        title = paste(gwas[1], " vs. ", gwas[2], ": chr", snp.info$chr[1], ":", floor(min(snp.info$pos) + (max(snp.info$pos) - min(snp.info$pos))/2), sep = "")
+      } else {
+        title = paste(gwas[1], " vs. ", gwas[2], ": chr", int.locus, sep = "")
+      }
+    } else if (type == "Gene"){
+      print(int.locus)
+      if (int.locus == "Type gene symbol..."){
+        title = paste(gwas[1], " vs. ", gwas[2], ": chr", snp.info$chr[1], ":", floor(min(snp.info$pos) + (max(snp.info$pos) - min(snp.info$pos))/2), sep = "")
+      } else {
+        title = paste(gwas[1], " vs. ", gwas[2], " ~ chr", snp.info$chr[1], sep = "")
+      }
+    } else if (type == "Manual scroll"){
+      title <- paste(gwas[1], " vs. ", gwas[2], " ~ chr", snp.info$chr[1], sep="")
     }
   }
+  
   return(title)
 }
 
 #plot in case of multiple files
-function.multiPlot <- function(snp.info, snp.info.f2, y.lim, type, plt.type, windows.number, smooth.par, int.locus, lab1, lab2){
+function.multiPlot <- function(snp.info, snp.info.f2, y.lim, type, plt.type, windows.number, smooth.par, int.locus, lab1, lab2, 
+                               colorPoint, colorPoint2){
   par(mar=c(5, 5, 4, 1))
   
   #prepare title
-  t1 <- function.title(lab1)
-  t2 <- function.title(lab2)
-  #title = paste(t1, " AND ", t2, " ~ chr", snp.info$chr[1], ": ", min(snp.info$pos), " - ", max(snp.info$pos), sep = "")
-  title = paste("GWAS 1 and GWAS 2 ~ ", snp.info$chr[1], ": ", min(snp.info$pos), " - ", max(snp.info$pos), sep = "")
-  
+  title <- function.title(gwas = c(lab1, lab2), int.locus, type, snp.info)
+
   #assign dot sizes (function for this)
   snp.info <- function.pointSize(dat = snp.info, range = seq(2, 7, 0.5))
   snp.info.f2 <- function.pointSize(dat = snp.info.f2, range = seq(1.5, 7, 0.5))
-  
+
   #independently from plot type, I need the genes that are in the window to adjust y-axis -- here it is
   genes <- function.dynamicGene(snp.info = snp.info)
   if (nrow(genes) > 0){
@@ -256,18 +284,18 @@ function.multiPlot <- function(snp.info, snp.info.f2, y.lim, type, plt.type, win
   } else {
     min.y <- 0
   }
-  
+
   if (plt.type == "Points"){
     plot(x = 0, y = 0, xlab='Chromosomal position (Mb)', cex.lab=1.75, xaxt='none',
-         ylab="-log10(P-value)", ylim=c(min(genes$y)*y.lim/10, y.lim), cex.axis = 1.5, bty='n',
-         pch=16, col="white", cex=2, type = "p", xaxs="i", yaxt='none', xlim=c(min(snp.info$pos), max(snp.info$pos)), main=title, cex.main=2.50, bty='n')
+         ylab="-log10(P-value)", ylim=c(min(genes$y)*y.lim/12, y.lim), cex.axis = 1.5, bty='n',
+         pch=16, col="white", cex=2, type = "p", xaxs="i", yaxt='none', xlim=c(min(snp.info$pos), max(snp.info$pos)), cex.main=2.50, bty='n', main=title)
     
     #add grid
     for (x in seq(0, y.lim, (y.lim-min.y*y.lim/10)/10)){abline(h=x, lwd=0.4, col="grey80")}
     for (x in seq(min(snp.info$pos), max(snp.info$pos), (max(snp.info$pos)-min(snp.info$pos))/10)){
       segments(x0 = x, y0 = 0, x1 = x, y1 = y.lim, col = "grey80", lwd=0.4)
     }
-    
+
     #add significance lines and corresponding legend -- for now two at 0.05 and genome-wide 5e-8
     abline(h=-log10(0.05), lty=2, col=alpha("darkgreen", 1))
     abline(h=-log10(5e-8), lty=2, col=alpha("purple", 1))
@@ -276,11 +304,11 @@ function.multiPlot <- function(snp.info, snp.info.f2, y.lim, type, plt.type, win
     #then points - gwas 1
     snp.info$"-log10(P-value)" <- -log10(snp.info$p)
     points(x = snp.info$pos, y = snp.info$"-log10(P-value)",
-           pch=16, col=alpha("navy", 0.6), cex=snp.info$size, type = "p", xaxs="i")
+           pch=16, col=alpha(colorPoint, 0.6), cex=snp.info$size, type = "p", xaxs="i")
     
     #add additional file data points -- gwas 2
     snp.info.f2$"-log10(P-value)" <- -log10(snp.info.f2$p)
-    points(x = snp.info.f2$pos, y = snp.info.f2$"-log10(P-value)", pch=16, col=alpha("red", 0.6), 
+    points(x = snp.info.f2$pos, y = snp.info.f2$"-log10(P-value)", pch=16, col=alpha(colorPoint2, 0.6), 
            cex=snp.info.f2$size, xaxs="i", type="p")
     
     #manage axes
@@ -299,20 +327,18 @@ function.multiPlot <- function(snp.info, snp.info.f2, y.lim, type, plt.type, win
         snp.interest <- snp.info[which(snp.info$locus == int.locus),]
         snp.interest.addF <- snp.info.f2[which(snp.info.f2$locus == int.locus),]
         
-        points(x = snp.interest$pos, y = -log10(snp.interest$p), pch=16, col=alpha("lightblue", 1), cex=snp.interest$size)
-        points(x = snp.interest.addF$pos, y = -log10(as.numeric(snp.interest.addF$p)), pch=16, col=alpha("orange", 1), cex=snp.interest.addF$size)
+        points(x = snp.interest$pos, y = -log10(snp.interest$p), pch=23, col="black", lwd=2, bg=alpha(colorPoint, 1), cex=snp.interest$size)
+        points(x = snp.interest.addF$pos, y = -log10(as.numeric(snp.interest.addF$p)), pch=23, col="black", lwd=2, bg=alpha(colorPoint2, 1), cex=snp.interest.addF$size)
       }
     }
     
     #add legend now
     if (snp.interest.flag == 0){
-      legend("topright", legend = c("GWAS 1", "GWAS 2"), col = c("navy","red"), pch=16, 
+      legend("topright", legend = c(lab1, lab2), col = c(colorPoint, colorPoint2), pch=16, 
              cex=1.50, ncol=2, xpd=T, bty='n')
-#      legend("topright", legend = c(t1, t2), col = c("navy","red"), pch=16, 
- #            cex=1.50, ncol=2, xpd=T, bty='n')
-      
     } else {
-      legend("topright", legend = c(t1, paste(t1, " - Input", sep=""), t2, paste(t2, " - Input", sep="")), col = c("navy", "lightblue", "red", "orange"), pch=16, 
+      legend("topright", legend = c(lab1, paste(lab1, " - Input", sep=""), lab2, paste(lab2, " - Input", sep="")), 
+             col = c(colorPoint, colorPoint, colorPoint2, colorPoint2), pch=c(16, 23, 16, 23), pt.lwd = 1.5, 
              cex=1.50, ncol=2, xpd=T, bty='n')
     }
     
@@ -320,7 +346,7 @@ function.multiPlot <- function(snp.info, snp.info.f2, y.lim, type, plt.type, win
       #manage gene names
       for (g in 1:nrow(genes)){
         #main gene line -- full transcription sequence
-        segments(x0 = genes$txStart[g], y0 = genes$y[g]*y.lim/10, x1 = genes$txEnd[g], y1 = genes$y[g]*y.lim/10, lwd=3)
+        segments(x0 = genes$txStart[g], y0 = genes$y[g]*y.lim/12, x1 = genes$txEnd[g], y1 = genes$y[g]*y.lim/12, lwd=3)
         #need to divide exones from introns
         start <- as.data.frame(t(str_split_fixed(genes$exonStarts[g], ",", genes$exonCount[g]+1)))
         end <- as.data.frame(t(str_split_fixed(genes$exonEnds[g], ",", genes$exonCount[g]+1)))
@@ -330,10 +356,10 @@ function.multiPlot <- function(snp.info, snp.info.f2, y.lim, type, plt.type, win
         exons$end <- as.numeric(as.character(exons$end))
         #main loop over exons
         for (j in 1:nrow(exons)){
-          rect(xleft=exons$start[j], ybottom=genes$y[g]*y.lim/10-(y.lim/4/4*0.15), xright=exons$end[j], 
-               ytop = genes$y[g]*y.lim/10+(y.lim/4/4*0.15), col='grey80')
+          rect(xleft=exons$start[j], ybottom=genes$y[g]*y.lim/12-(y.lim/4/4*0.15), xright=exons$end[j], 
+               ytop = genes$y[g]*y.lim/12+(y.lim/4/4*0.15), col='grey80')
         }
-        text(x = genes$txStart[g] + (genes$txEnd[g] - genes$txStart[g])/2, y = genes$y[g]*y.lim/10 + (y.lim/4/4*0.5), 
+        text(x = genes$txStart[g] + (genes$txEnd[g] - genes$txStart[g])/2, y = genes$y[g]*y.lim/12 + (y.lim/4/4*0.5), 
              labels=genes$"#geneName"[g], font=3, cex=1)
         #        if (genes$strand[g] == "+"){
         #          arrows(x0 = genes$txEnd[g], y0 = genes$y[g]*y.lim/10, x1 = genes$txEnd[g] + (10*2/100), y1 = genes$y[g]*y.lim/10, 
@@ -370,7 +396,7 @@ function.multiPlot <- function(snp.info, snp.info.f2, y.lim, type, plt.type, win
     
     #main plot
     plot(x = 0, y = 0, xlab='Chromosomal position (Mb)', cex.lab=1.5, xaxt='none', bty='n',
-         ylab="-log10(P-value)", ylim=c(min.y*y.lim/10, y.lim), cex.axis = 1.25, xaxs="i", yaxt='none',
+         ylab="-log10(P-value)", ylim=c(min.y*y.lim/12, y.lim), cex.axis = 1.25, xaxs="i", yaxt='none',
          pch=1, col="white", cex=1.75, type = "h", lwd=2, xlim=c(min(xl), max(xl)), main=title, cex.main=2.5)
     
     #add grid
@@ -384,8 +410,8 @@ function.multiPlot <- function(snp.info, snp.info.f2, y.lim, type, plt.type, win
     abline(h=-log10(5e-8), lty=2, col=alpha("purple", 1))
     legend("topleft", bty='n', legend = c("p=0.05", "p=5e-8"), lty=c(2,2), lwd=c(2,2), col=c("darkgreen", "purple"), cex=1.5, ncol = 2)
     
-    polygon(x = xl, y = pred, col = alpha("navy", 0.6), lwd=2, xaxs="i")
-    polygon(x = xl.add, y = pred.add, col = alpha("red", 0.6), lwd=2, xaxs="i")
+    polygon(x = xl, y = pred, col = alpha(colorPoint, 0.6), lwd=2, xaxs="i")
+    polygon(x = xl.add, y = pred.add, col = alpha(colorPoint2, 0.6), lwd=2, xaxs="i")
     
     #manage axes
     axes <- seq(min(snp.info$pos), max(snp.info$pos), (max(snp.info$pos) - min(snp.info$pos))/7)
@@ -420,7 +446,7 @@ function.multiPlot <- function(snp.info, snp.info.f2, y.lim, type, plt.type, win
     #manage gene names
     for (g in 1:nrow(genes)){
       #main gene line -- full transcription sequence
-      segments(x0 = genes$txStart[g], y0 = genes$y[g]*y.lim/10, x1 = genes$txEnd[g], y1 = genes$y[g]*y.lim/10, lwd=3)
+      segments(x0 = genes$txStart[g], y0 = genes$y[g]*y.lim/12, x1 = genes$txEnd[g], y1 = genes$y[g]*y.lim/12, lwd=3)
       #need to divide exones from introns
       start <- as.data.frame(t(str_split_fixed(genes$exonStarts[g], ",", genes$exonCount[g]+1)))
       end <- as.data.frame(t(str_split_fixed(genes$exonEnds[g], ",", genes$exonCount[g]+1)))
@@ -430,10 +456,10 @@ function.multiPlot <- function(snp.info, snp.info.f2, y.lim, type, plt.type, win
       exons$end <- as.numeric(as.character(exons$end))
       #main loop over exons
       for (j in 1:nrow(exons)){
-        rect(xleft=exons$start[j], ybottom=genes$y[g]*y.lim/10-(y.lim/4/4*0.15), xright=exons$end[j], 
-             ytop = genes$y[g]*y.lim/10+(y.lim/4/4*0.15), col='grey80')
+        rect(xleft=exons$start[j], ybottom=genes$y[g]*y.lim/12-(y.lim/4/4*0.15), xright=exons$end[j], 
+             ytop = genes$y[g]*y.lim/12+(y.lim/4/4*0.15), col='grey80')
       }
-      text(x = genes$txStart[g] + (genes$txEnd[g] - genes$txStart[g])/2, y = genes$y[g]*y.lim/10 + (y.lim/4/4*0.5), 
+      text(x = genes$txStart[g] + (genes$txEnd[g] - genes$txStart[g])/2, y = genes$y[g]*y.lim/12 + (y.lim/4/4*0.5), 
            labels=genes$"#geneName"[g], font=3, cex=1)
       #     if (genes$strand[g] == "+"){
       #        arrows(x0 = genes$txEnd[g], y0 = genes$y[g], x1 = genes$txEnd[g] + (10*2/100), y1 = genes$y[g], 
@@ -443,19 +469,16 @@ function.multiPlot <- function(snp.info, snp.info.f2, y.lim, type, plt.type, win
       #               length=0.1, lwd=2, col='coral')
       #      }
     }
-    
+
     #add legend now
     if (snp.interest.flag == 0){
-      #legend("topright", legend = c(t1, t2), col = c("navy","red"), pch=16, 
-      #       cex=1.50, ncol=2, xpd=T, bty='n')
-      legend("topright", legend = c("GWAS 1", "GWAS 2"), col = c("navy","red"), pch=16, 
+      legend("topright", legend = c(lab1, lab2), col = c(colorPoint, colorPoint2), pch=16, 
              cex=1.50, ncol=2, xpd=T, bty='n')
-      
     } else {
-      legend("topright", legend = c(t1, paste(t1, " - Input", sep=""), t2, paste(t2, " - Input", sep="")), col = c("navy", "lightblue", "red", "orange"), pch=16, 
+      legend("topright", legend = c(lab1, paste(lab1, " - Input", sep=""), lab2, paste(lab2, " - Input", sep="")), 
+             col = c(colorPoint, "lightblue", colorPoint2, "yellow"), pch=c(16, 23, 16, 23), pt.lwd = 1.5, 
              cex=1.50, ncol=2, xpd=T, bty='n')
     }
-    
   }
 }
 
@@ -479,11 +502,11 @@ function.catchChromosome <- function(chr, gwas){
     fname = paste("../data/", gwas, "/chr", as.character(chr), "_", gwas, ".txt", sep="")
     
     #read data
-    dat <- fread(fname, h=F, stringsAsFactors = F)
+    dat <- fread(fname, h=T, stringsAsFactors = F)
     colnames(dat) <- c('chr', 'pos', 'p')
+    dat$p <- as.numeric(dat$p)
     dat <- dat[!which(is.na(dat$p)),]
     chrom <- dat$chr[1]
-    dat$p <- as.numeric(dat$p)
     dat$'-log10(P-value)' <- -log10(dat$p)
   }
   return(dat)
@@ -506,85 +529,30 @@ function.InputPos <- function(dat, window, input.pos, gwas){
     pos.min <- as.numeric(locus[, 2]) - window
 
     #check if data is relative to that chromosome, and in case change it
-    dat <- function.catchChromosome(chr, gwas)
+    if (!(gwas %in% c("loaded", "toLoad"))){ dat <- function.catchChromosome(chr, gwas) }
     
     #take data of interest
-    snp.info <- dat[which((dat$chr == chr) & (dat$pos >= pos.min & dat$pos <= pos.max)), ]
+    snp.info <- dat[which(dat$pos >= pos.min & dat$pos <= pos.max), ]
   }
   return(list(snp.info, dat))
 }
 
-#function to manage position as input type -- this is for generic gwas data -- has to have at least the following columns:
-# chr, pos, p -- other columns for now will be discarded
-function.InputPosGeneric <- function(dat, window, input.pos){
-  if (input.pos == "Type position..."){
-    #initial position is halfway
-    pos.init <- dat[ceiling(nrow(dat)/2), "pos"]
-    
-    #create a "locus" variable as chr:pos
-    dat$locus <- paste(dat$chr, dat$pos, sep=":")
-    
-    #take data of interest
-    ind.snp <- grep(pos.init, dat$locus)
-    snp.info <- dat[seq(ind.snp - window, ind.snp + window),]
-    
-  } else {
-    #split locus to find close positions and define intervals where to find snps
-    locus <- str_split_fixed(input.pos, ":", 2)
-    interval <- seq(as.numeric(locus[, 2]) - window, as.numeric(locus[, 2]) + window)
-    chr <- as.numeric(locus[, 1])
-    
-    #take data of interest
-    snp.info <- dat[which((dat$chr == chr) & (dat$pos %in% interval)), ]
-    
-  }
-  return(snp.info)
-}
-
 #function to manage manual scroll as input type
-function.InputManualScroll <- function(dat, window, input.scroll){
+function.InputManualScroll <- function(dat, window, input.scroll, input.chrom, gwas){
+  print(gwas)
   #initial position is all variable
   pos.init <- as.numeric(input.scroll)
   
-  #find closest variant
-  vectorPos <- seq(pos.init - window, pos.init + window)
-  closest <- dat[which(dat$pos %in% vectorPos),]
-  closest$diff <- pos.init - closest$pos
-  closest <- closest[order(abs(closest$diff)),]
-  closest <- closest[which(is.na(closest$p) == FALSE),]
-  #  pos.init  <- closest$locus[1]
+  #define limits
+  lower <- pos.init - window
+  upper <- pos.init + window
+  
+  #check if data is relative to that chromosome, and in case change it
+  if (!(gwas %in% c("loaded", "toLoad"))){ dat <- function.catchChromosome(input.chrom, gwas) }
   
   #take data of interest
-  #  ind.snp <- grep(pos.init, dat$locus)
-  #  snp.info <- dat[seq(ind.snp - window, ind.snp + window),]
-  #  snp.info <- snp.info[which(is.na(snp.info$p) == FALSE)]
-  
-  return(closest)
-}
-
-#function to manage manual scroll as input type -- this is for generic gwas data -- has to have at least the following columns:
-# che, pos, p -- other columns for now will be discarded
-function.InputManualScrollGeneric <- function(dat, window, input.scroll){
-  #initial position is all variable
-  pos.init <- as.numeric(input.scroll)
-  
-  #need to have locus column with chr:pos
-  dat$locus <- paste(dat$chr, dat$pos, sep=':')
-  
-  #find closest variant
-  vectorPos <- seq(pos.init - window, pos.init + window)
-  closest <- dat[which(dat$pos %in% vectorPos),]
-  closest$diff <- pos.init - closest$pos
-  closest <- closest[order(abs(closest$diff)),]
-  closest$p <- as.numeric(closest$p) 
-  closest <- closest[which(is.na(closest$p) == FALSE),]
-  
-  #  pos.init  <- closest$locus[1]
-  #take data of interest
-  #  ind.snp <- grep(pos.init, dat$locus)
-  #  snp.info <- dat[seq(ind.snp - window, ind.snp + window),]
-  
-  return(closest)
+  snp.info <- dat[which(dat$pos >= lower & dat$pos <= upper), ]
+  return(snp.info)
 }
 
 #function to manage genes as input
@@ -616,24 +584,56 @@ function.InputGenes <- function(gene){
 #function to manage rsID as input
 function.rsIDasInput <- function(rsID){
   #check whether there is an input snp, otherwise take a random one -- now is APOE e2
-  if (rsID == "Type variant identifier..."){
+  if (rsID == "Type variant identifier..."){ rsID <- "rs17125944" }
     #get snp information -- chromosome and position basically
-    snp.info <- fread('sshpass -p "blablablabla" ssh ntesi@XXXXXX.nl "grep -w rs7412 1kGenome/plink/chrAll_red.bim"')
+    rsid <- rsID
+    # Extract the html from the file
+    cmd <- paste("wget https://www.ncbi.nlm.nih.gov/snp/", rsid, " .", sep="")
+    system(cmd)
+    html = read_html(rsid)
     
-    #take position out
-    pos <- colnames(snp.info)[2]
+    # Get all the 'p' nodes (you can do the same for 'table')
+    p_nodes <- html %>% html_nodes('tr')
     
-  } else {
+    # Get the text from each node
+    p_nodes_text <- p_nodes %>% html_text()
     
-    #get snp information -- chromosome and position basically
-    cmd <- paste('sshpass -p "Ciccia22101991!" ssh ntesi@linux-bastion.tudelft.nl "grep -w ', rsID, ' /tudelft.net/staff-bulk/ewi/insy/DBL/niccolo/databases/variants_DB/1kGenome/plink/chrAll_red.bim"', sep='')
-    snp.info <- fread(cmd = cmd)
+    # Find the nodes that have the term you are looking for
+    match_indeces <- str_detect(p_nodes_text, fixed('GRCh37', ignore_case = TRUE))
     
-    #take position out
-    pos <- colnames(snp.info)[2]
-  }
-  
-  return(pos)
+    # Keep only the nodes with matches
+    # Notice that I remove the first match because rvest adds a 
+    # 'p' node to the whole file, since it is a text file
+    match_p_nodes <- p_nodes[match_indeces][-1]
+    
+    # Extract the nodes
+    x <- as.data.frame(as.character(match_p_nodes[[1]]))
+    x.1 <- str_split(string = x$`as.character(match_p_nodes[[1]])`, pattern = "\n")
+    x.1 <- as.data.frame(x.1)
+    
+    # Extract chromosome
+    x.2 <- as.character(x.1[grep(pattern = "chr", x = x.1[, 1]), ])
+    x.3 <- as.data.frame(str_split(string = x.2, pattern = " "))
+    tmp.chr <- as.character(x.3[nrow(x.3), 1])
+    chrom <- as.character(str_replace(string = tmp.chr, pattern = "</td>", replacement = ""))
+    
+    # Extract position
+    x.4 <- as.character(x.1[grep(pattern = "&gt;", x = x.1[, 1]), ])
+    x.5 <- as.data.frame(str_split(string = x.4, pattern = "<|>|g."))
+    tmp.pos1 <- as.character(x.5[4, ])
+    tmp.pos2 <- as.data.frame(strsplit(tmp.pos1, ""))
+    pos <- paste0(tmp.pos2[1:(nrow(tmp.pos2)-2), 1], collapse = "")
+    a1 <- as.character(tmp.pos2[nrow(tmp.pos2)-1, 1])
+    tmp.a <- as.character(x.5[5, ])
+    tmp.a2 <- as.data.frame(strsplit(tmp.a, ""))
+    a2 <- as.character(tmp.a2[2, 1])
+    
+    # Remove temporary file
+    cmd = paste("rm ", rsid, sep="")
+    system(cmd)
+    locus <- paste(chrom, pos, sep=":")
+
+  return(locus)
 }
 
 #function to find gwas hits from inputted gene
@@ -645,10 +645,10 @@ function.GWASfromGene <- function(dat, gene.info, window, gwas){
   end <- gene.info$txEnd + window
   
   #check if data is relative to that chromosome, and in case change it
-  dat <- function.catchChromosome(chr.n, gwas)
+  if (!(gwas %in% c("loaded", "toLoad"))){ dat <- function.catchChromosome(chr.n, gwas) }
   
   #define snps of interest
-  snp.info <- dat[which((dat$chr == chr.n) & (dat$pos >= start) & (dat$pos <= end)),]
+  snp.info <- dat[which(dat$pos >= start & dat$pos <= end),]
 
   return(snp.info)
 }
@@ -715,17 +715,22 @@ function.dynamicGene <- function(snp.info){
   genes <- genes[!duplicated(genes$"#geneName"),]
   
   #define position in the plot
-  if (nrow(genes) > 3){
-    genes$y <- seq(-1, -4, -1)
-  } else {
-    genes$y <- seq(-1, -3, -1)
+  n = ceiling(nrow(genes)/4)
+  if (n != 0){
+    v <- -1
+    genes$y <- NA
+    for (i in 1:nrow(genes)){
+      genes$y[i] <- v
+      v <- v-1
+      if (v == -n-1){ v = -1 }
+    }
+    
   }
-  
   return(genes)
 }
 
 #function to manage which input data to plot -- still 1 dataset only for now
-function.manageInput <- function(inp){
+function.manageInput <- function(inp, supp_f){
   if (length(inp) == 0){
     dat <- fread("../data/example/chr21_IGAP_2k19.txt.gz", h=T, stringsAsFactors = F)
     colnames(dat) <- c("chr", "pos", "p")      
@@ -734,16 +739,102 @@ function.manageInput <- function(inp){
     dat$"-log10(P-value)" <- -log10(as.numeric(dat$p))
     gwas = "example"
     
-  } else if (inp == "toLoad"){
-    ####################
-    # TO IMPLEMENT SOON
-    # HERE
-    ####################
-  } #else here to add repositories 
+  } else if ("toLoad" %in% inp){
+    #read file
+    dat <- fread(supp_f, h=T, stringsAsFactors = F)
+    
+    #analyse header and slim data
+    dat = identiHeader(dat)
+    dat$p <- as.numeric(dat$p)
+    dat <- dat[!which(is.na(dat$p)),]
+    chrom <- dat$chr[1]
+    dat$"-log10(P-value)" <- -log10(as.numeric(dat$p))
+    gwas = "loaded"
+    
+	} else if (inp == 'IGAP') {
+		dat <- fread('../data/IGAP/chr19_IGAP.txt', h=T, stringsAsFactors=F)
+		colnames(dat) <- c('chr', 'pos', 'p')
+		dat <- dat[!which(is.na(dat$p)),]
+		chrom <- dat$chr[1]
+		dat$p <- as.numeric(dat$p)
+		dat$'-log10(P-value)' <- -log10(dat$p)
+		gwas <- 'IGAP'
+	} else if (inp == 'CARDIO') {
+		dat <- fread('../data/CARDIO/chr19_CARDIO.txt', h=T, stringsAsFactors=F)
+		colnames(dat) <- c('chr', 'pos', 'p')
+		dat <- dat[!which(is.na(dat$p)),]
+		chrom <- dat$chr[1]
+		dat$p <- as.numeric(dat$p)
+		dat$'-log10(P-value)' <- -log10(dat$p)
+		gwas <- 'CARDIO'
+	} else if (inp == '100plus') {
+		dat <- fread('../data/100plus/chr19_100plus.txt', h=T, stringsAsFactors=F)
+		colnames(dat) <- c('chr', 'pos', 'p')
+		dat <- dat[!which(is.na(dat$p)),]
+		chrom <- dat$chr[1]
+		dat$p <- as.numeric(dat$p)
+		dat$'-log10(P-value)' <- -log10(dat$p)
+		gwas <- '100plus'
+	} else if (inp == 'MetaGrace') {
+		dat <- fread('../data/MetaGrace/chr19_MetaGrace.txt', h=T, stringsAsFactors=F)
+		colnames(dat) <- c('chr', 'pos', 'p')
+		dat <- dat[!which(is.na(dat$p)),]
+		chrom <- dat$chr[1]
+		dat$p <- as.numeric(dat$p)
+		dat$'-log10(P-value)' <- -log10(dat$p)
+		gwas <- 'MetaGrace'
+	} else if (inp == 'UKBaging') {
+		dat <- fread('../data/UKBaging/chr19_UKBaging.txt', h=T, stringsAsFactors=F)
+		colnames(dat) <- c('chr', 'pos', 'p')
+		dat <- dat[!which(is.na(dat$p)),]
+		chrom <- dat$chr[1]
+		dat$p <- as.numeric(dat$p)
+		dat$'-log10(P-value)' <- -log10(dat$p)
+		gwas <- 'UKBaging'
+	} else if (inp == 'exomeADES') {
+		dat <- fread('../data/exomeADES/chr19_exomeADES.txt', h=T, stringsAsFactors=F)
+		colnames(dat) <- c('chr', 'pos', 'p')
+		dat <- dat[!which(is.na(dat$p)),]
+		chrom <- dat$chr[1]
+		dat$p <- as.numeric(dat$p)
+		dat$'-log10(P-value)' <- -log10(dat$p)
+		gwas <- 'exomeADES'
+  } #else here to add repositories
 
 
   return(list(dat, chrom, gwas))
   
+}
+
+#function to identify header in uploaded file
+identiHeader <- function(dat){
+  head <- names(dat)
+  #find chromosome, position and pvalue
+  chrom.idx <- NULL
+  pos.idx <- NULL
+  p.idx <- NULL
+  p.kw <- c("P", "PVAL", "P_VALUE", "PVALUE", "P_VAL")
+  chrom.idx = grep("chr", head, ignore.case = T)
+  pos.idx = grep("pos", head, ignore.case = T)
+  if (length(pos.idx) == 0){pos.idx = grep("bp", head, ignore.case = T)}
+  for (x in 1:length(head)){if (head[x] %in% p.kw){ p.idx <- x } }
+  
+  #check for correctness
+  run = FALSE
+  if (length(chrom.idx) + length(pos.idx) + length(p.idx) == 3){ 
+    run <- TRUE
+    print("## header correctly read")
+    
+    #now rename columns
+    head[chrom.idx] <- "chr"
+    head[pos.idx] <- "pos"
+    head[p.idx] <- "p"
+    colnames(dat) <- head
+    
+  } else {
+      print("!!!There was a problem with the input!!!!")
+  }
+  return(dat)
 }
 
 #MAIN APP
@@ -752,90 +843,163 @@ shinyServer(
     #what to plot here
     output$hist <- renderPlot({
       
+      ############################
+      #create flag for uploaded input file
+      inFile <- input$inp_f
+      path_f <- "None"
+      if (!is.null(inFile)){
+        path_f = inFile$datapath
+        print("file loaded")
+      } else {
+        path_f <- "None"
+      }
+      ##########################
+
       ####################
       #manage which input to plot in two cases: beginning of app and 1 gwas as input
-      res = function.manageInput(as.character(input$gwas))
+      res = function.manageInput(as.character(input$gwas[1]), path_f)
       dat = as.data.frame(res[[1]])
       chrom = as.numeric(res[[2]])
       gwas = as.character(res[[3]])
-      ####################
-      
-      ####################
-      # #additional input file -- for the moment is 1 only -- LEAVE IT FOR NOW
-      # inFile <- input$inp_f
-      # n.inputs = 1
-      # if (is.null(inFile) == F){
-      #   n.inputs = 2
-      #   add.f <- fread(inFile$datapath)
-      # }
+      n.inputs = 1
       ####################
       
       ####################
       #Browsing options -- default is Position -- by default take middle of chromosome
-      if (input$sel == "Position"){
+      if (input$sel %in% c("Position", "RsID")){
         
         #check number of GWAS to be plotted
         if (length(input$gwas) < 2){
-          #manage different option of position as input type
-          res <- function.InputPos(dat = dat, window = input$x, input.pos = input$pos, gwas)
+          
+          #check if rsid is the input
+          if (input$sel == "RsID"){ 
+            locus <- function.rsIDasInput(input$snpID)
+            res <- function.InputPos(dat = dat, window = input$x, input.pos = locus, gwas)
+          } else {
+            res <- function.InputPos(dat = dat, window = input$x, input.pos = input$pos, gwas)
+            }
           snp.info <- as.data.frame(res[[1]])
           dat <- as.data.frame(res[[2]])
-          
+
           #plot
           function.plot(snp.info = snp.info, y.lim = input$y, type = input$sel, plt.type = input$ploType, 
-                        windows.number = input$sliding.window, smooth.par = input$smooth, int.locus = input$pos, gwas = gwas)
+                        windows.number = input$sliding.window, smooth.par = input$smooth, int.locus = input$pos, gwas = gwas, col = input$col)
           ###################
-          
-          ###################
-          #this in case multiple gwas need to be plotted
+      
+          #the following in case multiple gwas need to be plotted
         } else {
-          #first dataset
-          d1 <- input$gwas[1]
-          res <- function.InputPos(dat = dat, window = input$x, input.pos = input$pos, d1)
-          snp.info <- as.data.frame(res[[1]])
-          dat <- as.data.frame(res[[2]])
-          
-          #second dataset
-          d2 <- input$gwas[2]
-          res = function.manageInput(d2)
-          dat.2 = as.data.frame(res[[1]])
-          chrom.2 = as.numeric(res[[2]])
-          
-          #this was for the input file from user
-          #snp.info.f2 <- function.InputPosGeneric(dat = dat.2, window = input$x, input.pos = input$pos)
-          
-          res.2 <- function.InputPos(dat = dat.2, window = input$x, input.pos = input$pos, gwas = d2)
-          snp.info.2 <- res.2[[1]]
-          dat.2 <- res.2[[2]]
-          
-          #plot
-          function.multiPlot(snp.info = snp.info, snp.info.f2 = snp.info.2, y.lim = input$y, type = input$sel, 
-                             plt.type = input$ploType, windows.number = input$sliding.window, smooth.par = input$smooth, int.locus = input$pos,
-                             d1, d2)
+          #check whether uploaded file is among those to show
+          if (path_f == "None"){
+            #first dataset
+            d1 <- input$gwas[1]
+            
+            #check if rsid or position
+            if (input$sel == "RsID"){
+              locus <- function.rsIDasInput(input$snpID)
+              res <- function.InputPos(dat = dat, window = input$x, input.pos = locus, d1)
+            } else {
+              res <- function.InputPos(dat = dat, window = input$x, input.pos = input$pos, d1)
+            }
+            snp.info <- as.data.frame(res[[1]])
+            dat <- as.data.frame(res[[2]])
+
+            #second dataset
+            d2 <- input$gwas[2]
+            res = function.manageInput(d2, path_f)
+            dat.2 = as.data.frame(res[[1]])
+            chrom.2 = as.numeric(res[[2]])
+            
+            #check if rsid or position
+            if (input$sel == "RsID"){
+              locus <- function.rsIDasInput(input$snpID)
+              res.2 <- function.InputPos(dat = dat.2, window = input$x, input.pos = locus, d2)
+            } else {
+              res.2 <- function.InputPos(dat = dat.2, window = input$x, input.pos = input$pos, gwas = d2)
+            }
+            snp.info.2 <- res.2[[1]]
+            dat.2 <- res.2[[2]]
+
+            #plot
+            function.multiPlot(snp.info = snp.info, snp.info.f2 = snp.info.2, y.lim = input$y, type = input$sel, 
+                               plt.type = input$ploType, windows.number = input$sliding.window, smooth.par = input$smooth, 
+                               int.locus = input$pos, d1, d2, colorPoint = input$col, colorPoint2 = input$col2)
+          } else {
+            #first dataset -- this is the loaded one
+            index_upl <- grep("toLoad", input$gwas)
+            d1 <- input$gwas[index_upl]
+            res = function.manageInput(d1, path_f)
+            dat = as.data.frame(res[[1]])
+            chrom = as.numeric(res[[2]])
+            gwas = as.character(res[[3]])
+            res <- function.InputPos(dat = dat, window = input$x, input.pos = input$pos, gwas)
+            snp.info <- as.data.frame(res[[1]])
+            dat <- as.data.frame(res[[2]])
+
+            #plot
+            function.multiPlot(snp.info = snp.info, snp.info.f2 = snp.info.2, y.lim = input$y, type = input$sel, 
+                               plt.type = input$ploType, windows.number = input$sliding.window, smooth.par = input$smooth, 
+                               int.locus = input$pos, gwas, gwas.2, colorPoint = input$col, colorPoint2 = input$col2)
+            #################################
+          } 
         }
         ####################
         
         ####################
         #this in case you want manual scroll -- not implemented yet
       } else if (input$sel == "Manual scroll"){
-        if (n.inputs == 1){
+        if (length(input$gwas) < 2){
           #manage different manual scroll input
-          snp.info <- function.InputManualScroll(dat = dat, window = input$x, input.scroll = input$all)
+          snp.info <- function.InputManualScroll(dat = dat, window = input$x, input.scroll = input$manual.pos, input.chrom = input$manual.chrom, gwas)
           
           #plot
           function.plot(snp.info = snp.info, y.lim = input$y, type = input$sel, plt.type = input$ploType, 
-                        windows.number = input$sliding.window, smooth.par = input$smooth, int.locus = NA)
+                        windows.number = input$sliding.window, smooth.par = input$smooth, int.locus = input$manual.pos, gwas = gwas, col = input$col)
+          #####################
+          
+          #the followinf in case multiple gwas need to be plotted
         } else {
-          #default dataaset
-          snp.info <- function.InputManualScrollGeneric(dat = dat, window = input$x, input.scroll = input$all)
-          
-          #additional dataset
-          snp.info.f2 <- function.InputManualScrollGeneric(dat = add.f, window = input$x, input.scroll = input$all)
-          
-          #plot
-          function.multiPlot(snp.info = snp.info, snp.info.f2 = snp.info.f2, y.lim = input$y, type = input$sel, 
-                             plt.type = input$ploType, windows.number = input$sliding.window, smooth.par = input$smooth, int.locus = input$pos)
-          
+          #check whether uploaded file is among those to show
+          if (path_f == "None"){
+            #first dataset
+            d1 <- input$gwas[1]
+            snp.info <- function.InputManualScroll(dat = dat, window = input$x, input.scroll = input$manual.pos, input.chrom = input$manual.chrom, d1)
+
+            #second dataset
+            d2 <- input$gwas[2]
+            res = function.manageInput(d2, path_f)
+            dat.2 = as.data.frame(res[[1]])
+            chrom.2 = as.numeric(res[[2]])
+            snp.info.2 <- function.InputManualScroll(dat = dat.2, window = input$x, input.scroll = input$manual.pos, input.chrom = input$manual.chrom, d2)
+            
+            #plot
+            function.multiPlot(snp.info = snp.info, snp.info.f2 = snp.info.2, y.lim = input$y, type = input$sel, 
+                               plt.type = input$ploType, windows.number = input$sliding.window, smooth.par = input$smooth, 
+                               int.locus = input$pos, d1, d2, colorPoint = input$col, colorPoint2 = input$col2)
+          } else {
+            #first dataset -- this is the loaded one
+            index_upl <- grep("toLoad", input$gwas)
+            d1 <- input$gwas[index_upl]
+            res = function.manageInput(d1, path_f)
+            dat = as.data.frame(res[[1]])
+            chrom = as.numeric(res[[2]])
+            gwas = as.character(res[[3]])
+            snp.info <- function.InputManualScroll(dat = dat, window = input$x, input.scroll = input$manual.pos, input.chrom = input$manual.chrom, d1)
+            
+            #second dataset
+            index_oth <- which(input$gwas != "toLoad")
+            d2 <- input$gwas[index_oth]
+            res.2 = function.manageInput(d2, "None")
+            dat.2 = as.data.frame(res.2[[1]])
+            chrom.2 = as.numeric(res.2[[2]])
+            gwas.2 = as.character(res.2[[3]])
+            snp.info.2 <- function.InputManualScroll(dat = dat.2, window = input$x, input.scroll = input$manual.pos, input.chrom = input$manual.chrom, d2)
+            
+            #plot
+            function.multiPlot(snp.info = snp.info, snp.info.f2 = snp.info.2, y.lim = input$y, type = input$sel, 
+                               plt.type = input$ploType, windows.number = input$sliding.window, smooth.par = input$smooth, 
+                               int.locus = input$pos, gwas, gwas.2, colorPoint = input$col, colorPoint2 = input$col2)
+            #######################################
+          }
         }
         ####################
         
@@ -844,6 +1008,7 @@ shinyServer(
       } else if (input$sel == "Gene"){
         #this in case you only plot 1 gwas
         if (length(input$gwas) < 2){
+          
           #find position of input gene
           gene.info <- function.InputGenes(gene = as.character(input$gene))
           
@@ -852,75 +1017,95 @@ shinyServer(
           
           #plot
           function.plot(snp.info = snp.info, y.lim = input$y, type = input$sel, plt.type = input$ploType, 
-                        windows.number = input$sliding.window, smooth.par = input$smooth, int.locus = input$gene, gwas = gwas)
-          ##################
-          
+                        windows.number = input$sliding.window, smooth.par = input$smooth, int.locus = input$gene, gwas = gwas, col = input$col)
           ##################
           #this in case you want to plot multiple gwas
         } else {
-          #find position of input gene
-          gene.info <- function.InputGenes(gene = as.character(input$gene))
-          
-          #define the two gwas
-          d1 <- input$gwas[1]
-          d2 <- input$gwas[2]
-          
-          #find gwas info around the gene for gwas 1
-          snp.info <- function.GWASfromGene(dat = dat, gene.info = gene.info, window = input$x, d1)
-          
-          #second dataset
-          res = function.manageInput(d2)
-          dat.2 = as.data.frame(res[[1]])
-          chrom.2 = as.numeric(res[[2]])
-          
-          #additional dataset
-          snp.info.2 <- function.GWASfromGene(dat = dat.2, gene.info = gene.info, window = input$x, d2)
-          
-          #plot
-          function.multiPlot(snp.info = snp.info, snp.info.f2 = snp.info.2, y.lim = input$y, type = input$sel, 
-                             plt.type = input$ploType, windows.number = input$sliding.window, smooth.par = input$smooth, int.locus = input$pos,
-                             d1, d2)
+          #check whether uploaded file is among those to show
+          if (path_f == "None"){
+            #find position of input gene
+            gene.info <- function.InputGenes(gene = as.character(input$gene))
+
+            #first dataset
+            d1 <- input$gwas[1]
+            #find gwas info around the gene for gwas 1
+            snp.info <- function.GWASfromGene(dat = dat, gene.info = gene.info, window = input$x, d1)
+            
+            #second dataset
+            d2 <- input$gwas[2]
+            res = function.manageInput(d2, path_f)
+            dat.2 = as.data.frame(res[[1]])
+            chrom.2 = as.numeric(res[[2]])
+
+            #additional dataset
+            snp.info.2 <- function.GWASfromGene(dat = dat.2, gene.info = gene.info, window = input$x, d2)
+
+            #plot
+            function.multiPlot(snp.info = snp.info, snp.info.f2 = snp.info.2, y.lim = input$y, type = input$sel, 
+                               plt.type = input$ploType, windows.number = input$sliding.window, smooth.par = input$smooth, 
+                               int.locus = input$pos, d1, d2, colorPoint = input$col, colorPoint2 = input$col2)
+          } else {
+            #find position of input gene
+            gene.info <- function.InputGenes(gene = as.character(input$gene))
+            
+            #first dataset -- this is the loaded one
+            index_upl <- grep("toLoad", input$gwas)
+            d1 <- input$gwas[index_upl]
+            res = function.manageInput(d1, path_f)
+            dat = as.data.frame(res[[1]])
+            chrom = as.numeric(res[[2]])
+            gwas = as.character(res[[3]])
+            snp.info <- function.GWASfromGene(dat = dat, gene.info = gene.info, window = input$x, d1)
+            
+            #second dataset
+            index_oth <- which(input$gwas != "toLoad")
+            d2 <- input$gwas[index_oth]
+            res.2 = function.manageInput(d2, "None")
+            dat.2 = as.data.frame(res.2[[1]])
+            chrom.2 = as.numeric(res.2[[2]])
+            gwas.2 = as.character(res.2[[3]])
+            snp.info.2 <- function.GWASfromGene(dat = dat.2, gene.info = gene.info, window = input$x, d2)
+            
+            #plot
+            function.multiPlot(snp.info = snp.info, snp.info.f2 = snp.info.2, y.lim = input$y, type = input$sel, 
+                               plt.type = input$ploType, windows.number = input$sliding.window, smooth.par = input$smooth, 
+                               int.locus = input$pos, gwas, gwas.2, colorPoint = input$col, colorPoint2 = input$col2)
+            #######################################
+          }
         }
         ####################
         
         ####################
-      } else if (input$sel == "Rs ID"){
-        if (n.inputs == 1){
-          #in case n.inputs == 1 and input type is rsID
-          #get locus of the variant
-          variant.locus <- function.rsIDasInput(rsID = input$snpID)
-          
-          #manage different option of position as input type
-          snp.info <- function.InputPos(dat = dat, window = input$x, input.pos = variant.locus)
-          
-          #plot
-          function.plot(snp.info = snp.info, y.lim = input$y, type = input$sel, plt.type = input$ploType, 
-                        windows.number = input$sliding.window, smooth.par = input$smooth, int.locus = variant.locus)
-          
-        } else {
-          #in case n.inputs > 1 and input type is rsID
-          #get locus of the variant
-          variant.locus <- function.rsIDasInput(rsID = input$snpID)
-          
-          #manage different option of position as input type
-          snp.info <- function.InputPos(dat = dat, window = input$x, input.pos = variant.locus)
-          
-          #additional dataset
-          snp.info.f2 <- function.InputPosGeneric(dat = add.f, window = input$x, input.pos = variant.locus)
-          
-          #plot
-          function.multiPlot(snp.info = snp.info, snp.info.f2 = snp.info.f2, y.lim = input$y, type = input$sel, 
-                             plt.type = input$ploType, windows.number = input$sliding.window, smooth.par = input$smooth, int.locus = input$pos)
-        }
+      } 
+    })
+    
+    #this should be to download image
+    output$plot <- reactivePlot(function() {
+      name <- paste0(input$filename, ".png")
+      if(input$savePlot) {
+        ggsave(name, plotInput(), type="cairo-png")
       }
+      else print(plotInput())
     })
     
     #manage click on points
     output$click_info <- renderPrint({
       
+      ############################
+      #create flag for uploaded input file
+      inFile <- input$inp_f
+      path_f <- "None"
+      if (!is.null(inFile)){
+        path_f = inFile$datapath
+        print("file loaded")
+      } else {
+        path_f <- "None"
+      }
+      ##########################
+      
       ####################
       #manage which input to plot in two cases: beginning of app and 1 gwas as input
-      res = function.manageInput(as.character(input$gwas))
+      res = function.manageInput(as.character(input$gwas), path_f)
       dat = as.data.frame(res[[1]])
       chrom = as.numeric(res[[2]])
       gwas = as.character(res[[3]])
@@ -1024,9 +1209,21 @@ shinyServer(
     #manage brush on points
     output$brush_info <- renderPrint({
       
+      ############################
+      #create flag for uploaded input file
+      inFile <- input$inp_f
+      path_f <- "None"
+      if (!is.null(inFile)){
+        path_f = inFile$datapath
+        print("file loaded")
+      } else {
+        path_f <- "None"
+      }
+      ##########################
+      
       ####################
       #manage which input to plot in two cases: beginning of app and 1 gwas as input
-      res = function.manageInput(as.character(input$gwas))
+      res = function.manageInput(as.character(input$gwas), path_f)
       dat = as.data.frame(res[[1]])
       chrom = as.numeric(res[[2]])
       gwas = as.character(res[[3]])
