@@ -767,39 +767,7 @@ function.manageInput <- function(inp, supp_f){
 		dat$p <- as.numeric(dat$p)
 		dat$'-log10(P-value)' <- -log10(dat$p)
 		gwas <- 'CARDIO'
-	} else if (inp == '100plus') {
-		dat <- fread('../data/100plus/chr19_100plus.txt', h=T, stringsAsFactors=F)
-		colnames(dat) <- c('chr', 'pos', 'p')
-		dat <- dat[!which(is.na(dat$p)),]
-		chrom <- dat$chr[1]
-		dat$p <- as.numeric(dat$p)
-		dat$'-log10(P-value)' <- -log10(dat$p)
-		gwas <- '100plus'
-	} else if (inp == 'MetaGrace') {
-		dat <- fread('../data/MetaGrace/chr19_MetaGrace.txt', h=T, stringsAsFactors=F)
-		colnames(dat) <- c('chr', 'pos', 'p')
-		dat <- dat[!which(is.na(dat$p)),]
-		chrom <- dat$chr[1]
-		dat$p <- as.numeric(dat$p)
-		dat$'-log10(P-value)' <- -log10(dat$p)
-		gwas <- 'MetaGrace'
-	} else if (inp == 'UKBaging') {
-		dat <- fread('../data/UKBaging/chr19_UKBaging.txt', h=T, stringsAsFactors=F)
-		colnames(dat) <- c('chr', 'pos', 'p')
-		dat <- dat[!which(is.na(dat$p)),]
-		chrom <- dat$chr[1]
-		dat$p <- as.numeric(dat$p)
-		dat$'-log10(P-value)' <- -log10(dat$p)
-		gwas <- 'UKBaging'
-	} else if (inp == 'exomeADES') {
-		dat <- fread('../data/exomeADES/chr19_exomeADES.txt', h=T, stringsAsFactors=F)
-		colnames(dat) <- c('chr', 'pos', 'p')
-		dat <- dat[!which(is.na(dat$p)),]
-		chrom <- dat$chr[1]
-		dat$p <- as.numeric(dat$p)
-		dat$'-log10(P-value)' <- -log10(dat$p)
-		gwas <- 'exomeADES'
-  } #else here to add repositories
+	} #else here to add repositories
 
 
   return(list(dat, chrom, gwas))
