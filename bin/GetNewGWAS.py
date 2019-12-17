@@ -16,7 +16,7 @@ def download_data(url):
 #function to understand header
 def split_one(MODE, GWAS, TIT, chrom_field, pos_field, p_field):
   #check mode in order to take either the downloaded file or user-downloaded GWAS
-  if MODE == "1":
+  if MODE == "--download-split-add":
     cmd = "ls data/tmp0123/"
     ls = os.popen(cmd).read()
     ls = ls.rstrip().split()
@@ -158,8 +158,8 @@ def addRepoUI(MODE, TIT):
 #function to clean data if already present (take only 3 columns to save some space and speed up)
 def slimGWAS(GWAS, MODE, TIT, chrom_field, pos_field, p_field):
   #prepare folder
-  cmd = "mkdir data/%s" %(TIT)
-  os.system(cmd)
+  #cmd = "mkdir ../data/%s" %(TIT)
+  #os.system(cmd)
   
   #main loop on chromosomes
   for chrom in range(1, 23):
@@ -225,7 +225,8 @@ def slimGWAS(GWAS, MODE, TIT, chrom_field, pos_field, p_field):
               out.close()
           
             #prepare output file
-            fname = "data/%s/chr%s_%s.txt" %(TIT, chr_n, TIT)
+            fname = "../data/%s/chr%s_%s.txt" %(TIT, chr_n, TIT)
+
             out = open(fname, "a")
         
             out.write(str(chr_n))
@@ -270,6 +271,7 @@ def slimGWAS(GWAS, MODE, TIT, chrom_field, pos_field, p_field):
           
             #prepare output file
             fname = "data/%s/chr%s_%s.txt" %(TIT, chr_n, TIT)
+
             out = open(fname, "a")
         
             out.write(str(chr_n))
@@ -288,7 +290,7 @@ def slimGWAS(GWAS, MODE, TIT, chrom_field, pos_field, p_field):
 MODE = sys.argv[1]
 
 #create list for pvalue, chromosome and position names to be recognized
-chrom_field = ["chr", "Chr", "CHR", "chrom", "Chrom", "CHROM", "CHROMOSOME"]
+chrom_field = ["chr", "Chr", "CHR", "chrom", "Chrom", "CHROM", "CHROMOSOME", "#CHROM"]
 pos_field = ["bp", "BP", "Bp", "pos", "POS", "Pos", "POSITION"]
 p_field = ["p", "P", "pval", "PVAL", "pvalue", "PVALUE", "P_IGAP1", "P_VALUE", "p_value"]
 
