@@ -1,4 +1,4 @@
-# SNPbrowser `v1.0`
+# snpXplorer `v1.0`
 `SNPbrowser` is a command line tool written in R to display results from Genome-Wide Association Studies (GWAS) with a wide range of possibilities, including overlap of multiple studies. Once executed from the command line, the tool opens and runs on a web application with easy-to-use user interface.
 
 `SNPbrowser` is based on shiny library in R.
