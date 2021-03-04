@@ -1,5 +1,8 @@
-# snpXplorer `v1.0`
-`snpXplorer` is an online open source web-server to explore associations from Genome-Wide Association Studies (GWAS) available at http://snpxplorer.eu.ngrok.io. `snpXplorer` offers a wide range of possibilities, including overlap of multiple studies. Please see the documentation in this repository to get more information about how to run `snpXplorer` and its options.
+# snpXplorer `v2.0`
+`snpXplorer` is an online open source web-server to explore associations from Genome-Wide Association Studies (GWAS) available at https://snpxplorer.eu.ngrok.io. `snpXplorer` offers a wide range of possibilities, including overlap of multiple studies. Please see the documentation in this repository to get more information about how to run `snpXplorer` and its options.
+
+# Web-server
+We suggest to stick to the web-server framework as all the annotation and summary statistics datasets are already loaded. However, `snpXplorer` may also be installed locally on your machine. Please follow the steps below or get in touch with us for any problem.
 
 # Stand-alone version
 `snpXplorer` is also available as a  stand-alone, command line tool. It is written in R and once executed from the command line, the tool opens and runs on a web application with easy-to-use user interface.
@@ -16,9 +19,7 @@ git clone https://github.com/TesiNicco/SNPbrowser.git
 cd SNPbrowser/
 ```
 
-
-`snpXplorer` requires R to be correctly installed on your machine. To work, few R packages need to be installed: 
-`shiny`, `data.table`, `stringr`, `ggplot2`, `shinyShortcut`. 
+`snpXplorer` requires R to be correctly installed on your machine. To work, few R packages need to be installed. Please refer to the documentation for more information about the required R and python packages. 
 `snpXplorer` will take care of checking which packages are already installed and in case will install the missing. You just need to make sure you have `R` and `Rscript` correctly installed in your machine. Although not required in the most basic version of `snpXplorer`, for more advanced usage we require `python` to be correctly installed and working on your machine.
 
 
