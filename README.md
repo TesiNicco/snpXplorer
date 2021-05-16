@@ -1,5 +1,5 @@
 # snpXplorer `v2.0`
-`snpXplorer` is an online open source web-server to explore associations from Genome-Wide Association Studies (GWAS) available at https://snpxplorer.eu.ngrok.io. `snpXplorer` offers a wide range of possibilities, including overlap of multiple studies. Please see the documentation in this repository to get more information about how to run `snpXplorer` and its options.
+`snpXplorer` is an online open source web-server to explore associations from Genome-Wide Association Studies (GWAS) available at https://snpxplorer.net/. `snpXplorer` offers a wide range of possibilities, including overlap of multiple studies. Please see the documentation in this repository to get more information about how to run `snpXplorer` and its options.
 
 # Web-server
 We suggest to stick to the web-server framework as all the annotation and summary statistics datasets are already loaded. However, `snpXplorer` may also be installed locally on your machine. Please follow the steps below or get in touch with us for any problem.
