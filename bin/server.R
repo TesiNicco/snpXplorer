@@ -2799,7 +2799,7 @@ shinyServer(
           fname = paste0("../bug_report/Bug_report_", str_replace_all(Sys.time(), " ", "_"), ".txt")
           write.table(toreport, fname, quote=F, row.names=F, sep = "\t")
           # finally send an email to me
-          cmd_mail <- paste("sendEmail -f snpXplorer@gmail.com -t n.tesi@amsterdamumc.nl -u 'AnnotateMe request sent' -m 'Hello, \n a new bug report has been added.' -s smtp.gmail.com:25 -xu snpXplorer@gmail.com -xp snpXplorer22101991!", sep="")
+          cmd_mail <- paste("sendEmail -f snpXplorer@gmail.com -t n.tesi@amsterdamumc.nl -u 'AnnotateMe request sent' -m 'Hello, \n a new bug report has been added.", sep="")
           system(cmd_mail, wait = F)
           plot(0, pch=16, col="white", bty="n", xlab="", ylab="", xaxt="none", yaxt="none", xlim=c(0, 1), ylim=c(0, 1))
           text(x=0.5, y=0.75, labels="Bug reported! Thanks for helping!", font=2, cex=2.25, xpd=T)
