@@ -1548,7 +1548,7 @@ interesting_tissues = unlist(strsplit(as.character(args[5]), ","))
 ref_version = as.character(args[6])
 
 ## send email myself to notify that someone made a request
-cmd_mail <- paste("sendEmail -f snpXplorer@gmail.com -t n.tesi@amsterdamumc.nl -u 'AnnotateMe request sent' -m 'Hello, \n a request to AnnotateMe was just sent from ", username, ". \n \n AnnotateMe' -s smtp.gmail.com:25 -xu snpXplorer@gmail.com -xp snpXplorer22101991!", sep="")
+cmd_mail <- paste("sendEmail -f snpXplorer@gmail.com -t n.tesi@amsterdamumc.nl -u 'AnnotateMe request sent' -m 'Hello, \n a request to AnnotateMe was just sent from ", username, ". \n \n AnnotateMe' -s ", sep="")
 system(cmd_mail)
 
 ## create folder for results -- add a random number
@@ -1733,7 +1733,7 @@ if (length(unique(geneList)) >1){
   # finally compress result folder and send it
   cmd_compress <- paste("tar -czf AnnotateMe_results_", random_num, ".tar.gz RESULTS_", random_num, "/", sep="")
   system(cmd_compress)
-  cmd_mail <- paste("sendEmail -f snpXplorer@gmail.com -t ", username, " -u 'AnnotateMe results' -m 'Dear user, \n thanks so much for using snpXplorer and AnnotateMe. \n We hope you find the tool useful. \n AnnotateMe team.' -a 'AnnotateMe_results_", random_num, ".tar.gz' -cc n.tesi@amsterdamumc.nl -s smtp.gmail.com:25 -xu snpXplorer@gmail.com -xp snpXplorer22101991!", sep="")
+  cmd_mail <- paste("sendEmail -f snpXplorer@gmail.com -t ", username, " -u 'AnnotateMe results' -m 'Dear user, \n thanks so much for using snpXplorer and AnnotateMe. \n We hope you find the tool useful. \n AnnotateMe team.' -a 'AnnotateMe_results_", random_num, ".tar.gz' -cc n.tesi@amsterdamumc.nl ", sep="")
   system(cmd_mail)
   # finally also remove input annotateME list of snps
   cmd = paste("rm ", fname, sep="")
