@@ -1,4 +1,4 @@
-##################################################
+#################################################
 ## print tool message
 cat("\n########################################\n")
 cat("########## This is AnnotateMe ##########\n")
@@ -21,6 +21,7 @@ library(NbClust)
 library(tidytext)
 library(stringr)
 library(webshot)
+library(viridis)
 library(dendextend)
 library(parallel)
 library(lme4)
@@ -191,7 +192,7 @@ GTEx_me_generic_allTissues <- function(mapping, mapping.ens, interesting_tissues
   for (chrom in unique(mapping$chr)){
     print(paste0("## eqtl: working on chr", chrom))
     # read reference file with eqtls
-    ref = fread(paste0("/Users/home/Desktop/SNPbrowser/gitHub_version/AnnotateMe/INPUTS_OTHER/summary_eqtls/chr", chrom, "_summary_eqtls.txt.gz"), h=F, sep="\t")
+    ref = fread(paste0("/root/snpXplorer/AnnotateMe/INPUTS_OTHER/summary_eqtls/chr", chrom, "_summary_eqtls.txt.gz"), h=F, sep="\t")
     # get target data
     target = mapping[which(mapping$chr == chrom),]
     # match in gtex data
@@ -320,27 +321,29 @@ getGeneList_mod_generic <- function(mapping){
     #mapping$geneList[which(is.na(mapping$coding_snp) & is.na(mapping$eqtl_blood))] <- mapping$positional_mapping[which(is.na(mapping$coding_snp) & is.na(mapping$eqtl_blood))]
     # for these annotations, also consider the gene suggested by cadd
     tmp_posit <- mapping[which(mapping$source_finalGenes == "positional"),]
-    for (k in 1:nrow(tmp_posit)){
-      # identify cadd genes
-      if (is.na(tmp_posit$snp_conseq_gene[k])){
-        cadd_genes = NA
-      } else {
-        cadd_genes <- unlist(strsplit(tmp_posit$snp_conseq_gene[k], ","))
-      }
-      # identify positional genes
-      pos_genes <- unlist(strsplit(tmp_posit$positional_mapping[k], ","))
-      # check for pseudogenes and in case remove them
-      grp.pseu <- grep("\\.", cadd_genes)
-      if (length(grp.pseu) >0){ cadd_genes <- cadd_genes[-grp.pseu] }
-      if ((length(cadd_genes) ==0) || (is.na(cadd_genes))){ 
-        mapping$snp_conseq_gene[which(mapping$locus == tmp_posit$locus[k])] <- NA
-        mapping$geneList[which(mapping$locus == tmp_posit$locus[k])] <- paste0(pos_genes, collapse = ",")
-      } else {
-        tmp_common <- intersect(cadd_genes, pos_genes)
-        if (length(tmp_common) >0){
-          mapping$geneList[which(mapping$locus == tmp_posit$locus[k])] <- paste0(tmp_common, collapse = ",")
+    if (nrow(tmp_posit) > 0){
+      for (k in 1:nrow(tmp_posit)){
+        # identify cadd genes
+        if (is.na(tmp_posit$snp_conseq_gene[k])){
+          cadd_genes = NA
         } else {
-          mapping$geneList[which(mapping$locus == tmp_posit$locus[k])] <- paste0(c(pos_genes, cadd_genes), collapse = ",")
+          cadd_genes <- unlist(strsplit(tmp_posit$snp_conseq_gene[k], ","))
+        }
+        # identify positional genes
+        pos_genes <- unlist(strsplit(tmp_posit$positional_mapping[k], ","))
+        # check for pseudogenes and in case remove them
+        grp.pseu <- grep("\\.", cadd_genes)
+        if (length(grp.pseu) >0){ cadd_genes <- cadd_genes[-grp.pseu] }
+        if ((length(cadd_genes) ==0) || (is.na(cadd_genes))){ 
+          mapping$snp_conseq_gene[which(mapping$locus == tmp_posit$locus[k])] <- NA
+          mapping$geneList[which(mapping$locus == tmp_posit$locus[k])] <- paste0(pos_genes, collapse = ",")
+        } else {
+          tmp_common <- intersect(cadd_genes, pos_genes)
+          if (length(tmp_common) >0){
+            mapping$geneList[which(mapping$locus == tmp_posit$locus[k])] <- paste0(tmp_common, collapse = ",")
+          } else {
+            mapping$geneList[which(mapping$locus == tmp_posit$locus[k])] <- paste0(c(pos_genes, cadd_genes), collapse = ",")
+          }
         }
       }
     }
@@ -881,7 +884,7 @@ mergeSampling <- function(enrich.res){
       return(df) 
     }
     term_list <- unique(terms$term_id)
-    all.terms.avg <- rbindlist(mclapply(1:length(term_list), avgP, terms=terms, term_list = term_list, slow = slow, mc.cores=2))
+    all.terms.avg <- rbindlist(mclapply(1:length(term_list), avgP, terms=terms, term_list = term_list, slow = slow, mc.cores=1))
     all.terms.avg <- all.terms.avg[order(all.terms.avg$avgP),]
     all.terms.avg$log10P <- -log10(all.terms.avg$avgP)
     print(head(all.terms.avg))
@@ -926,7 +929,7 @@ readSNPs <- function(fname, ftype, MAIN, ref_version){
         d$pos <- as.numeric(as.character(tmp[, 2]))
         colnames(d) <- c("locus", "chr", "pos")
         # if requested reference was hg38, lift to hg19
-        if (ref_version == "GRCh38 (hg38)"){
+        if (ref_version == "GRCh38"){
           df <- data.frame(chr=paste("chr", d$chr, sep=""), start=d$pos, end=d$pos+1)
           # change to GR class object
           gr <- makeGRangesFromDataFrame(df)
@@ -947,7 +950,7 @@ readSNPs <- function(fname, ftype, MAIN, ref_version){
         d$locus <- paste(d$V1, d$V2, sep=":")
         colnames(d) <- c("chr", "pos", "locus")
         # if requested reference was hg38, lift to hg19
-        if (ref_version == "GRCh38 (hg38)"){
+        if (ref_version == "GRCh38"){
           df <- data.frame(chr=paste("chr", d$chr, sep=""), start=d$pos, end=d$pos+1)
           # change to GR class object
           gr <- makeGRangesFromDataFrame(df)
@@ -1013,7 +1016,7 @@ revigo <- function(avg_pvalues, thr){
     if (nrow(sig) >0){
         # output revigo input
         write.table(sig[, c("term_id", "avg_p")], paste("RESULTS_", random_num, "/revigo_inp.txt", sep=""), quote=F, row.names=F, col.names=F, sep="\t")    
-        path_finp = paste0("/Users/home/Desktop/SNPbrowser/gitHub_version/snpXplorer_v2/RESULTS_", random_num, "/revigo_inp.txt")
+        path_finp = paste0("/root/snpXplorer/snpXplorer_v2/RESULTS_", random_num, "/revigo_inp.txt")
         
         # set parameters for REVIGO
         # distance.meas can be: Lin -- SIMREL
@@ -1028,7 +1031,7 @@ revigo <- function(avg_pvalues, thr){
         system(cmd)
 
         # read output
-        d <- fread(paste("/Users/home/Desktop/SNPbrowser/gitHub_version/snpXplorer_v2/RESULTS_", random_num, "/revigo_out.csv", sep=""), h=T, sep=",")
+        d <- fread(paste("/root/snpXplorer/snpXplorer_v2/RESULTS_", random_num, "/revigo_out.csv", sep=""), h=T, sep=",")
         tmp = sig[, c("term_id", "avg_p")]
         d = merge(d, tmp, by.x = "TermID", by.y = "term_id")
         # remove input as it is not too informative
@@ -1037,7 +1040,7 @@ revigo <- function(avg_pvalues, thr){
 
         pdf(paste("RESULTS_", random_num, "/clustering_GO_terms.pdf", sep=""), height=11, width = 11)
         revigoPlot(d)
-        invisible(dev.off())
+        dev.off()
     } else {
         print(thr)
         cat("  !!! No significant GO terms enriched\n")
@@ -1050,7 +1053,7 @@ revigo <- function(avg_pvalues, thr){
 ## function to plot REVIGO results -- updated
 revigoPlot <- function(one.data){
   # take only terms that were not merged
-  one.data <- one.data[which(one.data$Eliminated == 0),]
+  one.data <- one.data[which(one.data$Eliminated == FALSE),]
   
   # do some adjustements
   one.data$PlotX <- as.numeric(one.data$PlotX)
@@ -1138,8 +1141,8 @@ findLD <- function(i, data){
   r = 0.10
   
   # command
-  plink_dir = "/Users/home/Desktop/SNPbrowser/gitHub_version/public_version_BIN/plink"
-  kg_dir = "/Users/home/Desktop/SNPbrowser/gitHub_version/data/databases/1000G_eur/chr"
+  plink_dir = "/root/snpXplorer/snpXplorer_v2/plink"
+  kg_dir = "/root/snpXplorer/data/databases/1000G_eur/chr"
   cmd = paste(plink_dir, " --bfile ", kg_dir, sb$chr, "_eur --r2 --ld-snp ", sb$ID, " --ld-window-kb ", w, " --out ld_", sb$ID, sep="")
   system(cmd, ignore.stdout = T)
   
@@ -1244,7 +1247,7 @@ alternative_revigo_results <- function(MAIN, random_num, go_data){
     data = fread(paste0("RESULTS_", random_num, "/alternative_Lin_distance.txt"), h=T)
     
     # Plot heatmap and save it
-    png(paste0("RESULTS_", random_num, "/pheatmap_lin_distance.png"), height=7, width=7, res=300, units="in")
+    pdf(paste0("RESULTS_", random_num, "/pheatmap_lin_distance.pdf"), height=7, width=7)
     pheatmap(data, show_rownames = F, show_colnames = F, main="Semantic similarity matrix of GO terms")
     dev.off()
     
@@ -1317,7 +1320,7 @@ alternative_revigo_results <- function(MAIN, random_num, go_data){
 # function to count the number of occurrences of each word given a vector of sentences
 CountFrequency_words <- function(functional_clusters, n_clust){
   # Read the description of all GO:BP -- this will be the background to remove redundant words
-  all_go_bp <- fread("/Users/home/Desktop/SNPbrowser/gitHub_version/AnnotateMe/BIN/go_terms_BP_all.txt", h=F, stringsAsFactors = F, sep="\t")
+  all_go_bp <- fread("/root/snpXplorer/AnnotateMe/BIN/go_terms_BP_all.txt", h=F, stringsAsFactors = F, sep="\t")
   
   colnames(functional_clusters) <- c("term", "cluster", "cluster_in_dendro", "term.y")
   # need to remove the (GO id) from the term name
@@ -1533,7 +1536,7 @@ function_findSVs <- function(i, annot, all_str_hg38){
 
 # MAIN
 ## read main snp file and do the necessary adjustments
-MAIN = "/Users/home/Desktop/SNPbrowser/gitHub_version/AnnotateMe/"
+MAIN = "/root/snpXplorer/AnnotateMe/"
 ## Read arguments
 fname <- args[1]
 #fname <- "/Users/home/Desktop/SNPbrowser/gitHub_version/snpXplorer_v2/RESULTS_65963/annotateMe_input_47224.txt"
@@ -1548,15 +1551,16 @@ interesting_tissues = unlist(strsplit(as.character(args[5]), ","))
 ref_version = as.character(args[6])
 
 ## send email myself to notify that someone made a request
-cmd_mail <- paste("sendEmail -f snpXplorer@gmail.com -t n.tesi@amsterdamumc.nl -u 'AnnotateMe request sent' -m 'Hello, \n a request to AnnotateMe was just sent from ", username, ". \n \n AnnotateMe' -s ", sep="")
+cmd_mail <- paste("sendEmail -f snpxplorer@gmail.com -t n.tesi@amsterdamumc.nl -u 'AnnotateMe request sent' -m 'Hello, \n a request to AnnotateMe was just sent from ", username, ". \n \n AnnotateMe' -S /usr/sbin/sendmail")
+#cmd_mail <- paste("sendEmail -f snpXplorer@gmail.com -t n.tesi@amsterdamumc.nl -u 'AnnotateMe request sent' -m 'Hello, \n a request to AnnotateMe was just sent from ", username, ". \n \n AnnotateMe' -s smtp.gmail.com:25 -xu snpXplorer@gmail.com -xp snpXplorer22101991!", sep="")
 system(cmd_mail)
 
 ## create folder for results -- add a random number
 random_num <- sample(x = seq(1, 100000), size = 1, replace = F)
-cmd = paste("mkdir RESULTS_", random_num, sep="")
+cmd = paste("mkdir /root/snpXplorer/snpXplorer_v2/RESULTS_", random_num, sep="")
 system(cmd)
 ## also put input file with the list of snps in the folder
-cmd = paste("cp ", fname, " RESULTS_", random_num, "/", sep="")
+cmd = paste("cp /root/snpXplorer/snpXplorer_v2/", fname, " /root/snpXplorer/snpXplorer_v2/RESULTS_", random_num, "/", sep="")
 system(cmd)
 
 ## read input data
@@ -1591,7 +1595,7 @@ ld_info = data.frame(chr=NULL, pos=NULL)
 
 ## read additional needed files: gtex, ensemble-gene_name mapping and gene positions
 cat("## Loading all genes and gtex\n")
-load("/Users/home/Desktop/SNPbrowser/gitHub_version/data/databases/annotationFiles.RData")
+load("/root/snpXplorer/AnnotateMe/INPUTS_OTHER/annotationFiles.RData")
 genes <- fread(paste(MAIN, "INPUTS_OTHER/NCBI37.3.gene.loc", sep=""), h=F, stringsAsFactors=F)
 colnames(genes) <- c("gene_id", "chr", "start_tss", "stop_tss", "strand", "gene_name")
 gtex <- fread(paste(MAIN, "INPUTS_OTHER/Whole_Blood.v8.signif_variant_gene_pairs.txt.gz", sep=""))
@@ -1613,7 +1617,7 @@ res <- AnnotateMe(data, genes, gtex, mapping.ens, ftype, MAIN, ld_info, cadd)
 annot <- res[[1]]
 geneList <- res[[2]]
 # also nice to output the SVs close to the snps
-all_sv = rbindlist(mclapply(1:nrow(annot), function_findSVs, annot = annot, all_str_hg38 = all_str_hg38, mc.cores=2))
+all_sv = rbindlist(mclapply(1:nrow(annot), function_findSVs, annot = annot, all_str_hg38 = all_str_hg38, mc.cores=1))
 write.table(all_sv, paste0("RESULTS_", random_num, "/SNP_and_SV_overlap.txt"), quote=F, row.names=F, sep="\t")
 cat("## Annotation is done. Now making plots and functional enrichment analysis.\n")
 
@@ -1673,10 +1677,12 @@ if (length(unique(geneList)) >1){
       dbs <- c(dbs, "REAC")
     }
   }
-  enrich.res <- mclapply(1:n.sampl, overlapAnalysis, gene_list=gene_sampling_dsets, source_gset = dbs, mc.cores=2)
-  #enrich.res <- mclapply(1:n.sampl, newGeneSetEnrichment, gene_list=gene_sampling_dsets, mc.cores=2)
+  enrich.res <- mclapply(1:n.sampl, overlapAnalysis, gene_list=gene_sampling_dsets, source_gset = dbs, mc.cores=1)
+  # save enrichment results for troubleshooting
+  #save(enrich.res, file = paste("RESULTS_", random_num, "/enrichment_results.RData", sep=""))
+  #enrich.res <- mclapply(1:n.sampl, newGeneSetEnrichment, gene_list=gene_sampling_dsets, mc.cores=1)
   #library(enrichR)
-  #enrich.res <- mclapply(1:n.sampl, overlapAnalysis_enrichR, gene_list=gene_sampling_dsets, dbs = dbs, mc.cores=2)
+  #enrich.res <- mclapply(1:n.sampl, overlapAnalysis_enrichR, gene_list=gene_sampling_dsets, dbs = dbs, mc.cores=1)
   cat("  Merging and cleaning results\n")
   sampling.res <- mergeSampling(enrich.res)
   #sampling.res <- mergeSampling_enrichR(enrich.res, dbs)
@@ -1706,34 +1712,39 @@ if (length(unique(geneList)) >1){
     go_data$source_gset = str_split_fixed(go_data$term_id, ":", 2)[, 1]
     go_data <- go_data[which(go_data$source_gset == "GO"),]
     # last thing is to run REVIGO and make the plot
-    try(revigo_res <- revigo(avg_pvalues = go_data, thr = 0.01), silent = T)
+    revigo_res <- revigo(avg_pvalues = go_data, thr = 0.01)
     # maybe nice to also do the alternative to revigo -- manual
     semsim_results = alternative_revigo_results(MAIN, random_num, go_data)
     functional_clusters = semsim_results[[1]]
     lin_matrix <- semsim_results[[2]]
     n_clust = semsim_results[[3]]
     
-    # save the whole gene-set enrichment analysis
-    tmp = functional_clusters
-    tmp$term_name = NULL
-    go_data = merge(go_data, tmp, by.x = "term_id", by.y = "term", all.x = T)
-    go_data = go_data[order(go_data$avg_p),]
-    go_data$cluster = NULL
-    write.table(go_data, file = paste0("RESULTS_", random_num, "/geneSet_enrichment_results_and_clusters.txt"), quote=F, row.names=F, sep="\t")
-    
-    # let's try to make some wordcloud images
-    if (!is.na(functional_clusters)){
-      mostFreq_words <- CountFrequency_words(functional_clusters, n_clust)
+    if (length(functional_clusters) == 1){
+      write.table(go_data, file = paste0("RESULTS_", random_num, "/geneSet_enrichment_results_and_clusters.txt"), quote=F, row.names=F, sep="\t")
+    } else {
+      # save the whole gene-set enrichment analysis
+      tmp = functional_clusters
+      tmp$term_name = NULL
+      go_data = merge(go_data, tmp, by.x = "term_id", by.y = "term", all.x = T)
+      go_data = go_data[order(go_data$avg_p),]
+      go_data$cluster = NULL
+      write.table(go_data, file = paste0("RESULTS_", random_num, "/geneSet_enrichment_results_and_clusters.txt"), quote=F, row.names=F, sep="\t")
+      
+      # let's try to make some wordcloud images
+      if (!is.na(functional_clusters)){
+        mostFreq_words <- CountFrequency_words(functional_clusters, n_clust)
+      }
     }
   }
   cat("\n## Analysis done. Hope results make sense :)\n")
   
   # before sending everytihng, also add the file description in the folder
-  system(paste0("cp /Users/home/Desktop/snpXplorer_output_description.pdf RESULTS_", random_num, "/"))
+  system(paste0("cp /root/snpXplorer/snpXplorer_v2/www/snpXplorer_output_description.pdf RESULTS_", random_num, "/"))
   # finally compress result folder and send it
   cmd_compress <- paste("tar -czf AnnotateMe_results_", random_num, ".tar.gz RESULTS_", random_num, "/", sep="")
   system(cmd_compress)
-  cmd_mail <- paste("sendEmail -f snpXplorer@gmail.com -t ", username, " -u 'AnnotateMe results' -m 'Dear user, \n thanks so much for using snpXplorer and AnnotateMe. \n We hope you find the tool useful. \n AnnotateMe team.' -a 'AnnotateMe_results_", random_num, ".tar.gz' -cc n.tesi@amsterdamumc.nl ", sep="")
+  #cmd_mail <- paste("sendEmail -f snpXplorer@gmail.com -t ", username, " -u 'AnnotateMe results' -m 'Dear user, \n thanks so much for using snpXplorer and AnnotateMe. \n We hope you find the tool useful. \n AnnotateMe team.' -a 'AnnotateMe_results_", random_num, ".tar.gz' -cc n.tesi@amsterdamumc.nl -s smtp.gmail.com:25 -xu snpXplorer@gmail.com -xp snpXplorer22101991!", sep="")
+  cmd_mail <- paste0("sendEmail -f snpxplorer@gmail.com -t ", username, " -u 'AnnotateMe results' -m 'Dear user, \n thanks so much for using snpXplorer and AnnotateMe. \n We hope you find the tool useful. \n AnnotateMe team.' -a 'AnnotateMe_results_", random_num, ".tar.gz' -cc n.tesi@amsterdamumc.nl -S /usr/sbin/sendmail")
   system(cmd_mail)
   # finally also remove input annotateME list of snps
   cmd = paste("rm ", fname, sep="")
@@ -1762,7 +1773,8 @@ if (length(unique(geneList)) >1){
   # finally compress result folder and send it
   cmd_compress <- paste("tar -czf AnnotateMe_results_", random_num, ".tar.gz RESULTS_", random_num, "/", sep="")
   system(cmd_compress)
-  cmd_mail <- paste("sendEmail -f snpXplorer@gmail.com -t ", username, " -u 'AnnotateMe results' -m 'Dear user, \n thanks so much for using snpXplorer and AnnotateMe. \n Unfortunately, due to a low number of genes found in your SNPs, we could not perform gene-set enrichment analysis. \n We hope you find the tool useful. \n AnnotateMe team.' -a 'AnnotateMe_results_", random_num, ".tar.gz' -cc n.tesi@amsterdamumc.nl -s smtp.gmail.com:25 -xu snpXplorer@gmail.com -xp snpXplorer22101991!", sep="")
+  #cmd_mail <- paste("sendEmail -f snpXplorer@gmail.com -t ", username, " -u 'AnnotateMe results' -m 'Dear user, \n thanks so much for using snpXplorer and AnnotateMe. \n Unfortunately, due to a low number of genes found in your SNPs, we could not perform gene-set enrichment analysis. \n We hope you find the tool useful. \n AnnotateMe team.' -a 'AnnotateMe_results_", random_num, ".tar.gz' -cc n.tesi@amsterdamumc.nl -s smtp.gmail.com:25 -xu snpXplorer@gmail.com -xp snpXplorer22101991!", sep="")
+  cmd_mail <- paste0("sendEmail -f snpxplorer@gmail.com -t ", username, " -u 'AnnotateMe results' -m 'Dear user, \n thanks so much for using snpXplorer and AnnotateMe. \n Unfortunately, due to a low number of genes found in your SNPs, we could not perform gene-set enrichment analysis. \n We hope you find the tool useful. \n AnnotateMe team.' -a 'AnnotateMe_results_", random_num, ".tar.gz' -cc n.tesi@amsterdamumc.nl -S /usr/sbin/sendmail")
   system(cmd_mail)
   # finally also remove input annotateME list of snps
   cmd = paste("rm ", fname, sep="")
@@ -1797,7 +1809,7 @@ cat("###########################################")
     #    return(tmp.mt)
     #}
 #}
-# res_genes <- mclapply(1:nrow(gwas.sb), tmp_f, gwas.sb=gwas.sb, intervals=intervals, mc.cores=3)     # annotate every row (~200k rows)
+# res_genes <- mclapply(1:nrow(gwas.sb), tmp_f, gwas.sb=gwas.sb, intervals=intervals, mc.cores=1)     # annotate every row (~200k rows)
 # all.genes <- as.data.frame(rbindlist(res_genes))       # merge results
 # all.genes <- all.genes[!is.na(all.genes), ]       # exclude NAs
 # write.table(all.genes, "INPUTS_OTHER/Gwas_catalog_Gene_Traits.txt", quote=F, row.names=F, sep="\t")
