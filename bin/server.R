@@ -18,6 +18,7 @@ library(shinyjs)
 library(stringr)
 library(plotrix)
 })
+par(family  = "Arial")
 
 # FUNCTIONS
 #####
@@ -171,7 +172,7 @@ function.plot <- function(snp.info, y.lim, type, plt.type, windows.number, smoot
     #lines(x = xl, y = pred, col='navy', lwd=4)
     
     # add density
-    polygon(x = xl, y = pred, col = alpha(colorPoint, 0.6), lwd=2, xaxs="i")
+    polygon(x = xl, y = pred, col = alpha(colorPoint, 0.6), lwd=3, xaxs="i", border = colorPoint)
     
     #if input type was a single snp (either position or rs id), then color the searched variant differently -- here is a bar
     if (type %in% c("Position", "Rs ID")){
@@ -767,6 +768,7 @@ function.multiPlot <- function(snp.info, list_for_loop, y.lim, type, plt.type, w
     # main loop across all data to include, but first define output lists
     xl_list = list()
     pred_list = list()
+    options(warn = -1)
     for (i in 1:length(snp.info)){
       #print(paste0("working on ", list_for_loop[i]))
       # get the data
@@ -790,8 +792,9 @@ function.multiPlot <- function(snp.info, list_for_loop, y.lim, type, plt.type, w
     }
     
     # then put the pvalue densities
-    for (i in 1:length(xl_list)){ polygon(x = xl_list[[i]], y = pred_list[[i]], col = alpha(col_list[[i]], 0.4), lwd=2, xaxs="i", xpd=T) }
-
+    for (i in 1:length(xl_list)){ polygon(x = xl_list[[i]], y = pred_list[[i]], col = alpha(col_list[[i]], 0.4), border = col_list[[i]], lwd=3, xaxs="i", xpd=T) }
+    options(warn = 0)
+    
     #if input type was a single snp (either position or rs id), then color the searched variant differently -- here is a bar
     snp.interest.flag <- 0
     # if (type %in% c("Position", "Rs ID")){
@@ -1281,7 +1284,7 @@ function.manageInput <- function(inp, supp_f){
     dat$'-log10(P-value)' <- -log10(dat$p)
     gwas <- 'IGAP'
   } else if (inp == 'CAD') {
-    dat <- fread('../data/CAD/chr19_CAD.txt.gz', h=T, stringsAsFactors=F)
+    dat <- fread('../data/CAD/chr19_CAD.txt.gz', h=F, stringsAsFactors = F)
     colnames(dat) <- c('chr', 'pos', 'p')
     dat <- dat[!which(is.na(dat$p)),]
     dat$p[which(dat$p == 0)] <- 0.00000001
@@ -1289,6 +1292,15 @@ function.manageInput <- function(inp, supp_f){
     dat$p <- as.numeric(dat$p)
     dat$'-log10(P-value)' <- -log10(dat$p)
     gwas <- 'CAD'
+  } else if (inp == 'CAD_Diabetics') {
+    dat <- fread('../data/CAD_Diabetics/chr19_CAD_Diabetics.txt.gz', h=T, stringsAsFactors=F)
+    colnames(dat) <- c('chr', 'pos', 'p')
+    dat <- dat[!which(is.na(dat$p)),]
+    dat$p[which(dat$p == 0)] <- 0.00000001
+    chrom <- dat$chr[1]
+    dat$p <- as.numeric(dat$p)
+    dat$'-log10(P-value)' <- -log10(dat$p)
+    gwas <- 'CAD_Diabetics'
   } else if (inp == '100plus') {
     dat <- fread('../data/100plus/chr19_100plus.txt.gz', h=T, stringsAsFactors=F)
     colnames(dat) <- c('chr', 'pos', 'p')
@@ -1298,15 +1310,15 @@ function.manageInput <- function(inp, supp_f){
     dat$p <- as.numeric(dat$p)
     dat$'-log10(P-value)' <- -log10(dat$p)
     gwas <- '100plus'
-  } else if (inp == 'MetaGrace') {
-    dat <- fread('../data/MetaGrace/chr19_MetaGrace.txt.gz', h=T, stringsAsFactors=F)
+  } else if (inp == 'GR@ACE') {
+    dat <- fread('../data/GR@ACE/chr19_GR@ACE.txt.gz', h=T, stringsAsFactors=F)
     colnames(dat) <- c('chr', 'pos', 'p')
     dat <- dat[!which(is.na(dat$p)),]
     dat$p[which(dat$p == 0)] <- 0.00000001
     chrom <- dat$chr[1]
     dat$p <- as.numeric(dat$p)
     dat$'-log10(P-value)' <- -log10(dat$p)
-    gwas <- 'MetaGrace'
+    gwas <- 'GR@ACE'
   } else if (inp == 'UKBaging') {
     dat <- fread('../data/UKBaging/chr19_UKBaging.txt.gz', h=T, stringsAsFactors=F)
     colnames(dat) <- c('chr', 'pos', 'p')
@@ -1630,7 +1642,7 @@ plotTable <- function(input){
       
       # assign to toplot object
       toplot <- res
-      
+
       # The following in case multiple gwas need to be plotted
     } else {
       #check whether uploaded file is among those to show
@@ -1795,12 +1807,16 @@ plotTable <- function(input){
             }          
           }
         }
-        
+
         # merge results together
         for (i in 1:length(list_for_results)){
           tmp <- list_for_results[[i]]
-          tmp$Study <- list_for_loop[i]
-          list_for_results[[i]] <- tmp
+          if (nrow(tmp) >0){
+            tmp$Study <- list_for_loop[i]
+            list_for_results[[i]] <- tmp
+          } else {
+            list_for_results[[i]] <- NULL
+          }
         }
         toplot <- rbindlist(list_for_results)
         
@@ -1810,7 +1826,7 @@ plotTable <- function(input){
     
     # This in case you want manual scroll
   } else if (input$sel == "Manual scroll"){
-    if (length(input$gwas) < 2){
+    if (length(all_gwas) < 2){
       # manage different manual scroll input
       snp.info <- function.InputManualScroll(dat = dat, window = input$x, input.scroll = input$manual.pos, input.chrom = input$manual.chrom, gwas)
       
@@ -1823,19 +1839,54 @@ plotTable <- function(input){
       if (path_f == "None"){
         # loop over the gwas to plot
         # define some outputs -- the first is the names of the gwases to be plotted
-        list_for_loop <- input$gwas
+        list_for_loop <- all_gwas
         # the second i the actual data to plot
         list_for_results <- list()
         # the third is the color for each gwas
         col_list <- list()
         for (gw in 1:length(list_for_loop)){
           if (gw == 1){
-            tmp <- as.character(input$gwas[1])
+            tmp <- as.character(all_gwas[gw])
             dat_tmp <- function.InputManualScroll(dat = dat, window = input$x, input.scroll = input$manual.pos, input.chrom = input$manual.chrom, tmp)
             list_for_results[[gw]] <- dat_tmp
             col_list[[gw]] <- input$col
           } else {
-            tmp <- as.character(input$gwas[gw])
+            tmp <- as.character(all_gwas[gw])
+            res <- function.manageInput(tmp, path_f)
+            dat_tmp <- as.data.frame(res[[1]])
+            chrom_tmp <- as.data.frame(res[[2]])
+            dat_tmp <- function.InputManualScroll(dat = dat_tmp, window = input$x, input.scroll = input$manual.pos, input.chrom = input$manual.chrom, tmp)
+            list_for_results[[gw]] <- dat_tmp
+            if (gw == 2){ col_list[[gw]] <- input$col2 } else if (gw == 3){ col_list[[gw]] <- input$col3 } else if (gw == 4){ col_list[[gw]] <- input$col4 } else if (gw == 5){ col_list[[gw]] <- input$col5 }
+          }
+        }
+
+        # merge results together
+        for (i in 1:length(list_for_results)){
+          tmp <- list_for_results[[i]]
+          if (nrow(tmp) >0){
+            tmp$Study <- all_gwas[i]
+            list_for_results[[i]] <- tmp
+          } else {
+            list_for_results[[i]] <- NULL
+          }
+        }
+        toplot <- rbindlist(list_for_results)
+        # In the following case, the file is loaded -- to be completed
+      } else {
+        list_for_loop <- all_gwas
+        # the second is the actual data to plot
+        list_for_results <- list()
+        # the third is the color for each gwas
+        col_list <- list()
+        for (gw in 1:length(list_for_loop)){
+          if (gw == 1){
+            tmp <- as.character(all_gwas[gw])
+            dat_tmp <- function.InputManualScroll(dat = dat, window = input$x, input.scroll = input$manual.pos, input.chrom = input$manual.chrom, tmp)
+            list_for_results[[gw]] <- dat_tmp
+            col_list[[gw]] <- input$col
+          } else {
+            tmp <- as.character(all_gwas[gw])
             res <- function.manageInput(tmp, path_f)
             dat_tmp <- as.data.frame(res[[1]])
             chrom_tmp <- as.data.frame(res[[2]])
@@ -1848,32 +1899,14 @@ plotTable <- function(input){
         # merge results together
         for (i in 1:length(list_for_results)){
           tmp <- list_for_results[[i]]
-          tmp$Study <- input$gwas[i]
-          list_for_results[[i]] <- tmp
+          if (nrow(tmp) >0){
+            tmp$Study <- list_for_loop[i]
+            list_for_results[[i]] <- tmp
+          } else {
+            list_for_results[[i]] <- NULL
+          }
         }
         toplot <- rbindlist(list_for_results)
-        
-        # In the following case, the file is loaded -- to be completed
-      } else {
-        #first dataset -- this is the loaded one
-        index_upl <- grep("toLoad", input$gwas)
-        d1 <- input$gwas[index_upl]
-        res = function.manageInput(d1, path_f)
-        dat = as.data.frame(res[[1]])
-        chrom = as.numeric(res[[2]])
-        gwas = as.character(res[[3]])
-        snp.info <- function.InputManualScroll(dat = dat, window = input$x, input.scroll = input$manual.pos, input.chrom = input$manual.chrom, d1)
-        
-        #second dataset
-        index_oth <- which(input$gwas != "toLoad")
-        d2 <- input$gwas[index_oth]
-        res.2 = function.manageInput(d2, "None")
-        dat.2 = as.data.frame(res.2[[1]])
-        chrom.2 = as.numeric(res.2[[2]])
-        gwas.2 = as.character(res.2[[3]])
-        snp.info.2 <- function.InputManualScroll(dat = dat.2, window = input$x, input.scroll = input$manual.pos, input.chrom = input$manual.chrom, d2)
-        
-        #plot
         
         #######################################
       }
@@ -1882,7 +1915,9 @@ plotTable <- function(input){
   
   # for the table, add the study name as a column
   if (length(all_gwas) <2){
-    toplot$Study <- gwas
+    if (nrow(toplot) >0){
+      toplot$Study <- gwas
+    }
   }
   # finally reorder
   toplot <- toplot[order(toplot$p),]
@@ -1958,7 +1993,7 @@ plotTable_SVs <- function(input){
   tmp_svs$col <- NULL
   tmp_svs$y_plot <- NULL
   tmp_svs$middle <- NULL
-  tmp_svs$source[which(tmp_svs$source == "jasper")] <- "Linthrost_et_al_2020"
+  tmp_svs$source[which(tmp_svs$source == "jasper")] <- "Linthorst_et_al_2020"
   tmp_svs$source[which(tmp_svs$source == "audano")] <- "Audano_et_al_2019"
   tmp_svs$source[which(tmp_svs$source == "chaisson")] <- "Chaisson_et_al_2019"
   return(tmp_svs)
@@ -2189,7 +2224,7 @@ plotEqtl_table_all <- function(snps_in_interval, eQTL, mapping.ensembl, GENOME, 
   # for the grep, need to create some ids
   sb$IDs = paste0(sb$chr, "_", sb$pos_hg38, "_")
   # read gtex file for the correct chromosome
-  tmp_gtx = fread(paste0("/Users/home/Desktop/SNPbrowser/gitHub_version/AnnotateMe/INPUTS_OTHER/summary_eqtls/", unique(sb$chr), "_summary_eqtls.txt.gz"), h=F, sep="\t", stringsAsFactors = F)
+  tmp_gtx = fread(paste0("/root/snpXplorer/AnnotateMe/INPUTS_OTHER/summary_eqtls/", unique(sb$chr), "_summary_eqtls.txt.gz"), h=F, sep="\t", stringsAsFactors = F)
   tmp_gtx$pos = as.numeric(str_split_fixed(tmp_gtx$V1, "_", 5)[, 2])
   tmp_gtx = merge(tmp_gtx, sb, by.x = "pos", by.y="pos_hg38")
   # then grep on the tissue
@@ -2282,6 +2317,7 @@ shinyServer(
       
       # create a variable to control the error and the plot
       plot_error = FALSE
+      plot_error_sex = FALSE
       
       # also check and store the populations selected in case LD calculation is requested
       pop_interest_ld = c(input$pop_afr, input$pop_amr, input$pop_eas, input$pop_eur, input$pop_sas)
@@ -2312,10 +2348,12 @@ shinyServer(
                 res <- function.InputPos(dat = dat, window = input$x, snp_locus, gwas)
                 if ((nrow(res) == 0) || (snp_locus$chr != res$chr)){
                   plot_error = TRUE
+                  plot_error_sex = FALSE
                 }
               }
             } else {
               plot_error = TRUE
+              plot_error_sex = FALSE
             }        
 
           # chromosome:position case  
@@ -2328,6 +2366,7 @@ shinyServer(
               res <- function.InputPos(dat = dat, window = input$x, snp_locus, gwas)
               if ((nrow(res) == 0) || (snp_locus$chr != res$chr)){
                 plot_error = TRUE
+                plot_error_sex = FALSE
               }
             }
         
@@ -2342,10 +2381,12 @@ shinyServer(
                 res <- function.GWASfromGene(dat = dat, gene.info = gene.info, window = input$x, gwas)
                 if ((nrow(res) == 0) || (paste0("chr", res$chr) != gene.info$chrom)){
                   plot_error = TRUE
+                  plot_error_sex = FALSE
                 }
               }
             } else {
               plot_error = TRUE
+              plot_error_sex = FALSE
             }
           }
           # plot
@@ -2799,7 +2840,7 @@ shinyServer(
           fname = paste0("../bug_report/Bug_report_", str_replace_all(Sys.time(), " ", "_"), ".txt")
           write.table(toreport, fname, quote=F, row.names=F, sep = "\t")
           # finally send an email to me
-          cmd_mail <- paste("sendEmail -f snpXplorer@gmail.com -t n.tesi@amsterdamumc.nl -u 'AnnotateMe request sent' -m 'Hello, \n a new bug report has been added.", sep="")
+          cmd_mail <- paste("sendEmail -f snpXplorer@gmail.com -t n.tesi@amsterdamumc.nl -u 'AnnotateMe request sent' -m 'Hello, \n a new bug report has been added.' -s smtp.gmail.com:25 -xu snpXplorer@gmail.com -xp snpXplorer22101991!", sep="")
           system(cmd_mail, wait = F)
           plot(0, pch=16, col="white", bty="n", xlab="", ylab="", xaxt="none", yaxt="none", xlim=c(0, 1), ylim=c(0, 1))
           text(x=0.5, y=0.75, labels="Bug reported! Thanks for helping!", font=2, cex=2.25, xpd=T)
@@ -2826,13 +2867,14 @@ shinyServer(
              if (ftype == "chr:pos (1:12345678)"){ ftype = 1 } else if (ftype == "chr pos (1 12345678)"){ ftype = 2 } else if (ftype == "rsid (rs12345)"){ ftype = 3 }
              # Take the reference genome version
              ref_version = as.character(input$snp_list_reference)
+             ref_version = str_split_fixed(ref_version, " ", 2)[, 1]
              # Save user email
              username <- as.character(input$email)
              # Save analysis setting
              analysis_mode = paste0(as.character(input$analysis_mode), collapse = ",")
              gtex_tissues = paste0(input$gtex_type, collapse = ",")
              # Then run annotate me externally in background
-             annotateMe.cmd <- paste("Rscript /Users/home/Desktop/SNPbrowser/gitHub_version/AnnotateMe/BIN/20200430_AnnotateMe_server.R annotateMe_input_", random_num, ".txt ", ftype, " ", username, " ", analysis_mode, " ", gtex_tissues, " ", ref_version, sep="")
+             annotateMe.cmd <- paste("Rscript /root/snpXplorer/AnnotateMe/BIN/20200430_AnnotateMe_server.R annotateMe_input_", random_num, ".txt ", ftype, " ", username, " ", analysis_mode, " ", gtex_tissues, " ", ref_version, sep="")
              print(annotateMe.cmd)
              system(annotateMe.cmd, ignore.stdout = F, wait = F)
              # Finally update the email address so that AnnotateMe is not executed every time user load a new page
@@ -2851,11 +2893,15 @@ shinyServer(
     output$table <- renderTable({
       # take results from function
       toplot_table <- plotTable(input)
-      colnames(toplot_table) <- c("Chr", "Position", "-log10(P)", "Study")
-      # assign rsid
-      toplot_table = assignRSID(data = toplot_table, genV = input$genV)
-      top <- head(toplot_table, 10)
-      # plot top 10
+      # assign colnames and rsid if there are hits
+      if (nrow(toplot_table) >0){
+        colnames(toplot_table) <- c("Chr", "Position", "-log10(P)", "Study")
+        toplot_table = assignRSID(data = toplot_table, genV = input$genV)
+        # plot top 10
+        top <- head(toplot_table, 10)
+      } else {
+        top = data.frame(Chr = "No SNPs", Position = "in the", "-log10(P)" = "region of", Study = "interest")
+      }
       return(top)
     })
     
@@ -2929,29 +2975,31 @@ shinyServer(
     output$table_info <- renderTable({
       studies_table <- as.data.frame(matrix(data=NA, nrow=18, ncol = 5))
       colnames(studies_table) <- c("Class", "Name", "Trait", "Authors", "Reference")
-      studies_table[1, ] <- c("Neurological", "IGAP", "Alzheimer's disease", "Kunkle et al., 2019", "https://doi.org/10.1038/s41588-019-0358-2")
-      studies_table[2, ] <- c("Neurological", "proxy_AD", "by-proxy Alzheimer's", "Jansen et al., 2019", "https://doi.org/10.1038/s41588-018-0311-9")
-      studies_table[3, ] <- c("Neurological", "Autism", "Autism", "Matoba et al., 2020", "https://doi.org/10.1038/s41398-020-00953-9")
-      studies_table[4, ] <- c("Neurological", "Depression", "Depression", "Cai et al., 2020", "https://doi.org/10.1038/s41588-020-0594-5")
-      studies_table[5, ] <- c("Cardiovascular", "CAD", "Coronary artery disease in diabetes", "Fall et al., 2018", "https://doi.org/10.1007/s00125-018-4686-z")
-      studies_table[6, ] <- c("Cardiovascular", "Ventricular volumne", "Ventricular volume", "Vojinovic et al., 2018", "https://doi.org/10.1038/s41467-018-06234-w")
-      studies_table[7, ] <- c("Cardiovascular", "SBP", "Sistolic blood pressure", "Evangelou et al., 2018", "https://doi.org/10.1038/s41588-018-0205-x")
-      studies_table[8, ] <- c("Cardiovascular", "BMI", "Body-mass index", "Yengo et al., 2018", "https://doi.org/10.1093/hmg/ddy271")
-      studies_table[9, ] <- c("Cardiovascular", "Diabetes", "Type I Diabetes Mellitus", "Forgetta et al., 2020", "https://doi.org/10.2337/db19-0831")
-      studies_table[10, ] <- c("Immunological", "COVID", "COVID-19 critical illness", "Erola Pairo-Castineira et al. 2020", "https://doi.org/10.1038/s41586-020-03065-y")
-      studies_table[11, ] <- c("Immunological", "Lupus", "Systemic Lupus", "Yong-Fei Wang et al. 2021", "https://doi.org/10.1038/s41467-021-21049-y")
-      studies_table[12, ] <- c("Immunological", "Inflammation", "Inflammatory Biomarkers", "Sanni E. Ruotsalainen et al., 2020", "https://doi.org/10.1038/s41431-020-00730-8")
-      studies_table[13, ] <- c("Immunological", "Asthma", "Asthma", "Han et al., 2020", "https://doi.org/10.1038/s41467-020-15649-3")
-      studies_table[14, ] <- c("Cancer", "Breast_cancer", "Breast cancer", "Zhang et al., 2020", "https://doi.org/10.1038/s41588-020-0609-2")
-      studies_table[15, ] <- c("Cancer", "Myeloproliferative", "Myeloproliferative neoplasm", "Erik L. Bao et al., 2020", "https://doi.org/10.1038/s41586-020-2786-7")
-      studies_table[16, ] <- c("Cancer", "Prostate", "Prostate cancer", "Peter N. Fiorica et al., 2020", "https://doi.org/10.1371/journal.pone.0236209")
-      studies_table[17, ] <- c("Cancer", "Lung", "Lung cancer", "Sara R. Rashkin et al., 2020", "https://doi.org/10.1038/s41467-020-18246-6")
-      studies_table[18, ] <- c("Cancer", "Leukemia", "Lymphocytic Leukemia", "Sara R. Rashkin et al., 2020", "https://doi.org/10.1038/s41467-020-18246-6")
-      studies_table[19, ] <- c("Physiological", "UKBaging", "Parental longevity", "Timmers et al., 2019", "https://doi.org/10.7554/eLife.39856")
-      studies_table[20, ] <- c("Physiological", "Height", "Height", "Yengo et al., 2018", "https://doi.org/10.1093/hmg/ddy271")
-      studies_table[21, ] <- c("Physiological", "Education", "Education", "Perline A. Demange et al., 2021", "https://doi.org/10.1038/s41588-020-00754-2")
-      studies_table[22, ] <- c("Physiological", "Bone density", "Bone density and fracture risk", "Ida Surakka et al., 2020", "https://doi.org/10.1038/s41467-020-17315-0")
-      studies_table[23, ] <- c("Physiological", "Vitamin D", "Vitamin D", "Manousaki et al., 2020", "https://doi.org/10.1016/j.ajhg.2020.01.017")
+      studies_table[1, ] <- c("Neurological", "GR@ACE", "Alzheimer's disease", "De Rojas et al., 2021", "https://doi.org/10.1038/s41467-021-22491-8")
+      studies_table[2, ] <- c("Neurological", "IGAP", "Alzheimer's disease", "Kunkle et al., 2019", "https://doi.org/10.1038/s41588-019-0358-2")
+      studies_table[3, ] <- c("Neurological", "proxy_AD", "by-proxy Alzheimer's", "Jansen et al., 2019", "https://doi.org/10.1038/s41588-018-0311-9")
+      studies_table[4, ] <- c("Neurological", "Autism", "Autism", "Matoba et al., 2020", "https://doi.org/10.1038/s41398-020-00953-9")
+      studies_table[5, ] <- c("Neurological", "Depression", "Depression", "Cai et al., 2020", "https://doi.org/10.1038/s41588-020-0594-5")
+      studies_table[6, ] <- c("Cardiovascular", "CAD", "Coronary artery disease", "van der Harst et al., 2017", "https://doi.org/10.1161/CIRCRESAHA.117.312086")
+      studies_table[7, ] <- c("Cardiovascular", "CAD_Diabetics", "Coronary artery disease in diabetes", "Fall et al., 2018", "https://doi.org/10.1007/s00125-018-4686-z")
+      studies_table[8, ] <- c("Cardiovascular", "Ventricular volumne", "Ventricular volume", "Vojinovic et al., 2018", "https://doi.org/10.1038/s41467-018-06234-w")
+      studies_table[9, ] <- c("Cardiovascular", "SBP", "Sistolic blood pressure", "Evangelou et al., 2018", "https://doi.org/10.1038/s41588-018-0205-x")
+      studies_table[10, ] <- c("Cardiovascular", "BMI", "Body-mass index", "Yengo et al., 2018", "https://doi.org/10.1093/hmg/ddy271")
+      studies_table[11, ] <- c("Cardiovascular", "Diabetes", "Type I Diabetes Mellitus", "Forgetta et al., 2020", "https://doi.org/10.2337/db19-0831")
+      studies_table[12, ] <- c("Immunological", "COVID", "COVID-19 critical illness", "Erola Pairo-Castineira et al. 2020", "https://doi.org/10.1038/s41586-020-03065-y")
+      studies_table[13, ] <- c("Immunological", "Lupus", "Systemic Lupus", "Yong-Fei Wang et al. 2021", "https://doi.org/10.1038/s41467-021-21049-y")
+      studies_table[14, ] <- c("Immunological", "Inflammation", "Inflammatory Biomarkers", "Sanni E. Ruotsalainen et al., 2020", "https://doi.org/10.1038/s41431-020-00730-8")
+      studies_table[15, ] <- c("Immunological", "Asthma", "Asthma", "Han et al., 2020", "https://doi.org/10.1038/s41467-020-15649-3")
+      studies_table[16, ] <- c("Cancer", "Breast_cancer", "Breast cancer", "Zhang et al., 2020", "https://doi.org/10.1038/s41588-020-0609-2")
+      studies_table[17, ] <- c("Cancer", "Myeloproliferative", "Myeloproliferative neoplasm", "Erik L. Bao et al., 2020", "https://doi.org/10.1038/s41586-020-2786-7")
+      studies_table[18, ] <- c("Cancer", "Prostate", "Prostate cancer", "Peter N. Fiorica et al., 2020", "https://doi.org/10.1371/journal.pone.0236209")
+      studies_table[19, ] <- c("Cancer", "Lung", "Lung cancer", "Sara R. Rashkin et al., 2020", "https://doi.org/10.1038/s41467-020-18246-6")
+      studies_table[20, ] <- c("Cancer", "Leukemia", "Lymphocytic Leukemia", "Sara R. Rashkin et al., 2020", "https://doi.org/10.1038/s41467-020-18246-6")
+      studies_table[21, ] <- c("Physiological", "UKBaging", "Parental longevity", "Timmers et al., 2019", "https://doi.org/10.7554/eLife.39856")
+      studies_table[22, ] <- c("Physiological", "Height", "Height", "Yengo et al., 2018", "https://doi.org/10.1093/hmg/ddy271")
+      studies_table[23, ] <- c("Physiological", "Education", "Education", "Perline A. Demange et al., 2021", "https://doi.org/10.1038/s41588-020-00754-2")
+      studies_table[24, ] <- c("Physiological", "Bone density", "Bone density and fracture risk", "Ida Surakka et al., 2020", "https://doi.org/10.1038/s41467-020-17315-0")
+      studies_table[25, ] <- c("Physiological", "Vitamin D", "Vitamin D", "Manousaki et al., 2020", "https://doi.org/10.1016/j.ajhg.2020.01.017")
       return(studies_table)
     }, width = "100%")
 
@@ -2992,7 +3040,7 @@ shinyServer(
     output$table_info_SVs <- renderTable({
       studies_table <- as.data.frame(matrix(data=NA, nrow=3, ncol = 3))
       colnames(studies_table) <- c("Study", "Experimental technology", "Reference")
-      studies_table[1, ] <- c("Linthrost et al., 2020", "PacBio CLR", "https://doi.org/10.1038/s41398-020-01060-5")
+      studies_table[1, ] <- c("Linthorst et al., 2020", "PacBio CLR", "https://doi.org/10.1038/s41398-020-01060-5")
       studies_table[2, ] <- c("Chaisson et al., 2019", "PacBio CLR + Illumina WGS + 10X Genomics + Hi-C", "https://doi.org/10.1038/s41467-018-08148-z")
       studies_table[3, ] <- c("Audano et al., 2019", "PacBio CLR", "https://doi.org/10.1016/j.cell.2018.12.019")
       return(studies_table)
