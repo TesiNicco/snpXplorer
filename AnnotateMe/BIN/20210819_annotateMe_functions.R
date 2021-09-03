@@ -430,6 +430,7 @@ AnnotateMe <- function(data, genes, gtex, mapping.ens, ftype, MAIN, ld_info, cad
   #snps.conseq <- rbindlist(out)
   # new version with cadd v2
   snps.conseq = merge(data, cadd, by = "locus")
+  snps.conseq = snps.conseq[!duplicated(snps.conseq$locus),]
   # manually change APOE4 cause for some reasons it is missing
   snps.conseq[which(snps.conseq$pos == 45411941), "snp_conseq"] <- "MISSENSE"
   snps.conseq[which(snps.conseq$pos == 45411941), "snp_conseq_gene"] <- "APOE"
@@ -443,7 +444,7 @@ AnnotateMe <- function(data, genes, gtex, mapping.ens, ftype, MAIN, ld_info, cad
   
   # need to re-couple with the permutation sets now
   out.annot <- mergeInfo_generic(info.sb=snps.conseq)
-  
+  out.annot <- out.annot[!duplicated(out.annot$locus),]
   # now run the GTEx and positional annotations
   cat("  GTEx annotation for variants of interest\n")
   #out.gtex <- GTEx_me_generic(mapping=out.annot, gtex=gtex, mapping.ens=mapping.ens)
@@ -692,6 +693,9 @@ plotMapping <- function(mapping.after, MAIN){
   colz <- pal_lancet(palette = "lanonc")(5)
   myPalette <- brewer.pal(3, "Set2")
   
+  # make sure frequency is numeric
+  mapping.after$ALT_FREQS = as.numeric(mapping.after$ALT_FREQS)
+  
   #plot 1 -- barplot of the annotation sources
   labs <- c()
   if (nrow(mapping.after[which(mapping.after$source_finalGenes == "coding"),]) >0){ lab.cod <- paste("Coding\n(N=", nrow(mapping.after[which(mapping.after$source_finalGenes == "coding"),]), ")", sep=""); labs <- c(labs, lab.cod) }
@@ -749,9 +753,9 @@ plotMapping <- function(mapping.after, MAIN){
   col.bk <- rep(c("white", "grey90"), 11)
   
   # set pch
-  annot$pch <- 21
-  annot$pch[which(annot$source_finalGenes == "coding")] <- 23
-  annot$pch[which(annot$source_finalGenes == "eqtl")] <- 24
+  mapping.after$pch <- 21
+  mapping.after$pch[which(mapping.after$source_finalGenes == "coding")] <- 23
+  mapping.after$pch[which(mapping.after$source_finalGenes == "eqtl")] <- 24
   
   par(mar=c(4, 18, 4, 18))
   plot(0, 0, pch=16, col="white", xlim=c(-r, r), ylim=c(-r, r), bty='n', xlab="", ylab="", xaxt='none', yaxt="none")
@@ -793,7 +797,7 @@ plotMapping <- function(mapping.after, MAIN){
   cum.angle <- pi/2+(ang[1]/2)
   for (i in 1:22){
     # calculate points for the segment of the lolliplot -- point0 should be maf
-    pp <- annot[which(annot$chr == i),]
+    pp <- mapping.after[which(mapping.after$chr == i),]
     pp$ALT_FREQS[which(pp$ALT_FREQS >0.5)] <- 1-pp$ALT_FREQS[which(pp$ALT_FREQS >0.5)]
     
     # for the frequency, need to normalize it in [r*0.20-r*0.80] [b, a]
@@ -1045,7 +1049,7 @@ revigo <- function(avg_pvalues, thr){
   #sig <- avg_pvalues[which(avg_pvalues$avg_p <= 0.01),]
   
   #check if any significant
-  if (nrow(sig) >0){
+  if (nrow(sig) >1){
     # output revigo input
     write.table(sig[, c("term_id", "avg_p")], paste("RESULTS_", random_num, "/revigo_inp.txt", sep=""), quote=F, row.names=F, col.names=F, sep="\t")    
     path_finp = paste0("/root/snpXplorer/snpXplorer_v2/RESULTS_", random_num, "/revigo_inp.txt")
@@ -1060,7 +1064,7 @@ revigo <- function(avg_pvalues, thr){
     cat("## Running REVIGO\n")
     #cmd = paste("python ", MAIN, "BIN/parseREVIGO.py ", clust.simil, " ", distance.meas, " ", random_num, sep="")
     cmd = paste0("Rscript ", MAIN, "BIN/parseREVIGO_new.R ", path_finp, " ", clust.simil, " ", distance.meas, " ", random_num)
-    system(cmd)
+    system(cmd, wait = T)
     
     # read output
     d <- fread(paste("/root/snpXplorer/snpXplorer_v2/RESULTS_", random_num, "/revigo_out.csv", sep=""), h=T, sep=",")
@@ -1161,6 +1165,13 @@ revigoPlot <- function(one.data){
   # points(x = mx.x, y = mx.y-(step*18), pch=16, col="grey80", cex=min(one.data$PlotSize+5), xpd=T)
   # points(x = mx.x, y = mx.y-(step*23), pch=16, col="grey80", cex=median(one.data$PlotSize+5), xpd=T)
   # points(x = mx.x, y = mx.y-(step*29), pch=16, col="grey80", cex=max(one.data$PlotSize+5), xpd=T)
+}
+
+## function to wait some time -- to manage memory consumption
+waitForMe <- function(x){
+  p1 <- proc.time()
+  Sys.sleep(x)
+  proc.time() - p1 # The cpu usage should be negligible
 }
 
 ## find variants LD
