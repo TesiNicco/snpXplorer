@@ -376,7 +376,8 @@ function_caddAnnot_v6 <- function(i, snp_list, genome_version, input_type){
     grp <- grep(TRUE, culprit)
     info <- paste0(unique(tmp_df$Consequence[grp], collapse=","))
     g <- paste0(unique(tmp_df$GeneName[grp], collapse=","))
-    res[1, ] = c(info, g)
+    res$Conseq <- info
+    res$Genes <- g
   } else {
     if (info != "") { res$Conseq <- info }
     if (g != "") { res$Genes <- g }
