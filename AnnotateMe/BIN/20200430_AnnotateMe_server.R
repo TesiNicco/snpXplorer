@@ -52,7 +52,7 @@ while (START == FALSE){
   # calculate available memory
   memfree <- as.numeric(system("awk '/MemFree/ {print $2}' /proc/meminfo", intern=T))
   # check if this is >8Gb
-  if (memfree > 10000000){
+  if (memfree > 8000000){
     START = TRUE
     print("Start the job!")
   } else {
@@ -181,7 +181,7 @@ if (START == TRUE){
     all_sv = rbindlist(mclapply(1:nrow(annot), function_findSVs, annot = annot, all_str_hg38 = all_str_hg38, mc.cores=1))
     write.table(all_sv, paste0("RESULTS_", random_num, "/SNP_and_SV_overlap.txt"), quote=F, row.names=F, sep="\t")
     cat("## Annotation is done. Now making plots and functional enrichment analysis.\n")
-    
+    gc()
     # checked until here
     ## need now to check the genes associated with the variants: are real genes?
     ## try to do a round of gene-set analysis to see the mismapped genes
