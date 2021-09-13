@@ -893,7 +893,7 @@ mergeSampling <- function(enrich.res){
   
   # also try with averaging pvalues
   if ("intersection" %in% colnames(all.enrich)){
-    terms <- all.enrich[, c("term_name", "term_id", "intersection", "p_value")]
+    terms <- all.enrich[, c("term_name", "term_id", "intersection_size", "p_value")]
     slow <- TRUE
   } else {
     terms <- all.enrich[, c("term_name", "term_id", "p_value")]
@@ -902,12 +902,21 @@ mergeSampling <- function(enrich.res){
   # see how many times each term was tested and resctrict to common (tested all times)
   ttt = as.data.frame(table(terms$term_id))
   ttt <- ttt[which(ttt$Freq == n.sampl),]
+  
+  # if for some reason the number of samplings was not 500 (e.g. small number of genes), need to adjust for this
+  if (nrow(ttt) == 0){
+    ttt = as.data.frame(table(terms$term_id))
+    mx = max(ttt$Freq)
+    ttt <- ttt[which(ttt$Freq == mx),]
+  }
+  
   terms <- terms[which(terms$term_id %in% ttt$Var1),]
   #terms <- terms[!duplicated(terms$term_name),]
   avgP <- function(i, terms, term_list, slow){
     if (isTRUE(slow)){
-      all_intersections <- paste0(unique(unlist(strsplit(paste0(terms$intersection[which(terms$term_id == term_list[i])], collapse = ","), ","))), collapse = ",")
-      df <- data.frame(term_name = unique(terms$term_name[which(terms$term_id == term_list[i])]), term_id = term_list[i], avgP = mean(terms$p_value[which(terms$term_id == term_list[i])]), intersection = all_intersections)
+      #all_intersections <- paste0(unique(unlist(strsplit(paste0(terms$intersection[which(terms$term_id == term_list[i])], collapse = ","), ","))), collapse = ",")
+      #df <- data.frame(term_name = unique(terms$term_name[which(terms$term_id == term_list[i])]), term_id = term_list[i], avgP = mean(terms$p_value[which(terms$term_id == term_list[i])]), intersection = all_intersections)
+      df <- data.frame(term_name = unique(terms$term_name[which(terms$term_id == term_list[i])]), term_id = term_list[i], avgP = mean(terms$p_value[which(terms$term_id == term_list[i])]))
     } else {
       df <- data.frame(term_name = unique(terms$term_name[which(terms$term_id == term_list[i])]), term_id = term_list[i], avgP = mean(terms$p_value[which(terms$term_id == term_list[i])]))
     }
@@ -951,6 +960,12 @@ semSim <- function(avg_pvalues){
 readSNPs <- function(fname, ftype, MAIN, ref_version){
   ## read input file
   d <- fread(fname, h=F)
+  
+  ## check number of rows -- if larger than 1000 SNPs, stop
+  if (nrow(d) > 1000){
+    d = NA
+    ftype = 99
+  }
   
   ## check type: type 1 --> chr:pos; type 2 --> chr   pos; type 3 --> rsid; type 4 --> rsid_A1
   if (ftype == 1){
@@ -1275,6 +1290,16 @@ mergeSampling_enrichR <- function(enrich.res, dbs){
     final_list[[x]] <- df[order(df$avg_p),]
   }
   return(final_list)
+}
+
+## function to remove NAs from the genelists
+removeNAgeneList <- function(annot){
+  for (i in 1:nrow(annot)){
+    tmp = unlist(strsplit(annot$geneList[i], ","))
+    annot$geneList[i] = paste(tmp[which(tmp != "NA")], collapse = ",")
+  }
+  annot[which(annot$geneList == ""), "geneList"] <- NA
+  return(annot)
 }
 
 ## function to perform alternative version of revigo -- do semantic similarity myself
