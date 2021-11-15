@@ -47,7 +47,7 @@ while (running != "0" ) {
 httr::POST(
   url = "http://revigo.irb.hr/ExportJob.aspx",
   query = list(
-    jobid = jobid, 
+    jobid = jobid,
     namespace = "1",
     type = "csvtable"
   )

@@ -13,7 +13,8 @@ import sys
 #download.download("go-basic", "http://current.geneontology.org/ontology/go.obo")
 
 # load go graph from downloaded file
-G = graph.from_resource("/usr/local/lib/python3.9/site-packages/pygosemsim/_resources/go-basic")
+#G = graph.from_resource("/usr/local/lib/python3.9/site-packages/pygosemsim/_resources/go-basic")
+G = graph.from_resource("/root/snpXplorer/AnnotateMe/INPUTS_OTHER/go-basic")
 
 # take precalculated lower bounds
 similarity.precalc_lower_bounds(G)
@@ -68,4 +69,3 @@ with open(sys.argv[2], "w") as outf:
 #   outf.write("\n")
 #   wr = csv.writer(outf)
 #   wr.writerows(dist_mt)
-
