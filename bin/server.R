@@ -1,7 +1,7 @@
 # SERVER SNP BROWSER
 
 # LIBRARIES
-##### 
+#####
 suppressPackageStartupMessages({
 library(shiny)
 library(data.table)
@@ -22,8 +22,8 @@ par(family  = "Arial")
 
 # FUNCTIONS
 #####
-## Function to plot 
-function.plot <- function(snp.info, y.lim, type, plt.type, windows.number, smooth.par, 
+## Function to plot
+function.plot <- function(snp.info, y.lim, type, plt.type, windows.number, smooth.par,
                           int.locus, gwas, colorPoint, ld, input, genV, inpStrVar, pop_interest_ld, recomb_yn, dotSize_yn){
   # First, let's prepare everything that is needed
   ## Prepare title
@@ -88,20 +88,20 @@ function.plot <- function(snp.info, y.lim, type, plt.type, windows.number, smoot
                   5,7,7,7,7,7,
                   5,7,7,7,7,7,
                   5,7,7,7,7,7), nrow = 9, ncol = 6, byrow = T))
-  ## set margins 
+  ## set margins
   par(mar=c(0, 5, 4, 5))
-  
+
   ## global parameter for the proportions
   pr <- 12
   ## empty plot as background
-  plot(x = 0, y = 0, xlab='', cex.lab=2, xaxt='none', ylab="", ylim=c(0, y.lim), cex.axis = 1.5, 
-       pch=16, col="white", cex=2, type = "p", xaxs="i", yaxt='none', xlim=c(min(snp.info$pos), max(snp.info$pos)), main=title, 
+  plot(x = 0, y = 0, xlab='', cex.lab=2, xaxt='none', ylab="", ylim=c(0, y.lim), cex.axis = 1.5,
+       pch=16, col="white", cex=2, type = "p", xaxs="i", yaxt='none', xlim=c(min(snp.info$pos), max(snp.info$pos)), main=title,
        cex.main=2.50, bty='n')
-  
+
   ## add grid: 10 lines hor. and vert.
   for (x in seq(0, y.lim, (y.lim-min.y*y.lim/10)/10)){abline(h=x, lwd=0.6, col="grey80")}
   for (x in seq(min(snp.info$pos), max(snp.info$pos), (max(snp.info$pos)-min(snp.info$pos))/10)){ segments(x0 = x, y0 = 0, x1 = x, y1 = y.lim, col = "grey80", lwd=0.6) }
-  
+
   # add recombination rates: for this, need to normalize between 0 and 100 the recombination rate
   recomb$norm.rate <- (y.lim - 1) * (recomb$"Rate(cM/Mb)" / 100)
   y.axis.recomb <- seq(0, 100, 25)
@@ -109,25 +109,25 @@ function.plot <- function(snp.info, y.lim, type, plt.type, windows.number, smoot
   if (recomb_yn == "Yes"){
     points(recomb$"Position(bp)", recomb$norm.rate, type="l", lwd=1.5, col="darkolivegreen3")
   }
-  
+
   #add significance lines and corresponding legend -- for now two at 0.05 and genome-wide 5e-8
   abline(h=-log10(0.05), lty=2, col=alpha("darkgreen", 1))
   abline(h=-log10(5e-8), lty=2, col=alpha("purple", 1))
   legend("topleft", bty='n', title = "Annotation lines", legend = c("p=0.05", "p=5e-8"), lty=c(2,2), lwd=c(2,2), col=c("darkgreen", "purple"), cex=1.5, ncol = 2)
-  
+
   #axis for recombination rates on the right
   if (recomb_yn == "Yes"){
     axis(side = 4, at = y.axis.norm, labels=seq(0, 100, 25), col='darkolivegreen3', col.axis = "darkolivegreen3", cex.axis=1.5, xpd=T)
-    text(x = max(snp.info$pos), y = y.lim/5*4, "Recombination rate (cM/Mb)",srt = -90, 
+    text(x = max(snp.info$pos), y = y.lim/5*4, "Recombination rate (cM/Mb)",srt = -90,
        col='darkolivegreen3', xpd=T, pos = 4, offset = 4, cex=2, font=2)
   }
-  text(x = min(snp.info$pos), y = y.lim/3*2, "-Log10(P-value)", srt = 90, 
+  text(x = min(snp.info$pos), y = y.lim/3*2, "-Log10(P-value)", srt = 90,
        xpd=T, pos = 2, offset = 4, cex=2, font=2)
-  
+
   # y-axis for pvalue
   axes.x <- ceiling(seq(0, y.lim, y.lim/5))
   axis(side = 2, at = axes.x, labels = axes.x, cex.axis=2)
-  
+
   ## manage the point-type plot
   if (plt.type == "Points"){
     #then points
@@ -155,8 +155,8 @@ function.plot <- function(snp.info, y.lim, type, plt.type, windows.number, smoot
         points(x = snp.interest$pos, y = snp.interest$"-log10(P-value)", pch=23, lwd=2, col=alpha(colorPoint, 0.8), cex=snp.interest$size)
       }
     }
-    
-    ###### HERE STARTS THE DENSITY PLOT  
+
+    ###### HERE STARTS THE DENSITY PLOT
   } else {
     #Sliding window approach -- then loess on sliding window values
     out <- function.DensityLinePvalue(snp.info = snp.info, wind.n = windows.number)
@@ -165,26 +165,26 @@ function.plot <- function(snp.info, y.lim, type, plt.type, windows.number, smoot
     xl <- seq(min(out$window), max(out$window), (max(out$window) - min(out$window))/100)
     pred <- predict(lo, xl)
     pred[which(pred < 0)] <- 0
-    
+
     #add limits -- left and right for polygon function
     xl <- c(xl[1], xl, xl[length(xl)])
     pred <- c(0, pred, 0)
     #lines(x = xl, y = pred, col='navy', lwd=4)
-    
+
     # add density
     polygon(x = xl, y = pred, col = alpha(colorPoint, 0.6), lwd=3, xaxs="i", border = colorPoint)
-    
+
     #if input type was a single snp (either position or rs id), then color the searched variant differently -- here is a bar
     if (type %in% c("Position", "Rs ID")){
       #restrict to snp of interest, then plot it
       if (int.locus != "Type position..."){
         snp.interest <- snp.info[which(snp.info$locus == int.locus),]
-        
+
         #need to grep the height in order to plot the variant -- the height is derived from the prediction
         chr.pos <- str_split_fixed(int.locus, ":", 2)
         pos.only <- as.numeric(chr.pos[, 2])
         pred.pos <- predict(lo, pos.only)
-        
+
         #add to plot
         points(x = snp.interest$pos, y = pred.pos, type="h", col=alpha("yellow", 0.8), lwd=4, xaxs="i")
       }
@@ -192,7 +192,7 @@ function.plot <- function(snp.info, y.lim, type, plt.type, windows.number, smoot
   }
 
   #print("plot1 ok")
-  
+
   ## global parameter for the proportions
   pr <- 12
   ## empty plot as background
@@ -200,34 +200,34 @@ function.plot <- function(snp.info, y.lim, type, plt.type, windows.number, smoot
   ymax <- 3
   sb <- snp.info
   if (nrow(genes) >ymax){ genes$y <- abs(genes$y); ymax <- max(genes$y)+0.5 }
-  plot(x = 0, y = 0, xlab='Chromosomal position (Mb)', cex.lab=2, xaxt='none', ylab="", ylim=c(0, ymax), cex.axis = 1.5, 
+  plot(x = 0, y = 0, xlab='Chromosomal position (Mb)', cex.lab=2, xaxt='none', ylab="", ylim=c(0, ymax), cex.axis = 1.5,
        pch=16, col="white", cex=2, type = "p", xaxs="i", yaxt='none', xlim=c(min(sb$pos), max(sb$pos)),
        cex.main=2.50, bty='n', yaxt='none')
-  
-  text(x = min(sb$pos), y = ymax/5*4, "Gene track", srt = 90, 
+
+  text(x = min(sb$pos), y = ymax/5*4, "Gene track", srt = 90,
        xpd=T, pos = 2, offset = 4, cex=2, font=2)
-  
+
   #manage axes
   axes <- seq(min(sb$pos), max(sb$pos), (max(sb$pos) - min(sb$pos))/7)
   axes.labels <- round(axes/1000000, 3)
   axis(side = 1, at=axes, cex.axis=2, labels=axes.labels)
-  
+
   # genes
   genes$y <- genes$y-0.5
   if (nrow(genes) >35){
     genes$cex <- 0.40; genes_lwd=0.6; tmp_pr = 0.02
   } else if (nrow(genes) >20){
     genes$cex <- 0.75; genes_lwd=0.6; tmp_pr = 0.03
-  } else if (nrow(genes) >15){ 
-    genes$cex <- 0.90; genes_lwd = 1; tmp_pr = 0.04 
-  } else if (nrow(genes) >10){ 
+  } else if (nrow(genes) >15){
+    genes$cex <- 0.90; genes_lwd = 1; tmp_pr = 0.04
+  } else if (nrow(genes) >10){
     genes$cex <- 1.2; genes_lwd = 1.5; tmp_pr = 0.05
-  } else if (nrow(genes) <=5){ 
+  } else if (nrow(genes) <=5){
     genes$cex <- 2; genes_lwd = 2.5; tmp_pr = 0.085
   } else {
     genes$cex <- 1.5; genes_lwd = 2; tmp_pr = 0.07
   }
-  
+
   if (min.y != 0){
     genes$y <- abs(genes$y)
     #manage gene names
@@ -243,32 +243,32 @@ function.plot <- function(snp.info, y.lim, type, plt.type, windows.number, smoot
       exons$end <- as.numeric(as.character(exons$end))
       #main loop over exons
       for (j in 1:nrow(exons)){
-        rect(xleft=exons$start[j], ybottom=genes$y[g]-(ymax/4*(tmp_pr)), xright=exons$end[j], 
+        rect(xleft=exons$start[j], ybottom=genes$y[g]-(ymax/4*(tmp_pr)), xright=exons$end[j],
              ytop = genes$y[g]+(ymax/4*(tmp_pr)), col='grey80', lwd=0.80)
       }
-      text(x = genes$txStart[g] + (genes$txEnd[g] - genes$txStart[g])/2, y = genes$y[g]+ymax*tmp_pr, 
+      text(x = genes$txStart[g] + (genes$txEnd[g] - genes$txStart[g])/2, y = genes$y[g]+ymax*tmp_pr,
            labels=genes$"#geneName"[g], font=3, cex=genes$cex[g])
       #        if (genes$strand[g] == "+"){
-      #          arrows(x0 = genes$txEnd[g], y0 = genes$y[g], x1 = genes$txEnd[g] + (10*2/100), y1 = genes$y[g], 
+      #          arrows(x0 = genes$txEnd[g], y0 = genes$y[g], x1 = genes$txEnd[g] + (10*2/100), y1 = genes$y[g],
       #                 length=0.1, lwd=2, col='coral')
       #        } else if (genes$strand[g] == "-"){
-      #          arrows(x0 = genes$txStart[g], y0 = genes$y[g], x1 = genes$txStart[g] - (10*2/100), y1 = genes$y[g], 
+      #          arrows(x0 = genes$txStart[g], y0 = genes$y[g], x1 = genes$txStart[g] - (10*2/100), y1 = genes$y[g],
       #                 length=0.1, lwd=2, col='coral')
       #        }
     }
   }
-  
+
   #print("plot2 ok")
   ################################
   # HERE IS THE THIRD PLOT -- STRUCTURAL VARIATIONS
   par(mar=c(5, 5, 7, 5))
   plot(x = 0, y = 0, xlab='Chromosomal position (Mb)', cex.lab=2, xaxt='none',
-         ylab="", ylim=c(0, 10), cex.axis = 2, pch=16, col="white", cex=2, type = "p", 
-       xaxs="i", yaxt='none', xlim=c(min(snp.info$pos), max(snp.info$pos)), 
+         ylab="", ylim=c(0, 10), cex.axis = 2, pch=16, col="white", cex=2, type = "p",
+       xaxs="i", yaxt='none', xlim=c(min(snp.info$pos), max(snp.info$pos)),
        cex.main=2.50, bty='n')
 
-  # y-label on the side  
-  text(x = min(snp.info$pos), y = 8, "Structural variations", srt = 90, 
+  # y-label on the side
+  text(x = min(snp.info$pos), y = 8, "Structural variations", srt = 90,
        xpd=T, pos = 2, offset = 4, cex=2, font=2)
 
     # add grid
@@ -289,23 +289,23 @@ function.plot <- function(snp.info, y.lim, type, plt.type, windows.number, smoot
   if (nrow(strVar) >15){ strVar$cex <- 1.40 } else { strVar$cex <- 1.80 }
   if (nrow(strVar) > 0){
     for (i in 1:nrow(strVar)){
-      segments(x0 = strVar$start_pos[i], y0 = strVar$y_plot[i], x1 = as.numeric(strVar$end_pos[i]), 
+      segments(x0 = strVar$start_pos[i], y0 = strVar$y_plot[i], x1 = as.numeric(strVar$end_pos[i]),
                y1 = strVar$y_plot[i], lwd = 3, col=strVar$col[i], lty = strVar$lty[i])
-      segments(x0 = strVar$start_pos[i], y0 = strVar$y_plot[i]-0.15, x1 = strVar$start_pos[i], 
+      segments(x0 = strVar$start_pos[i], y0 = strVar$y_plot[i]-0.15, x1 = strVar$start_pos[i],
                y1 = strVar$y_plot[i]+0.15, lwd = 3, col=strVar$col[i], lty = strVar$lty[i])
-      segments(x0 = as.numeric(strVar$end_pos[i]), y0 = strVar$y_plot[i]-0.15, x1 = as.numeric(strVar$end_pos[i]), 
+      segments(x0 = as.numeric(strVar$end_pos[i]), y0 = strVar$y_plot[i]-0.15, x1 = as.numeric(strVar$end_pos[i]),
                y1 = strVar$y_plot[i]+0.15, lwd = 3, col=strVar$col[i], lty = strVar$lty[i])
       if (nrow(strVar) <30){
-        text(x = strVar$middle[i], y = strVar$y_plot[i]+1, labels = strVar$diff_alleles[i], 
+        text(x = strVar$middle[i], y = strVar$y_plot[i]+1, labels = strVar$diff_alleles[i],
            cex = strVar$cex[i], font=3, xpd=T, col=strVar$col[i])
       }
       tmp_lg <- strVar[!duplicated(strVar$type),]
     }
     legend(x = min(snp.info$pos), y = 13, legend = tmp_lg$type, lty = 1, col=tmp_lg$col, xpd=T, cex=1.50, bty='n', lwd=4, ncol=4)
   } else {
-     text(x = min(snp.info$pos) + (max(snp.info$pos) - min(snp.info$pos))/2, y = 5, 
+     text(x = min(snp.info$pos) + (max(snp.info$pos) - min(snp.info$pos))/2, y = 5,
           labels = "There are no Structural variants to be plotted here", cex=2, adj=0.5)
-  }  
+  }
 
   #print("plot3 ok")
   # THIRD PLOT -- GENE EXPRESSION FROM GTEX
@@ -327,14 +327,14 @@ function.plot <- function(snp.info, y.lim, type, plt.type, windows.number, smoot
       text(x = 27.5, y = 25, labels = "No GTEx information for the genes in this region.",
            cex = 2, xpd=T)
     } else {
-      
+
       # then plot as heatmap
       colors <- viridis(n = 101, option = "plasma")
-      
+
       # scale heat between 0 and 1
       raw <- heat
       heat <- (heat - min(heat))/(max(heat) - min(heat))
-      
+
       # dendrogram for the genes
       mx <- 22
       if (nrow(heat) >1){
@@ -349,7 +349,7 @@ function.plot <- function(snp.info, y.lim, type, plt.type, windows.number, smoot
         text(x = 0.5, y = 1, labels = "Too few genes\nfor clustering", xpd=T)
         ordered_labels <- g
       }
-      
+
       # dendrogram for the tissues
       tr = t(heat)
       hr = as.dendrogram(hclust(dist(tr, method = "euclidean"), method = "ward.D2"))
@@ -364,9 +364,9 @@ function.plot <- function(snp.info, y.lim, type, plt.type, windows.number, smoot
       leg.lab <- c(-1, 0, 1)
       pos <- c(55.5, 57.75, 60)
       for (i in 1:length(pos)){
-         text(x = pos[i], y = (mx_height+mx_height*0.25), labels = leg.lab[i], cex=1, xpd=T, font=2) 
+         text(x = pos[i], y = (mx_height+mx_height*0.25), labels = leg.lab[i], cex=1, xpd=T, font=2)
       }
-      
+
       # background
       par(mar=c(4, 0, 0, 6))
       # reorder the genes to match dendrogram order
@@ -375,7 +375,7 @@ function.plot <- function(snp.info, y.lim, type, plt.type, windows.number, smoot
       tmp = as.data.frame(t(heat))
       tmp = tmp[match(ordered_labels_tissues, rownames(tmp)),]
       heat <- as.data.frame(t(tmp))
-      
+
       plot(0, 0, xlim=c(0, 55), ylim=c(0, mx), bty="n", xaxt='none', yaxt='none', xlab="", ylab="",
            main="", cex.main=2.50, col="white")
       heat <- as.matrix(heat)
@@ -402,14 +402,14 @@ function.plot <- function(snp.info, y.lim, type, plt.type, windows.number, smoot
          cex = 2, xpd=T)
   }
   #print("hello")
-  
+
 }
 
 ## function to extract expression data from GTEX
 findExpr_gtex <- function(genes, gtex.db){
   #subset to take those in the window
   sb <- gtex.db[which(gtex.db$Description %in% genes$`#geneName`), ]
-  
+
   #polish
   if (nrow(sb) >=1){
     sb <- sb[which(rowSums(sb[, 3:ncol(sb)]) >0),]
@@ -430,10 +430,10 @@ functionLD <- function(snp.info, snp, pop_interest){
   chrom <- snp.info$chr[1]
   min.p <- min(snp.info$pos)
   max.p <- max(snp.info$pos)
-  
+
   #define window length
   dist <- max.p - min.p
-  
+
   # if LD was requested, we need to check which populations
   pop_file = fread("../data/databases/1000G/people.txt", h=T, stringsAsFactors = F, sep="\t")
   # depending on the selected populations, create a file with suitable individuals
@@ -449,7 +449,7 @@ functionLD <- function(snp.info, snp, pop_interest){
   tmp_pop = pop_file[which(pop_file$`Population code` %in% pop_interest),]
   tmp_df = data.frame("FID" = tmp_pop$`Sample name`, "IID" = tmp_pop$`Sample name`)
   write.table(tmp_df, "tmp_populations.txt", quote=F, row.names=F, col.names=T, sep="\t")
-  
+
   # command for plink: calculate LD wrt most sign variant within plot window
   # to account for snps that are not in 1000G, we iterate until at least a match is found
   match = FALSE
@@ -466,7 +466,7 @@ functionLD <- function(snp.info, snp, pop_interest){
       mostSign <- snp.info[which(snp.info$pos == position),]
       #print(mostSign)
     }
-    
+
     cmd_grep <- paste("grep -w ", mostSign$pos, " ../data/databases/1000G/chr", chrom, ".bim", sep="")
     info <- system(cmd_grep, intern = TRUE)
     if (length(info) >0){
@@ -475,14 +475,14 @@ functionLD <- function(snp.info, snp, pop_interest){
       topSNP_index <- topSNP_index + 1
     }
   }
-  
+
   # extract variant information and define the command to execute plink
   x <- as.data.frame(str_split_fixed(info, "\t", 6))
   colnames(x) <- c("chr", "rsid", "p", "pos", "a1", "a2")
   cmd <- paste("./plink --bfile ../data/databases/1000G/chr", chrom, " --keep tmp_populations.txt --r --ld-snp ", x$rsid, " --ld-window-kb ", dist, " --out tmp", sep="")
   #print(cmd)
   system(cmd)
-  
+
   #read file back
   ld <- fread("tmp.ld", h=T)
   ld$col <- NA
@@ -494,11 +494,11 @@ functionLD <- function(snp.info, snp, pop_interest){
 
   #eliminate file
   system("rm tmp.*")
-  
+
   return(ld)
 }
 
-## function to extract structural variants from dedicated file 
+## function to extract structural variants from dedicated file
 findStr_variats <- function(snp.info, genV, inpStrVar){
   chrom <- snp.info$chr[1]
   min.p <- min(snp.info$pos)
@@ -520,7 +520,7 @@ findStr_variats <- function(snp.info, genV, inpStrVar){
     sb <- sb[which(sb$source == "chaisson"),]
   } else if (inpStrVar == "audano"){
     sb <- sb[which(sb$source == "audano")]
-  } 
+  }
   # also if need to plot all three, assign different lty
   if (inpStrVar == "all"){
     sb$lty = 1
@@ -552,28 +552,28 @@ findRecomb <- function(snp.info, genV){
   chrom <- snp.info$chr[1]
   min.p <- min(snp.info$pos)
   max.p <- max(snp.info$pos)
-  
+
   # take chromosome file
   if (genV == "GRCh38 (hg38)"){
     rf <- genetic.map.hg38[[chrom]]
   } else {
     rf <- genetic.map[[chrom]]
   }
-  
+
   #extract interval of interest
   recomb <- rf[which(rf$"Position(bp)" >= min.p & rf$"Position(bp)" <= max.p),]
-  
+
   return(recomb)
 }
 
 ## function to assign dot size -- define range
 function.pointSize <- function(dat, range){
   dat$size <- 2
-  
+
   for (x in range){
     dat$size[which(-log10(as.numeric(dat$p)) >= x)] <- x
   }
-  
+
   return(dat)
 }
 
@@ -594,7 +594,7 @@ function.title <- function(gwas, int.locus, type, snp.info){
         }
       } else {
         title <- paste0(t, " ~ chr", snp.info$chr[1], " ~ Random position")
-      } 
+      }
     } else if (type == "Manual scroll"){
       title <- paste(t, " ~ chr", snp.info$chr[1], ":", floor(min(snp.info$pos) + (max(snp.info$pos) - min(snp.info$pos))/2), sep = "")
     }
@@ -616,7 +616,7 @@ function.title <- function(gwas, int.locus, type, snp.info){
 }
 
 ## plot in case of multiple files
-function.multiPlot <- function(snp.info, list_for_loop, y.lim, type, plt.type, windows.number, smooth.par, int.locus, 
+function.multiPlot <- function(snp.info, list_for_loop, y.lim, type, plt.type, windows.number, smooth.par, int.locus,
                                col_list, genV, inpStrVar, recomb_yn, dotSize_yn){
   #print("1. preparing for plot!")
   # The first thing is to check if there are no association data for a gwas in the region of interest
@@ -629,9 +629,9 @@ function.multiPlot <- function(snp.info, list_for_loop, y.lim, type, plt.type, w
   col_v = c()
   col_p = c()
   for (k in 1:length(list_for_loop)){
-    if (k %in% todel){ 
+    if (k %in% todel){
       list_for_loop[[k]] <- paste0(list_for_loop[[k]], "=NA")
-      pch_v <- c(pch_v, NA) 
+      pch_v <- c(pch_v, NA)
       col_v <- c(col_v, "white")
     } else {
       pch_v <- c(pch_v, 16)
@@ -680,23 +680,23 @@ function.multiPlot <- function(snp.info, list_for_loop, y.lim, type, plt.type, w
                   5,7,7,7,7,7,
                   5,7,7,7,7,7,
                   5,7,7,7,7,7), nrow = 9, ncol = 6, byrow = T))
-  
-  ## set margins 
+
+  ## set margins
   par(mar=c(0, 5, 4, 5))
-  
+
   ## global parameter for the proportions
   pr <- 12
   #print("2. plot #1")
-  
+
   ## empty plot as background
-  plot(x = 0, y = 0, xlab='Chromosomal position (Mb)', cex.lab=2, xaxt='none', ylab="", ylim=c(0, y.lim), cex.axis = 1.5, 
-       pch=16, col="white", cex=2, type = "p", xaxs="i", yaxt='none', xlim=c(min(sb$pos), max(sb$pos)), main=title, 
+  plot(x = 0, y = 0, xlab='Chromosomal position (Mb)', cex.lab=2, xaxt='none', ylab="", ylim=c(0, y.lim), cex.axis = 1.5,
+       pch=16, col="white", cex=2, type = "p", xaxs="i", yaxt='none', xlim=c(min(sb$pos), max(sb$pos)), main=title,
        cex.main=2.50, bty='n')
 
   ## add grid: 10 lines hor. and vert.
   for (x in seq(0, y.lim, (y.lim-min.y*y.lim/10)/10)){abline(h=x, lwd=0.6, col="grey80")}
   for (x in seq(min(sb$pos), max(sb$pos), (max(sb$pos)-min(sb$pos))/10)){ segments(x0 = x, y0 = 0, x1 = x, y1 = y.lim, col = "grey80", lwd=0.6) }
-  
+
   # add recombination rates: for this, need to normalize between 0 and 100 the recombination rate
   recomb$norm.rate <- (y.lim - 1) * (recomb$"Rate(cM/Mb)" / 100)
   y.axis.recomb <- seq(0, 100, 25)
@@ -715,18 +715,18 @@ function.multiPlot <- function(snp.info, list_for_loop, y.lim, type, plt.type, w
   axes.labels <- round(axes/1000000, 3)
   axes.x <- ceiling(seq(0, y.lim, y.lim/5))
   axis(side = 2, at = axes.x, labels = axes.x, cex.axis=2)
-  
+
   #axis for recombination rates on the right
   if (recomb_yn == "Yes"){
     axis(side = 4, at = y.axis.norm, labels=seq(0, 100, 25), col='darkolivegreen3', col.axis = "darkolivegreen3", cex.axis=1.5, xpd=T)
-    text(x = max(sb$pos), y = y.lim/5*4, "Recombination rate (cM/Mb)",srt = -90, 
+    text(x = max(sb$pos), y = y.lim/5*4, "Recombination rate (cM/Mb)",srt = -90,
        col='darkolivegreen3', xpd=T, pos = 4, offset = 4, cex=2, font=2)
   }
-  text(x = min(sb$pos), y = y.lim/3*2, "-Log10(P-value)", srt = 90, 
+  text(x = min(sb$pos), y = y.lim/3*2, "-Log10(P-value)", srt = 90,
        xpd=T, pos = 2, offset = 4, cex=2, font=2)
-  
+
   #print("start density plot..")
-  
+
   if (plt.type == "Points"){
     # then points
     for (x in 1:length(snp.info)){
@@ -745,24 +745,24 @@ function.multiPlot <- function(snp.info, list_for_loop, y.lim, type, plt.type, w
     #     snp.interest.flag <- 1
     #     snp.interest <- snp.info[which(snp.info$locus == int.locus),]
     #     snp.interest.addF <- snp.info.f2[which(snp.info.f2$locus == int.locus),]
-    #     
+    #
     #     points(x = snp.interest$pos, y = -log10(snp.interest$p), pch=23, col="black", lwd=2, bg=alpha(colorPoint, 1), cex=snp.interest$size)
     #     points(x = snp.interest.addF$pos, y = -log10(as.numeric(snp.interest.addF$p)), pch=23, col="black", lwd=2, bg=alpha(colorPoint2, 1), cex=snp.interest.addF$size)
     #   }
     # }
-    
+
     #add legend now
     # if (snp.interest.flag == 0){
-    #   legend("topright", legend = c(lab1, lab2), col = c(colorPoint, colorPoint2), pch=16, 
+    #   legend("topright", legend = c(lab1, lab2), col = c(colorPoint, colorPoint2), pch=16,
     #          cex=1.50, ncol=2, xpd=T, bty='n')
     # } else {
-    #   legend("topright", legend = c(lab1, paste(lab1, " - Input", sep=""), lab2, paste(lab2, " - Input", sep="")), 
-    #          col = c(colorPoint, colorPoint, colorPoint2, colorPoint2), pch=c(16, 23, 16, 23), pt.lwd = 1.5, 
+    #   legend("topright", legend = c(lab1, paste(lab1, " - Input", sep=""), lab2, paste(lab2, " - Input", sep="")),
+    #          col = c(colorPoint, colorPoint, colorPoint2, colorPoint2), pch=c(16, 23, 16, 23), pt.lwd = 1.5,
     #          cex=1.50, ncol=2, xpd=T, bty='n')
     # }
     # add legend now
     legend("topright", legend=list_for_loop, pch=pch_v, col=col_v, cex=1.25, bty='n', ncol=ncol_leg)
-    
+
     ###### HERE STARTS THE DENSITY PLOT
   } else {
     # main loop across all data to include, but first define output lists
@@ -790,11 +790,11 @@ function.multiPlot <- function(snp.info, list_for_loop, y.lim, type, plt.type, w
       pred_list[[i]] <- pred
       #print("ok until the end")
     }
-    
+
     # then put the pvalue densities
     for (i in 1:length(xl_list)){ polygon(x = xl_list[[i]], y = pred_list[[i]], col = alpha(col_list[[i]], 0.4), border = col_list[[i]], lwd=3, xaxs="i", xpd=T) }
     options(warn = 0)
-    
+
     #if input type was a single snp (either position or rs id), then color the searched variant differently -- here is a bar
     snp.interest.flag <- 0
     # if (type %in% c("Position", "Rs ID")){
@@ -803,27 +803,27 @@ function.multiPlot <- function(snp.info, list_for_loop, y.lim, type, plt.type, w
     #     snp.interest.flag <- 1
     #     snp.interest <- snp.info[which(snp.info$locus == int.locus),]
     #     snp.interest.add <- snp.info.f2[which(snp.info.f2$locus == int.locus),]
-    #     
+    #
     #     #need to grep the height in order to plot the variant -- the height is derived from the prediction
     #     chr.pos <- str_split_fixed(int.locus, ":", 2)
     #     pos.only <- as.numeric(chr.pos[, 2])
     #     pred.pos <- predict(lo, pos.only)
     #     pred.pos.add <- predict(lo.add, pos.only)
-    #     
+    #
     #     #add to plot
     #     points(x = snp.interest.add$pos, y = pred.pos.add, type="h", col=alpha("pink", 0.8), lwd=4, xaxs="i")
     #     points(x = snp.interest$pos, y = pred.pos, type="h", col=alpha("yellow", 0.8), lwd=4, xaxs="i")
-    #     
+    #
     #   }
     # }
-    
+
     #add legend now
     # if (snp.interest.flag == 0){
-    #   legend("topright", legend = c(lab1, lab2), col = c(colorPoint, colorPoint2), pch=16, 
+    #   legend("topright", legend = c(lab1, lab2), col = c(colorPoint, colorPoint2), pch=16,
     #          cex=1.50, ncol=2, xpd=T, bty='n')
     # } else {
-    #   legend("topright", legend = c(lab1, paste(lab1, " - Input", sep=""), lab2, paste(lab2, " - Input", sep="")), 
-    #          col = c(colorPoint, "lightblue", colorPoint2, "yellow"), pch=c(16, 23, 16, 23), pt.lwd = 1.5, 
+    #   legend("topright", legend = c(lab1, paste(lab1, " - Input", sep=""), lab2, paste(lab2, " - Input", sep="")),
+    #          col = c(colorPoint, "lightblue", colorPoint2, "yellow"), pch=c(16, 23, 16, 23), pt.lwd = 1.5,
     #          cex=1.50, ncol=2, xpd=T, bty='n')
     # }
     legend("topright", legend=list_for_loop, pch=pch_v, col=col_v, cex=1.25, bty='n', ncol=ncol_leg)
@@ -837,13 +837,13 @@ function.multiPlot <- function(snp.info, list_for_loop, y.lim, type, plt.type, w
   par(mar=c(5, 5, 0, 5))
   ymax <- 3
   if (nrow(genes) >ymax){ genes$y <- abs(genes$y); ymax <- max(genes$y)+0.5 }
-  plot(x = 0, y = 0, xlab='Chromosomal position (Mb)', cex.lab=2, xaxt='none', ylab="", ylim=c(0, ymax), cex.axis = 1.5, 
+  plot(x = 0, y = 0, xlab='Chromosomal position (Mb)', cex.lab=2, xaxt='none', ylab="", ylim=c(0, ymax), cex.axis = 1.5,
        pch=16, col="white", cex=2, type = "p", xaxs="i", yaxt='none', xlim=c(min(sb$pos), max(sb$pos)),
        cex.main=2.50, bty='n', yaxt='none')
-  
-  text(x = min(sb$pos), y = ymax/5*4, "Gene track", srt = 90, 
+
+  text(x = min(sb$pos), y = ymax/5*4, "Gene track", srt = 90,
        xpd=T, pos = 2, offset = 4, cex=2, font=2)
-  
+
   #manage axes
   axes <- seq(min(sb$pos), max(sb$pos), (max(sb$pos) - min(sb$pos))/7)
   axes.labels <- round(axes/1000000, 3)
@@ -855,16 +855,16 @@ function.multiPlot <- function(snp.info, list_for_loop, y.lim, type, plt.type, w
     genes$cex <- 0.40; genes_lwd=0.6; tmp_pr = 0.02
   } else if (nrow(genes) >20){
     genes$cex <- 0.75; genes_lwd=0.6; tmp_pr = 0.03
-  } else if (nrow(genes) >15){ 
-    genes$cex <- 0.90; genes_lwd = 1; tmp_pr = 0.04 
-  } else if (nrow(genes) >10){ 
+  } else if (nrow(genes) >15){
+    genes$cex <- 0.90; genes_lwd = 1; tmp_pr = 0.04
+  } else if (nrow(genes) >10){
     genes$cex <- 1.2; genes_lwd = 1.5; tmp_pr = 0.05
-  } else if (nrow(genes) <=5){ 
+  } else if (nrow(genes) <=5){
     genes$cex <- 2; genes_lwd = 2.5; tmp_pr = 0.085
   } else {
     genes$cex <- 1.5; genes_lwd = 2; tmp_pr = 0.07
   }
-  
+
   if (min.y != 0){
     genes$y <- abs(genes$y)
     #manage gene names
@@ -880,16 +880,16 @@ function.multiPlot <- function(snp.info, list_for_loop, y.lim, type, plt.type, w
       exons$end <- as.numeric(as.character(exons$end))
       #main loop over exons
       for (j in 1:nrow(exons)){
-        rect(xleft=exons$start[j], ybottom=genes$y[g]-(ymax/4*(tmp_pr)), xright=exons$end[j], 
+        rect(xleft=exons$start[j], ybottom=genes$y[g]-(ymax/4*(tmp_pr)), xright=exons$end[j],
              ytop = genes$y[g]+(ymax/4*(tmp_pr)), col='grey80', lwd=0.80)
       }
-      text(x = genes$txStart[g] + (genes$txEnd[g] - genes$txStart[g])/2, y = genes$y[g]+ymax*tmp_pr, 
+      text(x = genes$txStart[g] + (genes$txEnd[g] - genes$txStart[g])/2, y = genes$y[g]+ymax*tmp_pr,
            labels=genes$"#geneName"[g], font=3, cex=genes$cex[g])
       #        if (genes$strand[g] == "+"){
-      #          arrows(x0 = genes$txEnd[g], y0 = genes$y[g], x1 = genes$txEnd[g] + (10*2/100), y1 = genes$y[g], 
+      #          arrows(x0 = genes$txEnd[g], y0 = genes$y[g], x1 = genes$txEnd[g] + (10*2/100), y1 = genes$y[g],
       #                 length=0.1, lwd=2, col='coral')
       #        } else if (genes$strand[g] == "-"){
-      #          arrows(x0 = genes$txStart[g], y0 = genes$y[g], x1 = genes$txStart[g] - (10*2/100), y1 = genes$y[g], 
+      #          arrows(x0 = genes$txStart[g], y0 = genes$y[g], x1 = genes$txStart[g] - (10*2/100), y1 = genes$y[g],
       #                 length=0.1, lwd=2, col='coral')
       #        }
     }
@@ -899,19 +899,19 @@ function.multiPlot <- function(snp.info, list_for_loop, y.lim, type, plt.type, w
     # HERE IS FOR THE THIRD PLOT -- STRUCTURAL VARIATIONS
   par(mar=c(5, 5, 7, 5))
   plot(x = 0, y = 0, xlab='Chromosomal position (Mb)', cex.lab=2, xaxt='none',
-         ylab="", ylim=c(0, 10), cex.axis = 2, pch=16, col="white", cex=2, type = "p", xaxs="i", 
+         ylab="", ylim=c(0, 10), cex.axis = 2, pch=16, col="white", cex=2, type = "p", xaxs="i",
          yaxt='none', xlim=c(min(sb$pos), max(sb$pos)), cex.main=2.50, bty='n')
-    
+
     #add grid
     for (x in seq(0, 10, 2)) {abline(h=x, lwd=0.6, col="grey80")}
     for (x in seq(min(sb$pos), max(sb$pos), (max(sb$pos)-min(sb$pos))/10)){
       segments(x0 = x, y0 = 0, x1 = x, y1 = 10, col = "grey80", lwd=0.6)
     }
-    
+
     # add label on y-axis
-    text(x = min(sb$pos), y = 8, "Structural variations", srt = 90, 
+    text(x = min(sb$pos), y = 8, "Structural variations", srt = 90,
          xpd=T, pos = 2, offset = 4, cex=2, font=2)
-    
+
     #manage axes
     axes <- seq(min(sb$pos), max(sb$pos), (max(sb$pos) - min(sb$pos))/7)
     axes.labels <- round(axes/1000000, 3)
@@ -926,25 +926,25 @@ function.multiPlot <- function(snp.info, list_for_loop, y.lim, type, plt.type, w
     if (nrow(strVar) >15){ strVar$cex <- 1.40 } else { strVar$cex <- 1.80 }
     if (nrow(strVar) > 0){
       for (i in 1:nrow(strVar)){
-        segments(x0 = strVar$start_pos[i], y0 = strVar$y_plot[i], x1 = strVar$end_pos[i], 
+        segments(x0 = strVar$start_pos[i], y0 = strVar$y_plot[i], x1 = strVar$end_pos[i],
                  y1 = strVar$y_plot[i], lwd = 3, col=strVar$col[i])
-        segments(x0 = strVar$start_pos[i], y0 = strVar$y_plot[i]-0.15, x1 = strVar$start_pos[i], 
+        segments(x0 = strVar$start_pos[i], y0 = strVar$y_plot[i]-0.15, x1 = strVar$start_pos[i],
                  y1 = strVar$y_plot[i]+0.15, lwd = 3, col=strVar$col[i])
-        segments(x0 = strVar$end_pos[i], y0 = strVar$y_plot[i]-0.15, x1 = strVar$end_pos[i], 
+        segments(x0 = strVar$end_pos[i], y0 = strVar$y_plot[i]-0.15, x1 = strVar$end_pos[i],
                  y1 = strVar$y_plot[i]+0.15, lwd = 3, col=strVar$col[i])
         if (nrow(strVar) <30){
-          text(x = strVar$middle[i], y = strVar$y_plot[i]+1, labels = strVar$diff_alleles[i], 
+          text(x = strVar$middle[i], y = strVar$y_plot[i]+1, labels = strVar$diff_alleles[i],
                cex = strVar$cex[i], font=3, xpd=T, col=strVar$col[i])
         }
         tmp_lg <- strVar[!duplicated(strVar$type),]
       }
       legend(x = min(sb$pos), y = 13, legend = tmp_lg$type, lty = 1, col=tmp_lg$col, xpd=T, cex=1.50, bty='n', lwd=4, ncol=4)
     } else {
-      text(x = min(sb$pos) + (max(sb$pos) - min(sb$pos))/2, y = 5, 
+      text(x = min(sb$pos) + (max(sb$pos) - min(sb$pos))/2, y = 5,
            labels = "There are no Structural variants to be plotted here", cex=2, adj=0.5)
-    }  
+    }
     #print("5. plot #4")
-    
+
     # THIRD PLOT -- GENE EXPRESSION FROM GTEX
     # empty plot first
     par(mar=c(4, 2, 10, 0))
@@ -964,14 +964,14 @@ function.multiPlot <- function(snp.info, list_for_loop, y.lim, type, plt.type, w
         text(x = 27.5, y = 25, labels = "No GTEx information for the genes in this region.",
              cex = 2, xpd=T)
       } else {
-        
+
         # then plot as heatmap
         colors <- viridis(n = 101, option = "plasma")
-        
+
         # scale heat between 0 and 1
         raw <- heat
         heat <- (heat - min(heat))/(max(heat) - min(heat))
-        
+
         # dendrogram for the genes
         mx <- 22
         if (nrow(heat) >1){
@@ -986,7 +986,7 @@ function.multiPlot <- function(snp.info, list_for_loop, y.lim, type, plt.type, w
           text(x = 0.5, y = 1, labels = "Too few genes\nfor clustering", xpd=T)
           ordered_labels <- g
         }
-        
+
         # dendrogram for the tissues
         tr = t(heat)
         hr = as.dendrogram(hclust(dist(tr, method = "euclidean"), method = "ward.D2"))
@@ -1001,9 +1001,9 @@ function.multiPlot <- function(snp.info, list_for_loop, y.lim, type, plt.type, w
         leg.lab <- c(-1, 0, 1)
         pos <- c(55.5, 57.75, 60)
         for (i in 1:length(pos)){
-          text(x = pos[i], y = (mx_height+mx_height*0.25), labels = leg.lab[i], cex=1, xpd=T, font=2) 
+          text(x = pos[i], y = (mx_height+mx_height*0.25), labels = leg.lab[i], cex=1, xpd=T, font=2)
         }
-        
+
         # background
         par(mar=c(4, 0, 0, 6))
         # reorder the genes to match dendrogram order
@@ -1012,7 +1012,7 @@ function.multiPlot <- function(snp.info, list_for_loop, y.lim, type, plt.type, w
         tmp = as.data.frame(t(heat))
         tmp = tmp[match(ordered_labels_tissues, rownames(tmp)),]
         heat <- as.data.frame(t(tmp))
-        
+
         plot(0, 0, xlim=c(0, 55), ylim=c(0, mx), bty="n", xaxt='none', yaxt='none', xlab="", ylab="",
              main="", cex.main=2.50, col="white")
         heat <- as.matrix(heat)
@@ -1035,11 +1035,11 @@ function.multiPlot <- function(snp.info, list_for_loop, y.lim, type, plt.type, w
            main="RNA expression from GTEx", cex.main=2.50, col="white")
       text(x = 27.5, y = 25, labels = "No GTEx information for the genes in this region.",
            cex = 2, xpd=T)
-    }  
+    }
 }
 
 ## function to check if data is from the required chromosome
-function.catchChromosome <- function(chr, gwas){
+function.catchChromosome <- function(chr, gwas, res_example){
   if (gwas == "example"){
     #take path
     chr_toMatch <- as.numeric(chr)-15
@@ -1047,17 +1047,17 @@ function.catchChromosome <- function(chr, gwas){
     #read data
     dat <- as.data.frame(matrix(data = NA, nrow = 0, ncol = 3))
     try(dat <- res_example[[chr_toMatch]], silent = T)
-    colnames(dat) <- c("chr", "pos", "p")      
+    colnames(dat) <- c("chr", "pos", "p")
     dat <- dat[!which(is.na(dat$p)),]
     chrom = dat$chr[1]
     dat$p <- as.numeric(dat$p)
     dat$"-log10(P-value)" <- -log10(dat$p)
-    
+
   } else {
     #in these cases, the GWAS is usually the name of the folder
     #take path
     fname = paste("../data/", gwas, "/chr", as.character(chr), "_", gwas, ".txt.gz", sep="")
-    
+
     #read data
     dat <- fread(fname, h=T, stringsAsFactors = F)
     colnames(dat) <- c('chr', 'pos', 'p')
@@ -1076,13 +1076,13 @@ function.InputPos <- function(dat, window, snp_locus, gwas){
   chr <- snp_locus$chr
   pos.max <- snp_locus$pos + window
   pos.min <- snp_locus$pos - window
-    
+
   # check if data is relative to that chromosome, and in case change it
-  if (!(gwas %in% c("loaded", "toLoad"))){ dat <- function.catchChromosome(chr, gwas) }
-    
+  if (!(gwas %in% c("loaded", "toLoad"))){ dat <- function.catchChromosome(chr, gwas, res_example) }
+
   # take data of interest
   snp.info <- dat[which(dat$pos >= pos.min & dat$pos <= pos.max), ]
-  
+
   return(snp.info)
 }
 
@@ -1091,13 +1091,13 @@ function.InputManualScroll <- function(dat, window, input.scroll, input.chrom, g
   #print(gwas)
   #initial position is all variable
   pos.init <- as.numeric(input.scroll)
-  
+
   #define limits
   lower <- pos.init - window
   upper <- pos.init + window
-  
+
   #check if data is relative to that chromosome, and in case change it
-  if (!(gwas %in% c("loaded", "toLoad"))){ dat <- function.catchChromosome(input.chrom, gwas) }
+  if (!(gwas %in% c("loaded", "toLoad"))){ dat <- function.catchChromosome(input.chrom, gwas, res_example) }
 
   #take data of interest
   snp.info <- dat[which(dat$pos >= lower & dat$pos <= upper), ]
@@ -1110,12 +1110,12 @@ function.InputGenes <- function(gene){
     # make sure the gene input is uppercase
     gene <- toupper(gene)
     gene <- paste("^", gene, "$", sep="")
-    
+
     # identify gene coordinates
     gene.info <- gene.db[grep(gene, gene.db$"#geneName"),]
     gene.info <- gene.info[order(-gene.info$txEnd),]
     gene.info <- gene.info[!duplicated(gene.info$"#geneName"),]
-    
+
     # check if the gene actually exists
     if (nrow(gene.info) == 0){ gene.info <- "gene_not_in_list" }
 
@@ -1124,7 +1124,7 @@ function.InputGenes <- function(gene){
     gene.db <- gene.db[which(gene.db$chrom == "chr21"),]
     gene.info <- gene.db[ceiling(nrow(gene.db)/4), ]
   }
-  
+
   return(gene.info)
 }
 
@@ -1150,10 +1150,10 @@ function.GWASfromGene <- function(dat, gene.info, window, gwas){
   chr.n <- str_split_fixed(chr, "chr", 2)[, 2]
   start <- gene.info$txStart - window
   end <- gene.info$txEnd + window
-  
+
   # check if data is relative to that chromosome, and in case change it
-  if (!(gwas %in% c("loaded", "toLoad"))){ dat <- function.catchChromosome(chr.n, gwas) }
-  
+  if (!(gwas %in% c("loaded", "toLoad"))){ dat <- function.catchChromosome(chr.n, gwas, res_example) }
+
   # define snps of interest
   snp.info <- dat[which(dat$pos >= start & dat$pos <= end),]
 
@@ -1172,10 +1172,10 @@ function.DensityLinePvalue <- function(snp.info, wind.n){
   #define output
   out = matrix(data = NA, nrow = wind.n, ncol = 3)
   colnames(out) <- c("window", "pvalue", "error")
-  
+
   #counter for output assignement
   counter <- 1
-  
+
   #print("starting loop")
   #loop using sliding window
   #print(seq(min.wind, max.wind, interval))
@@ -1200,7 +1200,7 @@ function.DensityLinePvalue <- function(snp.info, wind.n){
   #remove NA and substitute them with 0
   out[which(is.na(out[, "error"]) == TRUE), "error"] <- 0
   out <- as.data.frame(out)
-  
+
   return(out)
 }
 
@@ -1209,7 +1209,7 @@ function.dynamicGene <- function(snp.info, genV){
   #define searching space for genes
   min.x <- min(snp.info$pos)
   max.x <- max(snp.info$pos)
-  
+
   if (genV == "GRCh38 (hg38)"){
     #find genes in interval (min.x -- max.x) -- then clean up a bit
     gene.loc.res <- subset(genes.hg38, genes.hg38$chrom == paste("chr", snp.info$chr[1], sep=""))
@@ -1231,7 +1231,7 @@ function.dynamicGene <- function(snp.info, genV){
     genes <- genes[order(-genes$txEnd),]
     genes <- genes[!duplicated(genes$"#geneName"),]
   }
-    
+
   #define position in the plot
   n = ceiling(nrow(genes)/2)
   if (n != 0){
@@ -1242,28 +1242,28 @@ function.dynamicGene <- function(snp.info, genV){
       v <- v-1
       if (v == -n-1){ v = -1 }
     }
-    
+
   }
   return(genes)
 }
 
 ## Function to manage which input data to plot
-function.manageInput <- function(inp, supp_f){
+function.manageInput <- function(inp, supp_f, res_example){
   # Example as input
   if (length(inp) == 0){
     dat <- res_example[[1]]
-    colnames(dat) <- c("chr", "pos", "p")      
+    colnames(dat) <- c("chr", "pos", "p")
     dat <- dat[!which(is.na(dat$p)),]
     dat$p[which(dat$p == 0)] <- 0.00000001
     chrom = dat$chr[1]
     dat$"-log10(P-value)" <- -log10(as.numeric(dat$p))
     gwas = "example"
-    
-    # User file as input  
+
+    # User file as input
   } else if ("toLoad" %in% inp){
     # read file
     dat <- fread(supp_f, h=T, stringsAsFactors = F)
-    
+
     # analyse header and slim data
     dat = identiHeader(dat)
     dat$p <- as.numeric(dat$p)
@@ -1273,7 +1273,7 @@ function.manageInput <- function(inp, supp_f){
     dat$"-log10(P-value)" <- -log10(as.numeric(dat$p))
     gwas = "loaded"
     #print(head(dat))
-    
+
   } else if (inp == 'IGAP') {
     dat <- fread('../data/IGAP/chr19_IGAP.txt.gz', h=T, stringsAsFactors=F)
     colnames(dat) <- c('chr', 'pos', 'p')
@@ -1536,10 +1536,27 @@ function.manageInput <- function(inp, supp_f){
     dat$p <- as.numeric(dat$p)
     dat$"-log10(P-value)" <- -log10(dat$p)
     gwas = "pTAU"
+  } else if (inp == "Multivariate_Longevity"){
+    dat = fread("../data/Multivariate_Longevity/chr19_Multivariate_Longevity.txt.gz", h=F, stringsAsFactors = F)
+    colnames(dat) <- c("chr", "pos", "p")
+    dat <- dat[!which(is.na(dat$p)),]
+    dat$p[which(dat$p == 0)] <- 0.00000001
+    chrom <- dat$chr[1]
+    dat$p <- as.numeric(dat$p)
+    dat$"-log10(P-value)" <- -log10(dat$p)
+    gwas = "Multivariate_Longevity"
+  } else if (inp == "Alzheimer_million"){
+    dat = fread("../data/Alzheimer_million/chr19_Alzheimer_million.txt.gz", h=F, stringsAsFactors = F)
+    colnames(dat) <- c("chr", "pos", "p")
+    dat <- dat[!which(is.na(dat$p)),]
+    dat$p[which(dat$p == 0)] <- 0.00000001
+    chrom <- dat$chr[1]
+    dat$p <- as.numeric(dat$p)
+    dat$"-log10(P-value)" <- -log10(dat$p)
+    gwas = "Alzheimer_million"
   }#else here to add repositories
-  
+
   return(list(dat, chrom, gwas))
-  
 }
 
 ## function to identify header in uploaded file
@@ -1554,13 +1571,13 @@ identiHeader <- function(dat){
   pos.idx = grep("pos", head, ignore.case = T)
   if (length(pos.idx) == 0){pos.idx = grep("bp", head, ignore.case = T)}
   for (x in 1:length(head)){if (head[x] %in% p.kw){ p.idx <- x } }
-  
+
   #check for correctness
   run = FALSE
-  if (length(chrom.idx) + length(pos.idx) + length(p.idx) == 3){ 
+  if (length(chrom.idx) + length(pos.idx) + length(p.idx) == 3){
     run <- TRUE
     #print("## header correctly read")
-    
+
     #now rename columns
     head[chrom.idx] <- "chr"
     head[pos.idx] <- "pos"
@@ -1578,7 +1595,7 @@ identiTargetRegion <- function(region){
   # Check if it is a locus (chr:pos)
   if (region == "Type locus, rsID or gene name"){
     target <- list("example")
-  } else if (grepl(":", region) == TRUE){ 
+  } else if (grepl(":", region) == TRUE){
     tmp <- str_split_fixed(region, ":", 2)
     target <- list("locus", as.numeric(tmp[, 1]), as.numeric(tmp[, 2]))
   } else if (grepl("rs", region) == TRUE){
@@ -1602,10 +1619,10 @@ plotTable <- function(input){
     path_f <- "None"
   }
   ##########################
-  
+
   #############################
   all_gwas <- c(input$gwas_neuro, input$gwas_cardio, input$gwas_immune, input$gwas_cancer, input$gwas_physio, input$gwas_from_file)
-  res = function.manageInput(as.character(all_gwas[1]), path_f)
+  res = function.manageInput(as.character(all_gwas[1]), path_f, res_example)
   dat = as.data.frame(res[[1]])
   chrom = as.numeric(res[[2]])
   gwas = as.character(res[[3]])
@@ -1614,7 +1631,7 @@ plotTable <- function(input){
     # If input is a target region, need to identify which was the input (locus, gene or rsid)
     target <- identiTargetRegion(input$target)
     target_type <- target[[1]]
-    
+
     # check number of GWAS to be plotted
     all_gwas <- c(input$gwas_neuro, input$gwas_cardio, input$gwas_immune, input$gwas_cancer, input$gwas_physio, input$gwas_from_file)
     if (length(all_gwas) < 2){
@@ -1623,23 +1640,23 @@ plotTable <- function(input){
       if (target_type == "example"){
         snp_locus = data.frame(chr=16, pos=dat[ceiling(nrow(dat)/4), "pos"])
         res <- function.InputPos(dat = dat, window = input$x, snp_locus, gwas)
-        
-        # rsid case  
+
+        # rsid case
       } else if (target_type == "rsid"){
         snp_locus <- function.rsIDasInput(target)
         res <- function.InputPos(dat = dat, window = input$x, snp_locus, gwas)
-        
-        # chromosome:position case  
+
+        # chromosome:position case
       } else if (target_type == "locus") {
         snp_locus <- data.frame(chr=target[[2]], pos=target[[3]])
         res <- function.InputPos(dat = dat, window = input$x, snp_locus, gwas)
-        
-        # gene_name case  
+
+        # gene_name case
       } else if (target_type == "gene_name"){
         gene.info <- function.InputGenes(gene = target[[2]])
         res <- function.GWASfromGene(dat = dat, gene.info = gene.info, window = input$x, gwas)
       }
-      
+
       # assign to toplot object
       toplot <- res
 
@@ -1659,18 +1676,18 @@ plotTable <- function(input){
             if (target_type == "example"){
               snp_locus = data.frame(chr=16, pos=dat[ceiling(nrow(dat)/4), "pos"])
               res <- function.InputPos(dat = dat, window = input$x, snp_locus, gwas)
-              
-              # rsid case  
+
+              # rsid case
             } else if (target_type == "rsid"){
               snp_locus <- function.rsIDasInput(target)
               res <- function.InputPos(dat = dat, window = input$x, snp_locus, gwas)
-              
-              # chromosome:position case  
+
+              # chromosome:position case
             } else if (target_type == "locus") {
               snp_locus <- data.frame(chr=target[[2]], pos=target[[3]])
               res <- function.InputPos(dat = dat, window = input$x, snp_locus, gwas)
-              
-              # gene_name case  
+
+              # gene_name case
             } else if (target_type == "gene_name"){
               gene.info <- function.InputGenes(gene = target[[2]])
               res <- function.GWASfromGene(dat = dat, gene.info = gene.info, window = input$x, gwas)
@@ -1681,7 +1698,7 @@ plotTable <- function(input){
           } else {
             # other datasets
             tmp <- as.character(all_gwas[gw])
-            res = function.manageInput(tmp, path_f)
+            res = function.manageInput(tmp, path_f, res_example)
             dat_tmp = as.data.frame(res[[1]])
             chrom_tmp = as.numeric(res[[2]])
             # check input type and extract snp information and gwas info accordingly
@@ -1689,18 +1706,18 @@ plotTable <- function(input){
             if (target_type == "example"){
               snp_locus = data.frame(chr=16, pos=dat_tmp[ceiling(nrow(dat_tmp)/4), "pos"])
               res <- function.InputPos(dat = dat_tmp, window = input$x, snp_locus, tmp)
-              
-              # rsid case  
+
+              # rsid case
             } else if (target_type == "rsid"){
               snp_locus <- function.rsIDasInput(target)
               res <- function.InputPos(dat = dat_tmp, window = input$x, snp_locus, tmp)
-              
-              # chromosome:position case  
+
+              # chromosome:position case
             } else if (target_type == "locus") {
               snp_locus <- data.frame(chr=target[[2]], pos=target[[3]])
               res <- function.InputPos(dat = dat_tmp, window = input$x, snp_locus, tmp)
-              
-              # gene_name case  
+
+              # gene_name case
             } else if (target_type == "gene_name"){
               gene.info <- function.InputGenes(gene = target[[2]])
               res <- function.GWASfromGene(dat = dat_tmp, gene.info = gene.info, window = input$x, tmp)
@@ -1708,7 +1725,7 @@ plotTable <- function(input){
             res$Study = tmp
             list_for_results <- rbind(list_for_results, res)
             if (gw == 2){ col_list[[gw]] <- input$col2 } else if (gw == 3){ col_list[[gw]] <- input$col3 } else if (gw == 4){ col_list[[gw]] <- input$col4 } else if (gw == 5){ col_list[[gw]] <- input$col5 }
-          }          
+          }
         }
         toplot <- list_for_results
         # This section is the one with respect to the loaded file
@@ -1727,18 +1744,18 @@ plotTable <- function(input){
             if (target_type == "example"){
               snp_locus = data.frame(chr=16, pos=dat[ceiling(nrow(dat)/4), "pos"])
               res <- function.InputPos(dat = dat, window = input$x, snp_locus, gwas)
-              
-              # rsid case  
+
+              # rsid case
             } else if (target_type == "rsid"){
               snp_locus <- function.rsIDasInput(target)
               res <- function.InputPos(dat = dat, window = input$x, snp_locus, gwas)
-              
-              # chromosome:position case  
+
+              # chromosome:position case
             } else if (target_type == "locus") {
               snp_locus <- data.frame(chr=target[[2]], pos=target[[3]])
               res <- function.InputPos(dat = dat, window = input$x, snp_locus, gwas)
-              
-              # gene_name case  
+
+              # gene_name case
             } else if (target_type == "gene_name"){
               gene.info <- function.InputGenes(gene = target[[2]])
               res <- function.GWASfromGene(dat = dat, gene.info = gene.info, window = input$x, gwas)
@@ -1750,7 +1767,7 @@ plotTable <- function(input){
             # check if the second dataset is the loaded file
             if (list_for_loop[[gw]] != "toLoad"){
               tmp <- as.character(all_gwas[gw])
-              res = function.manageInput(tmp, path_f)
+              res = function.manageInput(tmp, path_f, res_example)
               dat_tmp = as.data.frame(res[[1]])
               chrom_tmp = as.numeric(res[[2]])
               # check input type and extract snp information and gwas info accordingly
@@ -1758,53 +1775,53 @@ plotTable <- function(input){
               if (target_type == "example"){
                 snp_locus = data.frame(chr=16, pos=dat_tmp[ceiling(nrow(dat_tmp)/4), "pos"])
                 res <- function.InputPos(dat = dat_tmp, window = input$x, snp_locus, tmp)
-                
-                # rsid case  
+
+                # rsid case
               } else if (target_type == "rsid"){
                 snp_locus <- function.rsIDasInput(target)
                 res <- function.InputPos(dat = dat_tmp, window = input$x, snp_locus, tmp)
-                
-                # chromosome:position case  
+
+                # chromosome:position case
               } else if (target_type == "locus") {
                 snp_locus <- data.frame(chr=target[[2]], pos=target[[3]])
                 res <- function.InputPos(dat = dat_tmp, window = input$x, snp_locus, tmp)
-                
-                # gene_name case  
+
+                # gene_name case
               } else if (target_type == "gene_name"){
                 gene.info <- function.InputGenes(gene = target[[2]])
                 res <- function.GWASfromGene(dat = dat_tmp, gene.info = gene.info, window = input$x, tmp)
               }
               list_for_results[[gw]] <- res
               if (gw == 2){ col_list[[gw]] <- input$col2 } else if (gw == 3){ col_list[[gw]] <- input$col3 } else if (gw == 4){ col_list[[gw]] <- input$col4 } else if (gw == 5){ col_list[[gw]] <- input$col5 }
-            
+
             # otherwise if we need to plot the loaded file
             } else {
               tmp <- all_gwas[gw]
-              res = function.manageInput(tmp, path_f)
+              res = function.manageInput(tmp, path_f, res_example)
               dat_tmp = as.data.frame(res[[1]])
               chrom_tmp = as.numeric(res[[2]])
               if (target_type == "example"){
                 snp_locus = data.frame(chr=16, pos=dat_tmp[ceiling(nrow(dat_tmp)/4), "pos"])
                 res <- function.InputPos(dat = dat_tmp, window = input$x, snp_locus, tmp)
-              
-              # rsid case  
+
+              # rsid case
               } else if (target_type == "rsid"){
                 snp_locus <- function.rsIDasInput(target)
                 res <- function.InputPos(dat = dat_tmp, window = input$x, snp_locus, tmp)
 
-              # chromosome:position case                
+              # chromosome:position case
               } else if (target_type == "locus"){
                 snp_locus <- data.frame(chr=target[[2]], pos=target[[3]])
                 res <- function.InputPos(dat = dat_tmp, window = input$x, snp_locus, tmp)
-                
-                # gene_name case  
+
+                # gene_name case
               } else if (target_type == "gene_name"){
                 gene.info <- function.InputGenes(gene = target[[2]])
                 res <- function.GWASfromGene(dat = dat_tmp, gene.info = gene.info, window = input$x, tmp)
               }
             list_for_results[[gw]] <- res
             if (gw == 2){ col_list[[gw]] <- input$col2 } else if (gw == 3){ col_list[[gw]] <- input$col3 } else if (gw == 4){ col_list[[gw]] <- input$col4 } else if (gw == 5){ col_list[[gw]] <- input$col5 }
-            }          
+            }
           }
         }
 
@@ -1819,20 +1836,20 @@ plotTable <- function(input){
           }
         }
         toplot <- rbindlist(list_for_results)
-        
+
         #################################
-      } 
+      }
     }
-    
+
     # This in case you want manual scroll
   } else if (input$sel == "Manual scroll"){
     if (length(all_gwas) < 2){
       # manage different manual scroll input
       snp.info <- function.InputManualScroll(dat = dat, window = input$x, input.scroll = input$manual.pos, input.chrom = input$manual.chrom, gwas)
-      
+
       # assign to toplot object
       toplot <- snp.info
-      
+
       # The following in case multiple gwas need to be plotted
     } else {
       # check whether uploaded file is among those to show
@@ -1852,7 +1869,7 @@ plotTable <- function(input){
             col_list[[gw]] <- input$col
           } else {
             tmp <- as.character(all_gwas[gw])
-            res <- function.manageInput(tmp, path_f)
+            res <- function.manageInput(tmp, path_f, res_example)
             dat_tmp <- as.data.frame(res[[1]])
             chrom_tmp <- as.data.frame(res[[2]])
             dat_tmp <- function.InputManualScroll(dat = dat_tmp, window = input$x, input.scroll = input$manual.pos, input.chrom = input$manual.chrom, tmp)
@@ -1887,7 +1904,7 @@ plotTable <- function(input){
             col_list[[gw]] <- input$col
           } else {
             tmp <- as.character(all_gwas[gw])
-            res <- function.manageInput(tmp, path_f)
+            res <- function.manageInput(tmp, path_f, res_example)
             dat_tmp <- as.data.frame(res[[1]])
             chrom_tmp <- as.data.frame(res[[2]])
             dat_tmp <- function.InputManualScroll(dat = dat_tmp, window = input$x, input.scroll = input$manual.pos, input.chrom = input$manual.chrom, tmp)
@@ -1895,7 +1912,7 @@ plotTable <- function(input){
             if (gw == 2){ col_list[[gw]] <- input$col2 } else if (gw == 3){ col_list[[gw]] <- input$col3 } else if (gw == 4){ col_list[[gw]] <- input$col4 } else if (gw == 5){ col_list[[gw]] <- input$col5 }
           }
         }
-        
+
         # merge results together
         for (i in 1:length(list_for_results)){
           tmp <- list_for_results[[i]]
@@ -1907,12 +1924,12 @@ plotTable <- function(input){
           }
         }
         toplot <- rbindlist(list_for_results)
-        
+
         #######################################
       }
     }
   }
-  
+
   # for the table, add the study name as a column
   if (length(all_gwas) <2){
     if (nrow(toplot) >0){
@@ -1939,10 +1956,10 @@ plotTable_SVs <- function(input){
     path_f <- "None"
   }
   ##########################
-  
+
   #############################
   all_gwas <- c(input$gwas_neuro, input$gwas_cardio, input$gwas_immune, input$gwas_cancer, input$gwas_physio, input$gwas_from_file)
-  res = function.manageInput(as.character(all_gwas[1]), path_f)
+  res = function.manageInput(as.character(all_gwas[1]), path_f, res_example)
   dat = as.data.frame(res[[1]])
   chrom = as.numeric(res[[2]])
   gwas = as.character(res[[3]])
@@ -1951,39 +1968,39 @@ plotTable_SVs <- function(input){
     # If input is a target region, need to identify which was the input (locus, gene or rsid)
     target <- identiTargetRegion(input$target)
     target_type <- target[[1]]
-    
+
     # check input type and extract snp information and gwas info accordingly
     # example case
     if (target_type == "example"){
       snp_locus = data.frame(chr=16, pos=dat[ceiling(nrow(dat)/4), "pos"])
-    # rsid case  
+    # rsid case
     } else if (target_type == "rsid"){
       snp_locus <- function.rsIDasInput(target)
-    # chromosome:position case  
+    # chromosome:position case
     } else if (target_type == "locus") {
       snp_locus <- data.frame(chr=target[[2]], pos=target[[3]])
-    # gene_name case  
+    # gene_name case
     } else if (target_type == "gene_name"){
       gene.info <- function.InputGenes(gene = target[[2]])
     }
-      
+
     # assign to toplot object
-    if (target_type == "gene_name"){ 
+    if (target_type == "gene_name"){
       tmp <- gene.info[, c("chrom", "txStart", "txEnd")]
       toplot <- data.frame(chrom = c(tmp$chrom, tmp$chrom), pos = c(as.numeric(tmp$txStart) - as.numeric(input$x), as.numeric(tmp$txEnd) + as.numeric(input$x)))
       colnames(toplot) <- c("chr", "pos")
-    } else { 
+    } else {
       tmp <- snp_locus
       toplot <- data.frame(chrom = c(tmp$chr, tmp$chr), pos = c(as.numeric(tmp$pos) - as.numeric(input$x), as.numeric(tmp$pos) + as.numeric(input$x)))
       colnames(toplot) <- c("chr", "pos")
     }
-      
+
     # This in case you want manual scroll
   } else if (input$sel == "Manual scroll"){
     tmp <- function.InputManualScroll(dat = dat, window = input$x, input.scroll = input$manual.pos, input.chrom = input$manual.chrom, gwas[1])
     toplot <- data.frame(chr = c(unique(tmp$chr), unique(tmp$chr)), pos = c(min(as.numeric(tmp$pos)), max(as.numeric(tmp$pos))))
   }
-  
+
   # remove the chr in front of the chromosome number
   if (length(grep("chr", toplot$chr)) >0){
     toplot$chr <- str_split_fixed(toplot$chr, "chr", 2)[, 2]
@@ -2012,10 +2029,10 @@ plotTable_LD <- function(input){
     path_f <- "None"
   }
   ##########################
-  
+
   #############################
   all_gwas <- c(input$gwas_neuro, input$gwas_cardio, input$gwas_immune, input$gwas_cancer, input$gwas_physio, input$gwas_from_file)
-  res = function.manageInput(as.character(all_gwas[1]), path_f)
+  res = function.manageInput(as.character(all_gwas[1]), path_f, res_example)
   dat = as.data.frame(res[[1]])
   chrom = as.numeric(res[[2]])
   gwas = as.character(res[[3]])
@@ -2024,7 +2041,7 @@ plotTable_LD <- function(input){
     # If input is a target region, need to identify which was the input (locus, gene or rsid)
     target <- identiTargetRegion(input$target)
     target_type <- target[[1]]
-    
+
     # check number of GWAS to be plotted
     all_gwas <- c(input$gwas_neuro, input$gwas_cardio, input$gwas_immune, input$gwas_cancer, input$gwas_physio, input$gwas_from_file)
     if (length(all_gwas) < 2){
@@ -2033,44 +2050,44 @@ plotTable_LD <- function(input){
       if (target_type == "example"){
         snp_locus = data.frame(chr=16, pos=dat[ceiling(nrow(dat)/4), "pos"])
         res <- function.InputPos(dat = dat, window = input$x, snp_locus, gwas)
-        
-        # rsid case  
+
+        # rsid case
       } else if (target_type == "rsid"){
         snp_locus <- function.rsIDasInput(target)
         res <- function.InputPos(dat = dat, window = input$x, snp_locus, gwas)
-        
-        # chromosome:position case  
+
+        # chromosome:position case
       } else if (target_type == "locus") {
         snp_locus <- data.frame(chr=target[[2]], pos=target[[3]])
         res <- function.InputPos(dat = dat, window = input$x, snp_locus, gwas)
-        
-        # gene_name case  
+
+        # gene_name case
       } else if (target_type == "gene_name"){
         gene.info <- function.InputGenes(gene = target[[2]])
         res <- function.GWASfromGene(dat = dat, gene.info = gene.info, window = input$x, gwas)
       }
-      
+
       # assign to toplot object
       toplot <- res
-    } 
+    }
     # This in case you want manual scroll
   } else if (input$sel == "Manual scroll"){
     if (length(input$gwas) < 2){
       # manage different manual scroll input
       snp.info <- function.InputManualScroll(dat = dat, window = input$x, input.scroll = input$manual.pos, input.chrom = input$manual.chrom, gwas)
-      
+
       # assign to toplot object
       toplot <- snp.info
     }
   }
-  
+
   # reorder
   snp.info <- toplot[order(toplot$p),]
 
   # the look into LD
   # first check and store the populations selected in case LD calculation is requested
   pop_interest_ld = c(input$pop_afr, input$pop_amr, input$pop_eas, input$pop_eur, input$pop_sas)
-  
+
   ## Check whether LD needs to be computed and in case calculate it
   ld_yesNo <- "no"
   if (input$Linkage == "Most significant in window"){
@@ -2084,7 +2101,7 @@ plotTable_LD <- function(input){
     ld.snp <- merge(ld.info, snp.info, by.x="BP_B", by.y="pos")
     ld_yesNo <- "yes"
   }
-  
+
   ## Also, in case the genome is hg38, now need to do the liftover on the snp.info
   # if genome version is hg38, need to liftover
   if (input$genV == "GRCh38 (hg38)"){
@@ -2111,7 +2128,7 @@ plotTable_LD <- function(input){
       ld.snp <- sb
     }
   }
-  
+
   # Clean and we're done
   ld.snp$pch <- NULL
   ld.snp$col <- NULL
@@ -2154,7 +2171,7 @@ plotEqtl_table_blood <- function(snps_in_interval, eQTL, mapping.ensembl, GENOME
     eqtl_in_interval$A1 <- NULL
     eqtl_in_interval$A2 <- NULL
     eqtl_in_interval <- eqtl_in_interval[order(-eqtl_in_interval$"P"),]
-    
+
   } else {
     eqtl_in_interval <- data.frame(Locus="No", "A1/A2"="eQTLs", Effect="in displayed", "P"="region", Gene="-")
   }
@@ -2192,7 +2209,7 @@ assignRSID <- function(data, genV){
   return(data)
 }
 
-## Function to output the table of the top eQTL associations -- this should look into other tissues than blood 
+## Function to output the table of the top eQTL associations -- this should look into other tissues than blood
 plotEqtl_table_all <- function(snps_in_interval, eQTL, mapping.ensembl, GENOME, tissues){
   # first exclude duplicates based on position
   snps_in_interval <- snps_in_interval[!duplicated(snps_in_interval$Position),]
@@ -2220,7 +2237,7 @@ plotEqtl_table_all <- function(snps_in_interval, eQTL, mapping.ensembl, GENOME, 
     colnames(sb) <- c("chr", "pos_hg38", "pos_hg19", "ID", "Alleles", "Study", "-log10(P)")
     sb$chr = paste0("chr", sb$chr)
   }
-  
+
   # for the grep, need to create some ids
   sb$IDs = paste0(sb$chr, "_", sb$pos_hg38, "_")
   # read gtex file for the correct chromosome
@@ -2228,15 +2245,15 @@ plotEqtl_table_all <- function(snps_in_interval, eQTL, mapping.ensembl, GENOME, 
   tmp_gtx$pos = as.numeric(str_split_fixed(tmp_gtx$V1, "_", 5)[, 2])
   tmp_gtx = merge(tmp_gtx, sb, by.x = "pos", by.y="pos_hg38")
   # then grep on the tissue
-  if ("All tissues" %in% tissues){
-    pattern_tis = paste0(c("Adipose_Subcutaneous", "Adipose_Visceral_Omentum", "Adrenal_Gland", "Artery_Aorta", "Artery_Coronary", 
-                         "Artery_Tibial", "Brain_Amygdala", "Brain_Anterior_cingulate_cortex_BA24", "Brain_Caudate_basal_ganglia", 
+  if ("All_tissues" %in% tissues){
+    pattern_tis = paste0(c("Adipose_Subcutaneous", "Adipose_Visceral_Omentum", "Adrenal_Gland", "Artery_Aorta", "Artery_Coronary",
+                         "Artery_Tibial", "Brain_Amygdala", "Brain_Anterior_cingulate_cortex_BA24", "Brain_Caudate_basal_ganglia",
                          "Brain_Cerebellar_Hemisphere", "Brain_Cerebellum", "Brain_Cortex", "Brain_Frontal_Cortex_BA9", "Brain_Hippocampus",
-                         "Brain_Hypothalamus", "Brain_Nucleus_accumbens_basal_ganglia", "Brain_Putamen_basal_ganglia", "Brain_Spinal_cord_cervical_c-1", 
+                         "Brain_Hypothalamus", "Brain_Nucleus_accumbens_basal_ganglia", "Brain_Putamen_basal_ganglia", "Brain_Spinal_cord_cervical_c-1",
                          "Brain_Substantia_nigra", "Breast_Mammary_Tissue", "Cells_Cultured_fibroblasts", "Cells_EBV-transformed_lymphocytes",
                          "Colon_Sigmoid", "Colon_Transverse", "Esophagus_Gastroesophageal_Junction", "Esophagus_Mucosa", "Esophagus_Muscularis",
                          "Heart_Atrial_Appendage", "Heart_Left_Ventricle", "Kidney_Cortex", "Liver", "Lung", "Minor_Salivary_Gland", "Muscle_Skeletal",
-                         "Nerve_Tibial", "Ovary", "Pancreas", "Pituitary", "Prostate", "Skin_Not_Sun_Exposed_Suprapubic", "Skin_Sun_Exposed_Lower_leg", 
+                         "Nerve_Tibial", "Ovary", "Pancreas", "Pituitary", "Prostate", "Skin_Not_Sun_Exposed_Suprapubic", "Skin_Sun_Exposed_Lower_leg",
                          "Small_Intestine_Terminal_Ileum", "Spleen", "Stomach", "Testis", "Thyroid", "Uterus", "Vagina", "Whole_Blood"), collapse = "|")
   } else {
     pattern_tis = paste0(tissues, collapse = "|")
@@ -2264,7 +2281,7 @@ plotEqtl_table_all <- function(snps_in_interval, eQTL, mapping.ensembl, GENOME, 
     }
     return(tmp_df)
   }
-  
+
   if (nrow(matches_tis) >0){
     all_eqtls = lapply(X = 1:nrow(matches_tis), FUN = tmp_f, matches_tis = matches_tis, pattern_tis = pattern_tis, mapping.ensembl = mapping.ensembl)
     eqtl_in_interval <- rbindlist(all_eqtls)
@@ -2273,55 +2290,49 @@ plotEqtl_table_all <- function(snps_in_interval, eQTL, mapping.ensembl, GENOME, 
   } else {
     eqtl_in_interval <- data.frame(Locus="No", "A1/A2"="eQTLs", Effect="in displayed", "P"="region", Gene="-")
   }
-  
+
   return(eqtl_in_interval)
 }
 
 ##########
 ##########
 # MAIN APP
-# Outside the main function, let's load some necessary files
+# Let's load the annotation data for speeding-up the plots
 # save.image("../data/databases/annotationFiles.RData")
 load("../data/databases/annotationFiles.RData")
 
 shinyServer(
   function(input, output, session) {
-    # main function to manage all data and conditions
-    # the output is the plot object
-    plt <- function(input, output, session){  
+    # main function to manage all data and conditions -- the output is the plot object
+    plt <- function(input, output, session){
 
       ############################
-      # create flag for uploaded input file
+      # Create flag for uploaded input file
       inFile <- input$inp_f
-      path_f <- "None"
-      if (!is.null(inFile)){
-        path_f = inFile$datapath
-      } else {
-        path_f <- "None"
-      }
+      if (!is.null(inFile)){ path_f = inFile$datapath } else { path_f <- "None" }
       ##########################
 
       ##########################
-      # Define which input file to plot
+      # Define which input files to plot based on user choice
       if (length(as.character(input$gwas_from_file[1])) == 0){
         all_gwases = c(input$gwas_neuro, input$gwas_cardio, input$gwas_immune, input$gwas_cancer, input$gwas_physio)
-        res = function.manageInput(as.character(all_gwases[1]), path_f)
+        res = function.manageInput(as.character(all_gwases[1]), path_f, res_example)
       } else {
-        res = function.manageInput(as.character(input$gwas_from_file[1]), path_f)
+        res = function.manageInput(as.character(input$gwas_from_file[1]), path_f, res_example)
       }
       dat = as.data.frame(res[[1]])
       chrom = as.numeric(res[[2]])
       gwas = as.character(res[[3]])
       n.inputs = 1
       ####################
-      
-      # create a variable to control the error and the plot
+
+      # Create a variable to control the error and the plot
       plot_error = FALSE
       plot_error_sex = FALSE
-      
-      # also check and store the populations selected in case LD calculation is requested
+
+      # Store the populations selected in case LD calculation is requested
       pop_interest_ld = c(input$pop_afr, input$pop_amr, input$pop_eas, input$pop_eur, input$pop_sas)
-      
+
       # Then we need to look at the browsing options: now you can choose between "locus, gene, rsid" and "manual scroll"
       if (input$sel == "Locus, Gene, RsID"){
         # If input is a target region, need to identify which was the input (locus, gene or rsid)
@@ -2336,7 +2347,7 @@ shinyServer(
           if (target_type == "example"){
             snp_locus = data.frame(chr=16, pos=dat[ceiling(nrow(dat)/4), "pos"])
             res <- function.InputPos(dat = dat, window = input$x, snp_locus, gwas)
-          # rsid case  
+          # rsid case
           } else if (target_type == "rsid"){
             snp_locus <- function.rsIDasInput(target)
             print(snp_locus)
@@ -2354,9 +2365,9 @@ shinyServer(
             } else {
               plot_error = TRUE
               plot_error_sex = FALSE
-            }        
+            }
 
-          # chromosome:position case  
+          # chromosome:position case
           } else if (target_type == "locus") {
             snp_locus <- data.frame(chr=target[[2]], pos=target[[3]])
             if (is.na(snp_locus$chr)){
@@ -2369,8 +2380,8 @@ shinyServer(
                 plot_error_sex = FALSE
               }
             }
-        
-          # gene_name case  
+
+          # gene_name case
           } else if (target_type == "gene_name"){
             gene.info <- function.InputGenes(gene = target[[2]])
             if (gene.info != "gene_not_in_list"){
@@ -2404,11 +2415,11 @@ shinyServer(
               text(x = 27.5, y = 25, labels = "No Gene/SNP found in RefSeq/1000Genomes.\nIf you are visualizing your own data, make sure this region is covered.",
                  cex = 2, xpd=T) }
           } else {
-            function.plot(snp.info = res, y.lim = input$y, type = input$sel, plt.type = input$ploType, 
-                        windows.number = input$sliding.window, smooth.par = input$smooth, int.locus = target, 
+            function.plot(snp.info = res, y.lim = input$y, type = input$sel, plt.type = input$ploType,
+                        windows.number = input$sliding.window, smooth.par = input$smooth, int.locus = target,
                         gwas = gwas, col = input$col, ld = input$Linkage, input = input, genV = input$genV, inpStrVar = input$strVar_inp, pop_interest_ld = pop_interest_ld, recomb_yn = input$recomb_yn, dotSize_yn = input$dotSize_yn)
           }
-          
+
           # The following in case multiple gwas need to be plotted
         } else {
           #check whether uploaded file is among those to show
@@ -2427,8 +2438,8 @@ shinyServer(
                 if (target_type == "example"){
                   snp_locus = data.frame(chr=16, pos=dat[ceiling(nrow(dat)/4), "pos"])
                   res <- function.InputPos(dat = dat, window = input$x, snp_locus, gwas)
-                  
-                  # rsid case  
+
+                  # rsid case
                 } else if (target_type == "rsid"){
                   snp_locus <- function.rsIDasInput(target)
                   if (snp_locus != "snp_not_in_list"){
@@ -2443,8 +2454,8 @@ shinyServer(
                   } else {
                     plot_error = TRUE
                   }
-                  
-                  # chromosome:position case  
+
+                  # chromosome:position case
                 } else if (target_type == "locus") {
                   snp_locus <- data.frame(chr=target[[2]], pos=target[[3]])
                   if (is.na(snp_locus$chr)){
@@ -2455,8 +2466,8 @@ shinyServer(
                     list_for_results[[gw]] <- res
                     col_list[[gw]] <- input$col
                   }
-                  
-                  # gene_name case  
+
+                  # gene_name case
                 } else if (target_type == "gene_name"){
                   gene.info <- function.InputGenes(gene = target[[2]])
                   if (gene.info != "gene_not_in_list"){
@@ -2475,7 +2486,7 @@ shinyServer(
               } else if (plot_error == FALSE) {
                 # other datasets
                 tmp <- as.character(all_gwas[gw])
-                res = function.manageInput(tmp, path_f)
+                res = function.manageInput(tmp, path_f, res_example)
                 dat_tmp = as.data.frame(res[[1]])
                 chrom_tmp = as.numeric(res[[2]])
                 # check input type and extract snp information and gwas info accordingly
@@ -2483,25 +2494,25 @@ shinyServer(
                 if (target_type == "example"){
                   snp_locus = data.frame(chr=16, pos=dat_tmp[ceiling(nrow(dat_tmp)/4), "pos"])
                   res <- function.InputPos(dat = dat_tmp, window = input$x, snp_locus, tmp)
-                  
-                  # rsid case  
+
+                  # rsid case
                 } else if (target_type == "rsid"){
                   snp_locus <- function.rsIDasInput(target)
                   res <- function.InputPos(dat = dat_tmp, window = input$x, snp_locus, tmp)
-                  
-                  # chromosome:position case  
+
+                  # chromosome:position case
                 } else if (target_type == "locus") {
                   snp_locus <- data.frame(chr=target[[2]], pos=target[[3]])
                   res <- function.InputPos(dat = dat_tmp, window = input$x, snp_locus, tmp)
-                  
-                  # gene_name case  
+
+                  # gene_name case
                 } else if (target_type == "gene_name"){
                   gene.info <- function.InputGenes(gene = target[[2]])
                   res <- function.GWASfromGene(dat = dat_tmp, gene.info = gene.info, window = input$x, tmp)
                 }
                 list_for_results[[gw]] <- res
                 if (gw == 2){ col_list[[gw]] <- input$col2 } else if (gw == 3){ col_list[[gw]] <- input$col3 } else if (gw == 4){ col_list[[gw]] <- input$col4 } else if (gw == 5){ col_list[[gw]] <- input$col5 }
-              }          
+              }
             }
             # plot
             if (plot_error == TRUE){
@@ -2516,12 +2527,12 @@ shinyServer(
                      cex = 2, xpd=T)
               }
             } else {
-              function.multiPlot(snp.info = list_for_results, list_for_loop, y.lim = input$y, type = input$sel, 
-                                 plt.type = input$ploType, windows.number = input$sliding.window, smooth.par = input$smooth, 
+              function.multiPlot(snp.info = list_for_results, list_for_loop, y.lim = input$y, type = input$sel,
+                                 plt.type = input$ploType, windows.number = input$sliding.window, smooth.par = input$smooth,
                                  int.locus = target, col_list, input$genV, inpStrVar = input$strVar_inp, recomb_yn = input$recomb_yn, dotSize_yn = input$dotSize_yn)
             }
-            
-            # This section is the one with respect to the loaded file 
+
+            # This section is the one with respect to the loaded file
           } else {
             # loop over the gwas to plot
             # define some outputs -- the first is the names of the gwases
@@ -2543,8 +2554,8 @@ shinyServer(
                   res <- function.InputPos(dat = dat, window = input$x, snp_locus, list_for_loop[gw])
                   list_for_results[[gw]] <- res
                   col_list[[gw]] <- input$col
-                  
-                  # rsid case  
+
+                  # rsid case
                 } else if (target_type == "rsid"){
                   snp_locus <- function.rsIDasInput(target)
                   if (snp_locus != "snp_not_in_list"){
@@ -2554,15 +2565,15 @@ shinyServer(
                   } else {
                     plot_error = TRUE
                   }
-                  
-                  # chromosome:position case  
+
+                  # chromosome:position case
                 } else if (target_type == "locus") {
                   snp_locus <- data.frame(chr=target[[2]], pos=target[[3]])
                   res <- function.InputPos(dat = dat, window = input$x, snp_locus, list_for_loop[gw])
                   list_for_results[[gw]] <- res
                   col_list[[gw]] <- input$col
-                  
-                  # gene_name case  
+
+                  # gene_name case
                 } else if (target_type == "gene_name"){
                   gene.info <- function.InputGenes(gene = target[[2]])
                   if (gene.info != "gene_not_in_list"){
@@ -2578,7 +2589,7 @@ shinyServer(
                 # check if the second dataset is the loaded file
                 if (list_for_loop[gw] != "toLoad"){
                   tmp <- as.character(all_gwas[gw])
-                  res = function.manageInput(tmp, path_f)
+                  res = function.manageInput(tmp, path_f, res_example)
                   dat_tmp = as.data.frame(res[[1]])
                   chrom_tmp = as.numeric(res[[2]])
                   # check input type and extract snp information and gwas info accordingly
@@ -2594,29 +2605,29 @@ shinyServer(
                     res <- function.InputPos(dat = dat, window = input$x, snp_locus, list_for_loop[gw])
                     list_for_results[[gw]] <- res
                     col_list[[gw]] <- input$col
-                    
-                    # rsid case  
+
+                    # rsid case
                   } else if (target_type == "rsid"){
                     snp_locus <- function.rsIDasInput(target)
                     res <- function.InputPos(dat = dat_tmp, window = input$x, snp_locus, tmp)
-                    
-                    # chromosome:position case  
+
+                    # chromosome:position case
                   } else if (target_type == "locus") {
                     snp_locus <- data.frame(chr=target[[2]], pos=target[[3]])
                     res <- function.InputPos(dat = dat_tmp, window = input$x, snp_locus, tmp)
-                    
-                    # gene_name case  
+
+                    # gene_name case
                   } else if (target_type == "gene_name"){
                     gene.info <- function.InputGenes(gene = target[[2]])
                     res <- function.GWASfromGene(dat = dat_tmp, gene.info = gene.info, window = input$x, tmp)
                   }
                   list_for_results[[gw]] <- res
                   if (gw == 2){ col_list[[gw]] <- input$col2 } else if (gw == 3){ col_list[[gw]] <- input$col3 } else if (gw == 4){ col_list[[gw]] <- input$col4 } else if (gw == 5){ col_list[[gw]] <- input$col5 }
-                  
+
                   # otherwise if we need to plot the loaded file
                 } else {
                   tmp <- all_gwas[gw]
-                  res = function.manageInput(tmp, path_f)
+                  res = function.manageInput(tmp, path_f, res_example)
                   dat_tmp = as.data.frame(res[[1]])
                   chrom_tmp = as.numeric(res[[2]])
                   if (target_type == "example"){
@@ -2626,8 +2637,8 @@ shinyServer(
                     pos_tmp <- res[which(res$chr == chr_tmp),]
                     snp_locus = data.frame(chr=chr_tmp, pos=pos_tmp[ceiling(nrow(pos_tmp)/4), "pos"])
                     res <- function.InputPos(dat = dat_tmp, window = input$x, snp_locus, tmp)
-                    
-                    # rsid case  
+
+                    # rsid case
                   } else if (target_type == "rsid"){
                     snp_locus <- function.rsIDasInput(target)
                     res <- function.InputPos(dat = dat_tmp, window = input$x, snp_locus, tmp)
@@ -2636,7 +2647,7 @@ shinyServer(
                     } else {
                       list_for_results[[gw]] <- res
                     }
-                    # chromosome:position case                
+                    # chromosome:position case
                   } else if (target_type == "locus"){
                     snp_locus <- data.frame(chr=target[[2]], pos=target[[3]])
                     res <- function.InputPos(dat = dat_tmp, window = input$x, snp_locus, tmp)
@@ -2645,8 +2656,8 @@ shinyServer(
                     } else {
                       list_for_results[[gw]] <- res
                     }
-                    
-                    # gene_name case  
+
+                    # gene_name case
                   } else if (target_type == "gene_name"){
                     gene.info <- function.InputGenes(gene = target[[2]])
                     res <- function.GWASfromGene(dat = dat_tmp, gene.info = gene.info, window = input$x, tmp)
@@ -2657,7 +2668,7 @@ shinyServer(
                     }
                   }
                   if (gw == 2){ col_list[[gw]] <- input$col2 } else if (gw == 3){ col_list[[gw]] <- input$col3 } else if (gw == 4){ col_list[[gw]] <- input$col4 } else if (gw == 5){ col_list[[gw]] <- input$col5 }
-                }          
+                }
               }
             }
             # plot
@@ -2668,13 +2679,13 @@ shinyServer(
               text(x = 27.5, y = 25, labels = "No Gene/SNP found in RefSeq/1000Genomes.",
                    cex = 2, xpd=T)
             } else {
-              function.multiPlot(snp.info = list_for_results, list_for_loop, y.lim = input$y, type = input$sel, 
-                                 plt.type = input$ploType, windows.number = input$sliding.window, smooth.par = input$smooth, 
+              function.multiPlot(snp.info = list_for_results, list_for_loop, y.lim = input$y, type = input$sel,
+                                 plt.type = input$ploType, windows.number = input$sliding.window, smooth.par = input$smooth,
                                  int.locus = target, col_list, input$genV, inpStrVar = input$strVar_inp, recomb_yn = input$recomb_yn, dotSize_yn = input$dotSize_yn)
             }
-            
+
            #################################
-          } 
+          }
         }
 
         # This in case you want manual scroll
@@ -2689,8 +2700,8 @@ shinyServer(
           }
           # plot
           if (plot_error == FALSE){
-            function.plot(snp.info = snp.info, y.lim = input$y, type = input$sel, plt.type = input$ploType, 
-                        windows.number = input$sliding.window, smooth.par = input$smooth, int.locus = input$manual.pos, 
+            function.plot(snp.info = snp.info, y.lim = input$y, type = input$sel, plt.type = input$ploType,
+                        windows.number = input$sliding.window, smooth.par = input$smooth, int.locus = input$manual.pos,
                         gwas = gwas, col = input$col, ld=input$Linkage, genV = input$genV, inpStrVar = input$strVar_inp, pop_interest_ld = pop_interest_ld, recomb_yn = input$recomb_yn, dotSize_yn = input$dotSize_yn)
           } else {
             par(mar=c(4, 8, 10, 6))
@@ -2719,7 +2730,7 @@ shinyServer(
                 col_list[[gw]] <- input$col
               } else {
                 tmp <- as.character(all_gwas[gw])
-                res <- function.manageInput(tmp, path_f)
+                res <- function.manageInput(tmp, path_f, res_example)
                 dat_tmp <- as.data.frame(res[[1]])
                 chrom_tmp <- as.data.frame(res[[2]])
                 dat_tmp <- function.InputManualScroll(dat = dat_tmp, window = input$x, input.scroll = input$manual.pos, input.chrom = input$manual.chrom, tmp)
@@ -2727,7 +2738,7 @@ shinyServer(
                 if (gw == 2){ col_list[[gw]] <- input$col2 } else if (gw == 3){ col_list[[gw]] <- input$col3 } else if (gw == 4){ col_list[[gw]] <- input$col4 } else if (gw == 5){ col_list[[gw]] <- input$col5 }
               }
             }
-            
+
             # check if there are missing among the gwas to be plotted
             miss = c()
             for (x in list_for_results){
@@ -2739,11 +2750,11 @@ shinyServer(
                    main=paste0(input$manual.chrom, ":", input$manual.pos), cex.main=2.50, col="white")
               text(x = 27.5, y = 25, labels = "No SNPs in this region.",
                    cex = 2, xpd=T)
-              
+
             } else {
             # plot
-              function.multiPlot(snp.info = list_for_results, list_for_loop, y.lim = input$y, type = input$sel, 
-                               plt.type = input$ploType, windows.number = input$sliding.window, smooth.par = input$smooth, 
+              function.multiPlot(snp.info = list_for_results, list_for_loop, y.lim = input$y, type = input$sel,
+                               plt.type = input$ploType, windows.number = input$sliding.window, smooth.par = input$smooth,
                                int.locus = target, col_list, input$genV, inpStrVar = input$strVar_inp, recomb_yn = input$recomb_yn, dotSize_yn = input$dotSize_yn)
             }
           # In the following case, the file is loaded -- to be completed
@@ -2763,7 +2774,7 @@ shinyServer(
                 col_list[[gw]] <- input$col
               } else {
                 tmp <- as.character(all_gwas[gw])
-                res <- function.manageInput(tmp, path_f)
+                res <- function.manageInput(tmp, path_f, res_example)
                 dat_tmp <- as.data.frame(res[[1]])
                 chrom_tmp <- as.data.frame(res[[2]])
                 dat_tmp <- function.InputManualScroll(dat = dat_tmp, window = input$x, input.scroll = input$manual.pos, input.chrom = input$manual.chrom, tmp)
@@ -2775,7 +2786,7 @@ shinyServer(
                 if (gw == 2){ col_list[[gw]] <- input$col2 } else if (gw == 3){ col_list[[gw]] <- input$col3 } else if (gw == 4){ col_list[[gw]] <- input$col4 } else if (gw == 5){ col_list[[gw]] <- input$col5 }
               }
             }
-            
+
             # check if there are missing among the gwas to be plotted
             miss = c()
             for (x in list_for_results){
@@ -2787,11 +2798,11 @@ shinyServer(
                    main=paste0(input$manual.chrom, ":", input$manual.pos), cex.main=2.50, col="white")
               text(x = 27.5, y = 25, labels = "No SNPs in this region.",
                    cex = 2, xpd=T)
-              
+
             } else {
               # plot
-              function.multiPlot(snp.info = list_for_results, list_for_loop, y.lim = input$y, type = input$sel, 
-                                 plt.type = input$ploType, windows.number = input$sliding.window, smooth.par = input$smooth, 
+              function.multiPlot(snp.info = list_for_results, list_for_loop, y.lim = input$y, type = input$sel,
+                                 plt.type = input$ploType, windows.number = input$sliding.window, smooth.par = input$smooth,
                                  int.locus = target, col_list, input$genV, inpStrVar = input$strVar_inp, recomb_yn = input$recomb_yn, dotSize_yn = input$dotSize_yn)
               #######################################
             }
@@ -2799,17 +2810,19 @@ shinyServer(
         }
       }
     }
-    
+
     # function to try to avoid grey outting
     autoInvalidate <- reactiveTimer(10000)
     observe({
       autoInvalidate()
       cat(".")
+      gc()
     })
-    
+
+    # function to try to avoid grey outting
     # main function to plot -- will plot the above function
     output$hist <- renderPlot(plt(input, output, session), res=95)
-    
+
     # main function to plot the bug-report section
     output$table_report_last <- renderTable({
       all_gwases = c(input$gwas_neuro, input$gwas_cardio, input$gwas_immune, input$gwas_cancer, input$gwas_physio, input$gwas_from_file)
@@ -2817,12 +2830,12 @@ shinyServer(
       pop_interest_ld = c(input$pop_afr, input$pop_amr, input$pop_eas, input$pop_eur, input$pop_sas)
       if (length(pop_interest_ld) == 0){ pop_interest_ld = NA } else { pop_interest_ld = paste0(pop_interest_ld, collapse = ",") }
       # take results from function
-      toreport = data.frame("Input datasets" = paste0(all_gwases, collapse = ","), "Reference" = input$genV, "Browsing option" = input$sel, "Target" = input$target, "Window-scale" = input$x, "P-scale" = input$y, 
+      toreport = data.frame("Input datasets" = paste0(all_gwases, collapse = ","), "Reference" = input$genV, "Browsing option" = input$sel, "Target" = input$target, "Window-scale" = input$x, "P-scale" = input$y,
                             "Plot" = input$ploType, "LD" = input$Linkage, "LD populations" = pop_interest_ld)
       colnames(toreport) = c("Input datasets", "Reference", "Browsing option", "Target", "Window-scale", "P-scale", "Plot", "LD", "LD populations")
       return(toreport)
     })
-    
+
     # here is the rective object in the bug-report page -- this controls a button that send a email with the bug informations
     output$bugss <- renderPlot({
       all_gwases = c(input$gwas_neuro, input$gwas_cardio, input$gwas_immune, input$gwas_cancer, input$gwas_physio, input$gwas_from_file)
@@ -2830,7 +2843,7 @@ shinyServer(
       pop_interest_ld = c(input$pop_afr, input$pop_amr, input$pop_eas, input$pop_eur, input$pop_sas)
       if (length(pop_interest_ld) == 0){ pop_interest_ld = NA } else { pop_interest_ld = paste0(pop_interest_ld, collapse = ",") }
       # take results from function
-      toreport = data.frame("Input datasets" = paste0(all_gwases, collapse = ","), "Reference" = input$genV, "Browsing option" = input$sel, "Target" = input$target, "Window-scale" = input$x, "P-scale" = input$y, 
+      toreport = data.frame("Input datasets" = paste0(all_gwases, collapse = ","), "Reference" = input$genV, "Browsing option" = input$sel, "Target" = input$target, "Window-scale" = input$x, "P-scale" = input$y,
                             "Plot" = input$ploType, "LD" = input$Linkage, "LD populations" = pop_interest_ld)
       colnames(toreport) = c("Input datasets", "Reference", "Browsing option", "Target", "Window-scale", "P-scale", "Plot", "LD", "LD populations")
       toreport$Comments = as.character(input$bug_comments)
@@ -2850,7 +2863,7 @@ shinyServer(
         plot(0, pch=16, col="white", bty="n", xlab="", ylab="", xaxt="none", yaxt="none", xlim=c(0, 1), ylim=c(0, 1))
       }
   })
-    
+
     # main function for the annotateMe
     output$annot <- renderPlot({
       ####################
@@ -2862,6 +2875,7 @@ shinyServer(
              # When email address is inputed, take snps and save them
              annotateMe.snplist <- unlist(strsplit(input$snp_list, "\n"))
              write.table(annotateMe.snplist, paste("annotateMe_input_", random_num, ".txt", sep=""), quote=F, row.names=F, col.names = F)
+             log_filename = paste0("annotateMe_run_", random_num, ".log")
              # Take also input type
              ftype <- as.character(input$snp_list_type)
              if (ftype == "chr:pos (1:12345678)"){ ftype = 1 } else if (ftype == "chr pos (1 12345678)"){ ftype = 2 } else if (ftype == "rsid (rs12345)"){ ftype = 3 }
@@ -2871,24 +2885,26 @@ shinyServer(
              # Save user email
              username <- as.character(input$email)
              # Save analysis setting
+             analysis_type = as.character(input$analysis_type)
+             if (analysis_type == "Gene-set enrichment analysis"){ analysis_type = "enrichment" } else { analysis_type = "mapping" }
              analysis_mode = paste0(as.character(input$analysis_mode), collapse = ",")
              gtex_tissues = paste0(input$gtex_type, collapse = ",")
-             # Then run annotate me externally in background
-             annotateMe.cmd <- paste("Rscript /root/snpXplorer/AnnotateMe/BIN/20200430_AnnotateMe_server.R annotateMe_input_", random_num, ".txt ", ftype, " ", username, " ", analysis_mode, " ", gtex_tissues, " ", ref_version, sep="")
+             # Then run annotate me externally in background -- this depends on the analysis_type requested
+             annotateMe.cmd <- paste0("Rscript /root/snpXplorer/AnnotateMe/BIN/MAIN.R annotateMe_input_", random_num, ".txt ", ftype, " ", username, " ", analysis_type, " ", analysis_mode, " ", gtex_tissues, " ", ref_version, " > ", log_filename)
              print(annotateMe.cmd)
              system(annotateMe.cmd, ignore.stdout = F, wait = F)
              # Finally update the email address so that AnnotateMe is not executed every time user load a new page
              #updateTextInput(session, 'email', label="E-mail", value = "Type your email address...")
              plot(0, pch=16, col="white", bty="n", xlab="", ylab="", xaxt="none", yaxt="none", xlim=c(0, 1), ylim=c(0, 1))
-             text(x=0.5, y=0.75, labels="Submission completed!", font=2, cex=2.50, xpd=T)
-             text(x=0.5, y=0.5, labels="You will receive results by email.", font=4, cex=1.50, xpd=T)
+             text(x=0.5, y=0.75, labels="Submission completed!", font=2, cex=1.50, xpd=T)
+             text(x=0.5, y=0.5, labels="You will receive results by email.", font=4, cex=1, xpd=T)
            } else {
              plot(0, pch=16, col="white", bty="n", xlab="", ylab="", xaxt="none", yaxt="none", xlim=c(0, 1), ylim=c(0, 1))
-             text(x=0.5, y=1, labels="How to run AnnotateMe", font=2, cex=2.50, xpd=T)
-             text(x=0.5, y=0.5, labels="1) Paste the list of SNPs of interest\n2) Select input type\n3) Insert email address\n4) Submit!", font=4, cex=1.50)
+             text(x=0.5, y=1, labels="How to run AnnotateMe", font=2, cex=1.50, xpd=T)
+             text(x=0.5, y=0.5, labels="1) Paste the list of SNPs of interest\n2) Select input type\n3) Insert email address\n4) Submit!", font=4, cex=1)
            }
        })
-    
+
     # this should be the snp info on the side
     output$table <- renderTable({
       # take results from function
@@ -2904,7 +2920,7 @@ shinyServer(
       }
       return(top)
     })
-    
+
     # this should be the function to report eQTL associations of variants in the region of interest
     output$eQTL <- renderTable({
       # take results from function
@@ -2913,7 +2929,7 @@ shinyServer(
       # assign rsid
       snps_interest = assignRSID(data = toplot_table, genV = input$genV)
       # look for eqtl with function
-      if ((input$gtex_type_tb == "Whole_Blood") & !("All tissues" %in% input$gtex_type_tb)){
+      if ((input$gtex_type_tb == "Whole_Blood") & !("All_tissues" %in% input$gtex_type_tb)){
         eqtl_in_interval <- plotEqtl_table_blood(snps_interest, eQTL, mapping.ensembl, input$genV)
         eqtl_in_interval$Tissue = "Whole_Blood"
       } else {
@@ -2922,7 +2938,7 @@ shinyServer(
       eqtl_in_interval <- head(eqtl_in_interval, 15)
       return(eqtl_in_interval)
     })
-    
+
     # this should be the cross-reference to gene-cards of the gene of interest or the closest
     output$genecards_link <- renderUI({
       if (input$sel == "Locus, Gene, RsID"){
@@ -2942,7 +2958,7 @@ shinyServer(
         }
       }
     })
-    
+
     # this should be the cross-reference for GWAS catalog specifically
     output$gwascat_link <- renderUI({
       if (input$sel == "Locus, Gene, RsID"){
@@ -2970,36 +2986,38 @@ shinyServer(
       url <- a("Click here!", href = link)
       tagList("LD Hub link:", url)
     })
-    
+
     # this should be table of the studies included
     output$table_info <- renderTable({
       studies_table <- as.data.frame(matrix(data=NA, nrow=18, ncol = 5))
       colnames(studies_table) <- c("Class", "Name", "Trait", "Authors", "Reference")
-      studies_table[1, ] <- c("Neurological", "GR@ACE", "Alzheimer's disease", "De Rojas et al., 2021", "https://doi.org/10.1038/s41467-021-22491-8")
-      studies_table[2, ] <- c("Neurological", "IGAP", "Alzheimer's disease", "Kunkle et al., 2019", "https://doi.org/10.1038/s41588-019-0358-2")
-      studies_table[3, ] <- c("Neurological", "proxy_AD", "by-proxy Alzheimer's", "Jansen et al., 2019", "https://doi.org/10.1038/s41588-018-0311-9")
-      studies_table[4, ] <- c("Neurological", "Autism", "Autism", "Matoba et al., 2020", "https://doi.org/10.1038/s41398-020-00953-9")
-      studies_table[5, ] <- c("Neurological", "Depression", "Depression", "Cai et al., 2020", "https://doi.org/10.1038/s41588-020-0594-5")
-      studies_table[6, ] <- c("Cardiovascular", "CAD", "Coronary artery disease", "van der Harst et al., 2017", "https://doi.org/10.1161/CIRCRESAHA.117.312086")
-      studies_table[7, ] <- c("Cardiovascular", "CAD_Diabetics", "Coronary artery disease in diabetes", "Fall et al., 2018", "https://doi.org/10.1007/s00125-018-4686-z")
-      studies_table[8, ] <- c("Cardiovascular", "Ventricular volumne", "Ventricular volume", "Vojinovic et al., 2018", "https://doi.org/10.1038/s41467-018-06234-w")
-      studies_table[9, ] <- c("Cardiovascular", "SBP", "Sistolic blood pressure", "Evangelou et al., 2018", "https://doi.org/10.1038/s41588-018-0205-x")
-      studies_table[10, ] <- c("Cardiovascular", "BMI", "Body-mass index", "Yengo et al., 2018", "https://doi.org/10.1093/hmg/ddy271")
-      studies_table[11, ] <- c("Cardiovascular", "Diabetes", "Type I Diabetes Mellitus", "Forgetta et al., 2020", "https://doi.org/10.2337/db19-0831")
-      studies_table[12, ] <- c("Immunological", "COVID", "COVID-19 critical illness", "Erola Pairo-Castineira et al. 2020", "https://doi.org/10.1038/s41586-020-03065-y")
-      studies_table[13, ] <- c("Immunological", "Lupus", "Systemic Lupus", "Yong-Fei Wang et al. 2021", "https://doi.org/10.1038/s41467-021-21049-y")
-      studies_table[14, ] <- c("Immunological", "Inflammation", "Inflammatory Biomarkers", "Sanni E. Ruotsalainen et al., 2020", "https://doi.org/10.1038/s41431-020-00730-8")
-      studies_table[15, ] <- c("Immunological", "Asthma", "Asthma", "Han et al., 2020", "https://doi.org/10.1038/s41467-020-15649-3")
-      studies_table[16, ] <- c("Cancer", "Breast_cancer", "Breast cancer", "Zhang et al., 2020", "https://doi.org/10.1038/s41588-020-0609-2")
-      studies_table[17, ] <- c("Cancer", "Myeloproliferative", "Myeloproliferative neoplasm", "Erik L. Bao et al., 2020", "https://doi.org/10.1038/s41586-020-2786-7")
-      studies_table[18, ] <- c("Cancer", "Prostate", "Prostate cancer", "Peter N. Fiorica et al., 2020", "https://doi.org/10.1371/journal.pone.0236209")
-      studies_table[19, ] <- c("Cancer", "Lung", "Lung cancer", "Sara R. Rashkin et al., 2020", "https://doi.org/10.1038/s41467-020-18246-6")
-      studies_table[20, ] <- c("Cancer", "Leukemia", "Lymphocytic Leukemia", "Sara R. Rashkin et al., 2020", "https://doi.org/10.1038/s41467-020-18246-6")
-      studies_table[21, ] <- c("Physiological", "UKBaging", "Parental longevity", "Timmers et al., 2019", "https://doi.org/10.7554/eLife.39856")
-      studies_table[22, ] <- c("Physiological", "Height", "Height", "Yengo et al., 2018", "https://doi.org/10.1093/hmg/ddy271")
-      studies_table[23, ] <- c("Physiological", "Education", "Education", "Perline A. Demange et al., 2021", "https://doi.org/10.1038/s41588-020-00754-2")
-      studies_table[24, ] <- c("Physiological", "Bone density", "Bone density and fracture risk", "Ida Surakka et al., 2020", "https://doi.org/10.1038/s41467-020-17315-0")
-      studies_table[25, ] <- c("Physiological", "Vitamin D", "Vitamin D", "Manousaki et al., 2020", "https://doi.org/10.1016/j.ajhg.2020.01.017")
+      studies_table[1, ] <- c("Neurological", "Alzheimer_million", "Alzheimer's disease", "Wightman et al., 2021", "https://doi.org/10.1038/s41588-021-00921-z")
+      studies_table[2, ] <- c("Neurological", "GR@ACE", "Alzheimer's disease", "De Rojas et al., 2021", "https://doi.org/10.1038/s41467-021-22491-8")
+      studies_table[3, ] <- c("Neurological", "IGAP", "Alzheimer's disease", "Kunkle et al., 2019", "https://doi.org/10.1038/s41588-019-0358-2")
+      studies_table[4, ] <- c("Neurological", "proxy_AD", "by-proxy Alzheimer's", "Jansen et al., 2019", "https://doi.org/10.1038/s41588-018-0311-9")
+      studies_table[5, ] <- c("Neurological", "Autism", "Autism", "Matoba et al., 2020", "https://doi.org/10.1038/s41398-020-00953-9")
+      studies_table[6, ] <- c("Neurological", "Depression", "Depression", "Cai et al., 2020", "https://doi.org/10.1038/s41588-020-0594-5")
+      studies_table[7, ] <- c("Cardiovascular", "CAD", "Coronary artery disease", "van der Harst et al., 2017", "https://doi.org/10.1161/CIRCRESAHA.117.312086")
+      studies_table[8, ] <- c("Cardiovascular", "CAD_Diabetics", "Coronary artery disease in diabetes", "Fall et al., 2018", "https://doi.org/10.1007/s00125-018-4686-z")
+      studies_table[9, ] <- c("Cardiovascular", "Ventricular volumne", "Ventricular volume", "Vojinovic et al., 2018", "https://doi.org/10.1038/s41467-018-06234-w")
+      studies_table[10, ] <- c("Cardiovascular", "SBP", "Sistolic blood pressure", "Evangelou et al., 2018", "https://doi.org/10.1038/s41588-018-0205-x")
+      studies_table[11, ] <- c("Cardiovascular", "BMI", "Body-mass index", "Yengo et al., 2018", "https://doi.org/10.1093/hmg/ddy271")
+      studies_table[12, ] <- c("Cardiovascular", "Diabetes", "Type I Diabetes Mellitus", "Forgetta et al., 2020", "https://doi.org/10.2337/db19-0831")
+      studies_table[13, ] <- c("Immunological", "COVID", "COVID-19 critical illness", "Erola Pairo-Castineira et al. 2020", "https://doi.org/10.1038/s41586-020-03065-y")
+      studies_table[14, ] <- c("Immunological", "Lupus", "Systemic Lupus", "Yong-Fei Wang et al. 2021", "https://doi.org/10.1038/s41467-021-21049-y")
+      studies_table[15, ] <- c("Immunological", "Inflammation", "Inflammatory Biomarkers", "Sanni E. Ruotsalainen et al., 2020", "https://doi.org/10.1038/s41431-020-00730-8")
+      studies_table[16, ] <- c("Immunological", "Asthma", "Asthma", "Han et al., 2020", "https://doi.org/10.1038/s41467-020-15649-3")
+      studies_table[17, ] <- c("Cancer", "Breast_cancer", "Breast cancer", "Zhang et al., 2020", "https://doi.org/10.1038/s41588-020-0609-2")
+      studies_table[18, ] <- c("Cancer", "Myeloproliferative", "Myeloproliferative neoplasm", "Erik L. Bao et al., 2020", "https://doi.org/10.1038/s41586-020-2786-7")
+      studies_table[19, ] <- c("Cancer", "Prostate", "Prostate cancer", "Peter N. Fiorica et al., 2020", "https://doi.org/10.1371/journal.pone.0236209")
+      studies_table[20, ] <- c("Cancer", "Lung", "Lung cancer", "Sara R. Rashkin et al., 2020", "https://doi.org/10.1038/s41467-020-18246-6")
+      studies_table[21, ] <- c("Cancer", "Leukemia", "Lymphocytic Leukemia", "Sara R. Rashkin et al., 2020", "https://doi.org/10.1038/s41467-020-18246-6")
+      studies_table[22, ] <- c("Physiological", "Multivariate_Longevity", "Longevity/Lifespan/Healthspan", "Timmers et al., 2020", "https://doi.org/10.1038/s41467-020-17312-3")
+      studies_table[23, ] <- c("Physiological", "UKBaging", "Parental longevity", "Timmers et al., 2019", "https://doi.org/10.7554/eLife.39856")
+      studies_table[24, ] <- c("Physiological", "Height", "Height", "Yengo et al., 2018", "https://doi.org/10.1093/hmg/ddy271")
+      studies_table[25, ] <- c("Physiological", "Education", "Education", "Perline A. Demange et al., 2021", "https://doi.org/10.1038/s41588-020-00754-2")
+      studies_table[26, ] <- c("Physiological", "Bone density", "Bone density and fracture risk", "Ida Surakka et al., 2020", "https://doi.org/10.1038/s41467-020-17315-0")
+      studies_table[27, ] <- c("Physiological", "Vitamin D", "Vitamin D", "Manousaki et al., 2020", "https://doi.org/10.1016/j.ajhg.2020.01.017")
       return(studies_table)
     }, width = "100%")
 
@@ -3045,12 +3063,12 @@ shinyServer(
       studies_table[3, ] <- c("Audano et al., 2019", "PacBio CLR", "https://doi.org/10.1016/j.cell.2018.12.019")
       return(studies_table)
     }, width = "100%")
-    
+
     # this should be the link to bioRxiv paper
     output$biorxiv_link <- renderUI({
-      link <- paste0("https://www.biorxiv.org/content/10.1101/2020.11.11.377879v1.abstract")
+      link <- paste0("https://academic.oup.com/nar/article/49/W1/W603/6287842")
       url <- a("Click here!", href = link)
-      tagList("Link to bioRxiv pre-print:", url)
+      tagList("Link to paper:", url)
     })
 
     # this should be the link to longevity paper
@@ -3066,13 +3084,13 @@ shinyServer(
       url <- a("Click here!", href = link)
       tagList("Link to the paper:", url)
     })
-    
+
     # this is the pdf viewer of the documentation
     output$pdf_doc_view <- renderUI({ tags$iframe(style="height:1000px; width:95%", src="snpXplorer_documentation.pdf") })
 
     # this is the pdf viewer of the biorxiv paper
-    output$pdf_biorxiv_view <- renderUI({ tags$iframe(style="height:1000px; width:95%", src="snpXplorer_biorxiv_paper.pdf") })
-    
+    output$pdf_biorxiv_view <- renderUI({ tags$iframe(style="height:1000px; width:95%", src="gkab410-3.pdf") })
+
     # this is to download all SVs in the region
     output$download_SVs <- downloadHandler(
       filename = function() {
@@ -3094,7 +3112,7 @@ shinyServer(
         # take results from function
         snps_in_interval <- plotTable(input)
         # look for eqtl with function
-        if ((input$gtex_type_tb == "Whole_Blood") & !("All tissues" %in% input$gtex_type_tb)){
+        if ((input$gtex_type_tb == "Whole_Blood") & !("All_tissues" %in% input$gtex_type_tb)){
           eqtl_in_interval <- plotEqtl_table_blood(snps_in_interval, eQTL, mapping.ensembl, input$genV)
           eqtl_in_interval$Tissue = "Whole_Blood"
         } else {
@@ -3104,7 +3122,7 @@ shinyServer(
         return(eqtl_in_interval)
       }
     )
-    
+
     # this is to download the LD table
     output$download_LDtable <- downloadHandler(
       filename = function() {
@@ -3115,7 +3133,7 @@ shinyServer(
         write.table(toplot_table, file, row.names = FALSE, quote=F, sep=" ")
       }
     )
-    
+
     # this is to download all snp associations
     output$download_SNPs <- downloadHandler(
       filename = function() {
@@ -3129,7 +3147,7 @@ shinyServer(
         write.table(toplot_table, file, row.names = FALSE, quote=F, sep=" ")
       }
     )
-    
+
     # this is to download sample data -- exploration file 1
     help_explo_1 <- fread("www/trial_dataset_website.txt.gz")
     output$download_help_exploration <- downloadHandler(
@@ -3184,7 +3202,7 @@ shinyServer(
         write.table(help_annot_3, file, row.names = FALSE, col.names=F, quote=F)
       }
     )
-    
+
     # this is the link to the github page
     url <- a("Visit our Github page", href="https://github.com/TesiNicco/SNPbrowser")
     output$github <- renderUI({ tagList(url) })
@@ -3202,7 +3220,7 @@ shinyServer(
     output$video4 <- renderUI({
       HTML(paste0('<iframe width="560" height="315" src="https://www.youtube.com/embed/QP-5XjIEYpI" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>'))
     })
-    
+
     # this should be to download image
     output$downloadPlot <- downloadHandler(
       file = function() { paste(input$target, "_", paste0(c(input$gwas, input$gwas_from_file), collapse="_"), ".png", sep="") },
@@ -3213,9 +3231,3 @@ shinyServer(
         dev.off()
       })
 })
-
-
-
-
-
-
