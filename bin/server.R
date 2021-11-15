@@ -2303,7 +2303,7 @@ load("../data/databases/annotationFiles.RData")
 
 shinyServer(
   function(input, output, session) {
-    # main function to manage all data and conditions -- the output is the plot object
+    # Main function to manage all data and conditions -- the output is the plot object
     plt <- function(input, output, session){
 
       ############################
