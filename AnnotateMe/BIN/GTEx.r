@@ -81,6 +81,7 @@ random_num = args[3]
 load(snps_info_path)
 # run function
 out.gtex <- GTEx_me_generic_allTissues_newImplementation(mapping = out.annot, interesting_tissues = interesting_tissues)
+# replace empty cells with NA
 out.gtex = as.data.frame(apply(out.gtex, 2, function(x) gsub("^$|^ $", NA, x)))
 # we can also use LDlink -- this will give results for the snps of interest + all snps in LD with that
 #out.annot.sb = out.annot[grep("rs", out.annot$ID),]

@@ -88,6 +88,10 @@ readSNPs <- function(fname, ftype, MAIN, ref_version, analysis_type){
     if (ftype == 4){ d <- as.data.frame(stringr::str_split_fixed(d$V1, "_", 2)); d$V2 <- NULL }
     #ref <- fread(paste(MAIN, "INPUTS_OTHER/1000G_frequencies/chrAll.afreq.gz", sep=""), h=T, showProgress=FALSE)
     #info <- ref[which(ref$ID %in% d$V1), c("#CHROM", "POS", "ID", "ALT_FREQS")]
+    # before grepping rsid, we should remove empty spaces otherwise there will be issues
+    colnames(d) = "V1"
+    d$V1 = stringr::str_replace_all(d$V1, " ", "")
+    write.table(d, fname, quote=F, row.names=F, col.names=F)
     # grep rsid
     cmd <- paste0("grep -w -F -f ", fname, " ", MAIN, "INPUTS_OTHER/1000G_frequencies/chrAll.afreq")
     info = system(cmd, intern=T)
