@@ -14,16 +14,17 @@ matchEQTL <- function(i, mapping, ensembl, interesting_tissues, random_num){
   write.table(tmp$code_gtex, paste0(MAIN, "INPUTS_OTHER/summary_eqtls/tmp_chr", i, "_", random_num, ".txt"), quote=F, row.names=F, col.names=F)
   # command to grep
   cmd = paste0("zgrep -F -f ", MAIN, "INPUTS_OTHER/summary_eqtls/tmp_chr", i, "_", random_num, ".txt ", MAIN, "INPUTS_OTHER/summary_eqtls/chr", i, "_summary_eqtls.txt.gz")
-  tmp_res = system(cmd, intern = T)
+  #tmp_res = system(cmd, intern = T)
+  tmp_res <- tryCatch({ system(cmd, intern = T) }, error=function(cond){ return(NA) }, warning=function(cond){ return(NA) })    
   # remove temporary data
   system(paste0("rm ", MAIN, "INPUTS_OTHER/summary_eqtls/tmp_chr", i, "_", random_num, ".txt"))
-  # modify structure of data
-  tmp_res = data.frame(stringr::str_split_fixed(tmp_res, "\t", 2), stringsAsFactors = F)
   # create variables for assignment
   tmp$eqtl = NA
   tmp$eqtl_tissue = NA
   # main loop to assign eqtls to snps
-  if (nrow(tmp_res) > 0){
+  if (!is.na(tmp_res)){
+    # modify structure of data
+    tmp_res = data.frame(stringr::str_split_fixed(tmp_res, "\t", 2), stringsAsFactors = F)
     for (i in 1:nrow(tmp_res)){
       # take snp id
       snp_id = paste0(stringr::str_replace_all(paste(stringr::str_split_fixed(tmp_res$X1[i], "_", 5)[, 1:2], collapse = "_"), "chr", ""), "_")
@@ -81,8 +82,12 @@ random_num = args[3]
 load(snps_info_path)
 # run function
 out.gtex <- GTEx_me_generic_allTissues_newImplementation(mapping = out.annot, interesting_tissues = interesting_tissues)
-# replace empty cells with NA
-out.gtex = as.data.frame(apply(out.gtex, 2, function(x) gsub("^$|^ $", NA, x)))
+# replace empty cells with NA -- this has to be different if the number of rows is 1 only
+if (nrow(out.gtex) == 1){
+  out.gtex = as.data.frame(t(apply(out.gtex, 2, function(x) gsub("^$|^ $", NA, x))))
+} else {
+  out.gtex = as.data.frame(apply(out.gtex, 2, function(x) gsub("^$|^ $", NA, x)))
+}
 # we can also use LDlink -- this will give results for the snps of interest + all snps in LD with that
 #out.annot.sb = out.annot[grep("rs", out.annot$ID),]
 #miss = out.annot[which(!(out.annot$locus %in% out.annot.sb$locus)),]
