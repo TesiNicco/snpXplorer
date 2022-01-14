@@ -232,8 +232,8 @@
         load(snps_info_path)
 
         # CHECK WHETHER INPUT LIST OF SNPS WAS CORRECT
-        if (length(data) == 1){
-            system("sendEmail -f snpxplorer@gmail.com -t ", username, " -u 'snpXplorer input error' -m 'Dear user, \n thanks so much for using snpXplorer and its annotation pipeline. \n Unfortunately, an error occurred while reading the input SNPs you provided. Possible reasons include a number of SNPs larger than 1000 or a wrong input type. \n Please correct the input and try again. In the More/Help section of the website you can find example datasets. \n Please do not hesitate to contact us in case of any question. \n snpXplorer team.' -a '", fname, "' -cc n.tesi@amsterdamumc.nl snpxplorer@gmail.com -S /usr/sbin/sendmail")
+        if ((length(data) == 1) | (nrow(data) == 0)){
+            system(paste0("sendEmail -f snpxplorer@gmail.com -t ", username, " -u 'snpXplorer input error' -m 'Dear user, \n thanks so much for using snpXplorer and its annotation pipeline. \n Unfortunately, an error occurred while reading the input SNPs you provided. Possible reasons include (i) the SNP(s) is not in 1000Genomes Project, (ii) the number of SNP(s) is larger than 1000 or (iii) the input type is wrong. \n Please correct the input and try again. In the More/Help section of the website you can find example datasets. \n Please do not hesitate to contact us in case of any question. \n snpXplorer team.' -a '", inpf, "' -cc n.tesi@amsterdamumc.nl snpxplorer@gmail.com -S /usr/sbin/sendmail"))
             # don't remove data, but zip them
             system(paste("tar -czf AnnotateMe_results_", random_num, ".tar.gz RESULTS_", random_num, "/", sep=""))
         } else {

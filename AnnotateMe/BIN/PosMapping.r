@@ -32,7 +32,7 @@ positionalAnn_generic <- function(mapping){
         # maybe including also cadd introduce too much variablility? try without here
         tmp.todo$positional_mapping[j] <- paste0(sb.gene$gene_name[which(sb.gene$code == min(sb.gene$code))], collapse=",")
         } else {
-        tmp.todo$positional_mapping[j] <- tmp.todo$cadd_gene[j]
+        tmp.todo$positional_mapping[j] <- tmp.todo$snp_conseq_gene[j]
         }
     }
     mapping <- rbind(tmp.exc, tmp.todo)      #re-join dataset
