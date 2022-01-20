@@ -580,6 +580,7 @@ navbarPage("snpXplorer", inverse = T,
                     wellPanel(
                       h2("What's new", align="center")),
                       column(12,
+                             h4("24-12-21: GWAS catalog release was updated to the latest available."),
                              h4("11-11-21: New GWAS added: Largest GWAS of Alzheimer's disease was added."),
                              h4("11-11-21: New GWAS added: Multivariate analysis of Longevity, Healthspan and Lifespan was added."),
                              h4("10-11-21: New Annotation analysis added: possibility to do only SNP-gene mapping without gene-set enrichment analysis. This allows the user to annotate up to 10,000 SNPs."),
