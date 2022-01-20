@@ -6,7 +6,7 @@ args = commandArgs(trailingOnly=TRUE)
 ## function to annotate using GWAS catalog -- adjusted for faster computations (library-wise)
 GWAScat <- function(annot, geneList, MAIN, random_num){
   # read gwas catalog
-  gwas <- data.table::fread(paste(MAIN, "INPUTS_OTHER/GWAS_catalog_20200310.txt.gz", sep=""), h=T, showProgress=FALSE)
+  gwas <- data.table::fread(paste(MAIN, "INPUTS_OTHER/GWAS_catalog_20211210.txt.gz", sep=""), h=T, showProgress=FALSE)
 
   # do 2 ways of merging to maximize results: rsid and chr:pos
   gwas$LOCUS <- paste(gwas$CHR_ID, gwas$CHR_POS, sep=":")
@@ -40,7 +40,7 @@ GWAScat <- function(annot, geneList, MAIN, random_num){
   }
 
   # also check genes directly -- first read genes~trait dataframe
-  all.genes <- data.table::fread(paste(MAIN, "INPUTS_OTHER/Gwas_catalog_Gene_Traits.txt", sep=""), h=T, sep="\t")
+  all.genes <- data.table::fread(paste(MAIN, "INPUTS_OTHER/20211210_Gwas_catalog_Gene_Traits.txt", sep=""), h=T, sep="\t")
 
   # check overlap as a background
   overlapping.genes <- all.genes[which(all.genes$gene %in% geneList),]        # find the overlapping genes with my gene list
