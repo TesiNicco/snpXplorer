@@ -307,6 +307,7 @@ navbarPage("snpXplorer", inverse = T,
                              textInput(inputId = "email", label = "E-mail", value = "Type your email address...", width = "400px"),
                              bsPopover("email", title='Your e-mail address', content='We do not do anything with it...apart from sending your annotation results. :)', placement="right",trigger="hover", options = list(container = "body")),
                              h6("Once analysis is done, you'll receive results by email."),
+                             h6("Please check your spam folder to get your snpXplorer results."),
                              # maybe also good to put a submit button -- to avoid refreshes that are annoying and slow down application
                              submitButton(text = "Submit!", icon("paper-plane"), width="250px")),
 
