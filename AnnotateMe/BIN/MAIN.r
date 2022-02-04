@@ -198,7 +198,7 @@
     system(paste("mv /root/snpXplorer/snpXplorer_v3/", fname, " /root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, "/", sep=""))
 
     # SEND EMAIL TO MYSELF AS A NOTIFICATION SOMEONE REQUESTED A JOB
-    cmd_mail <- paste("sendEmail -f snpxplorer@gmail.com -t ", username, " -cc n.tesi@amsterdamumc.nl -u 'AnnotateMe request sent' -cc snpxplorer@gmail.com -m 'Dear user, \n snpXplorer received an annotation request from you. \n You receive this email to confirm that your request is under processing. A typical job takes about 30 minutes to complete, however, due to the high number of requests, jobs may be delayed. \n\nThe following settings were requested: \n input --> ", fname, "\n input_type --> ", ftype, "\n analysis_type --> ", analysis_type, "\n analysis_mode --> ", analysis_mode_all, "\n interest_tissue --> ", interesting_tissues_all, "\n ref_version --> ", ref_version, "\n output_folder --> ", random_num, "\n \n snpXplorer Team' -S /usr/sbin/sendmail")
+    cmd_mail <- paste("sendEmail -f n.tesi@amsterdamumc.nl -t ", username, " -cc n.tesi@amsterdamumc.nl snpxplorer@gmail.com -u 'AnnotateMe request sent' -m 'Dear user, \n snpXplorer received an annotation request from you. \n You receive this email to confirm that your request is under processing. A typical job takes about 30 minutes to complete, however, due to the high number of requests, jobs may be delayed. \n\nThe following settings were requested: \n input --> ", fname, "\n input_type --> ", ftype, "\n analysis_type --> ", analysis_type, "\n analysis_mode --> ", analysis_mode_all, "\n interest_tissue --> ", interesting_tissues_all, "\n ref_version --> ", ref_version, "\n output_folder --> ", random_num, "\n \n snpXplorer Team' -S /usr/sbin/sendmail")
     system(cmd_mail)
 
     ## START OF THE PIPELINE
@@ -233,7 +233,7 @@
 
         # CHECK WHETHER INPUT LIST OF SNPS WAS CORRECT
         if ((is.na(data)) || (length(data) == 1) || (nrow(data) == 0)){
-            system(paste0("sendEmail -f snpxplorer@gmail.com -t ", username, " -u 'snpXplorer input error' -m 'Dear user, \n thanks so much for using snpXplorer and its annotation pipeline. \n Unfortunately, an error occurred while reading the input SNPs you provided. Possible reasons include (i) the SNP(s) is not in 1000Genomes Project, (ii) the number of SNP(s) is >1000 (for enrichment analysis) or >10000 (for mapping analysis), or (iii) the input type is wrong. \n Please correct the input and try again. In the More/Help section of the website you can find example datasets. \n Please do not hesitate to contact us in case of any question. \n snpXplorer team.' -a '", inpf, "' -cc n.tesi@amsterdamumc.nl snpxplorer@gmail.com -S /usr/sbin/sendmail"))
+            system(paste0("sendEmail -f n.tesi@amsterdamumc.nl -t ", username, " -u 'snpXplorer input error' -m 'Dear user, \n thanks so much for using snpXplorer and its annotation pipeline. \n Unfortunately, an error occurred while reading the input SNPs you provided. Possible reasons include (i) the SNP(s) is not in 1000Genomes Project, (ii) the number of SNP(s) is >1000 (for enrichment analysis) or >10000 (for mapping analysis), or (iii) the input type is wrong. \n Please correct the input and try again. In the More/Help section of the website you can find example datasets. \n Please do not hesitate to contact us in case of any question. \n snpXplorer team.' -a '", inpf, "' -cc n.tesi@amsterdamumc.nl snpxplorer@gmail.com -S /usr/sbin/sendmail"))
             # zip data
             system(paste("tar -czf AnnotateMe_results_", random_num, ".tar.gz RESULTS_", random_num, "/", sep=""))
             # remove data
@@ -348,7 +348,7 @@
                 # need to upload the file on wetransfer
                 link = system(paste0("curl --upload-file AnnotateMe_results_", random_num, ".tar.gz https://transfer.sh/AnnotateMe_results_", random_num, ".tar.gz"), intern = T)
                 # then make the email
-                system(paste0("sendEmail -f snpxplorer@gmail.com -t ", username, " -u 'snpXplorer results' -m 'Dear user, \n\n thanks so much for using snpXplorer and its annotation pipeline. \n We hope you find the tool useful. \n\n We now provide a WeTransfer link to download your results. Please find the link below: \n", link, " \n\n Best wishes, \n snpXplorer team.' -cc n.tesi@amsterdamumc.nl snpxplorer@gmail.com -S /usr/sbin/sendmail"))
+                system(paste0("sendEmail -f n.tesi@amsterdamumc.nl -t ", username, " -u 'snpXplorer results' -m 'Dear user, \n\n thanks so much for using snpXplorer and its annotation pipeline. \n We hope you find the tool useful. \n\n We now provide a WeTransfer link to download your results. Please find the link below: \n", link, " \n\n Best wishes, \n snpXplorer team.' -cc n.tesi@amsterdamumc.nl snpxplorer@gmail.com -S /usr/sbin/sendmail"))
                 system(paste("rm -rf RESULTS_", random_num, "/", sep=""))
             }
         }
