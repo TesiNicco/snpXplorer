@@ -250,10 +250,15 @@
             system(paste0("Rscript ", MAIN, "BIN/CADD.R ", random_num, " ", ref_version, " ", ld_outpath, " ", snps_info_path), ignore.stdout=T, ignore.stderr=F)
             #load(snps_info_path)
 
-            # GTEX ANNOTATION
-            cat("## Running GTEx annotation\n")
+            # GTEX ANNOTATION -- eQTLs
+            cat("## Running GTEx annotation ~ eQTLs\n")
             #gtex_info = LDexpress(out.annot$ID, pop = "ALL", tissue = interesting_tissues, r2d = "r2", p_threshold = 0.05, token = "b2735a858324")
-            system(paste0("Rscript ", MAIN, "BIN/GTEx.R ", snps_info_path, " ", interesting_tissues, " ", random_num), ignore.stdout=T, ignore.stderr=F)
+            system(paste0("Rscript ", MAIN, "BIN/GTEx.R ", snps_info_path, " ", interesting_tissues_all, " ", random_num), ignore.stdout=T, ignore.stderr=F)
+            #load(snps_info_path)
+
+            # GTEX ANNOTATION -- sQTLs
+            cat("## Running GTEx annotation ~ sQTLs\n")
+            system(paste0("Rscript ", MAIN, "BIN/sQTL.R ", snps_info_path, " ", interesting_tissues_all, " ", random_num), ignore.stdout=T, ignore.stderr=F)
             #load(snps_info_path)
 
             # POSITIONAL MAPPING
