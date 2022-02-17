@@ -1,5 +1,6 @@
 # library
 library(LDlinkR)
+library(stringr)
 
 # basic paths
 MAIN = "/root/snpXplorer/AnnotateMe/"
@@ -39,7 +40,7 @@ matchEQTL <- function(i, mapping, ensembl, interesting_tissues, random_num){
       if (interesting_tissues != "All_tissues"){ tissues_genes_df = tissues_genes_df[which(tissues_genes_df$tissue %in% interesting_tissues),] }
       # take union of all tissues and genes
       all_tissues = paste0(tissues_genes_df$tissue, collapse = ",")
-      all_genes = paste0(unique(tissues_genes_df$"Gene name"), collapse = ",")
+      all_genes = paste0(tissues_genes_df$"Gene name", collapse = ",")
       # finally assign to relative snp
       tmp$eqtl[which(tmp$code_gtex == snp_id)] = all_genes
       tmp$eqtl_tissue[which(tmp$code_gtex == snp_id)] = all_tissues
@@ -76,7 +77,7 @@ GTEx_me_generic_allTissues_newImplementation <- function(mapping, interesting_ti
 
 # read arguments
 snps_info_path = args[1]
-interesting_tissues = args[2]
+interesting_tissues = str_split(args[2], ',')[[1]]
 random_num = args[3]
 # run function to read snps info
 load(snps_info_path)

@@ -1,3 +1,5 @@
+# libraries
+library(stringr)
 
 # basic paths
 MAIN = "/root/snpXplorer/AnnotateMe/"
@@ -32,7 +34,7 @@ matchSQTL <- function(i, mapping, ensembl, interesting_tissues, random_num){
             tissues_genes_df = merge(tissues_genes_df, ensembl, by.x = "gene", by.y = "Gene stable ID", all.x = T)
             # take union of all tissues and genes
             all_tissues = paste0(tissues_genes_df$tissue, collapse = ",")
-            all_genes = paste0(unique(tissues_genes_df$"Gene name"), collapse = ",")
+            all_genes = paste0(tissues_genes_df$"Gene name", collapse = ",")
             # finally assign to relative snp
             tmp$sqtl[which(tmp$code_gtex == snp_id)] = all_genes
             tmp$sqtl_tissue[which(tmp$code_gtex == snp_id)] = all_tissues
@@ -51,7 +53,7 @@ load(snps_info_path)
 ensembl = data.table::fread(paste0(MAIN, "INPUTS_OTHER/Ensemble_to_GeneName.txt"), h=T, sep = "\t")
 # we can use the codes generated for the eqtl analysis to grep here -- no need to liftover again
 all_chroms = unique(out.gtex$chr)
-all_res_sqtl = data.table::rbindlist(parallel::mclapply(X = all_chroms, FUN = matchSQTL, mapping = mapping, ensembl = ensembl, interesting_tissues = interesting_tissues, random_num = random_num, mc.cores = 1))
+all_res_sqtl = data.table::rbindlist(parallel::mclapply(X = all_chroms, FUN = matchSQTL, mapping = out.gtex, ensembl = ensembl, interesting_tissues = interesting_tissues, random_num = random_num, mc.cores = 1))
 
 # replace empty cells with NA -- this has to be different if the number of rows is 1 only
 if (nrow(all_res_sqtl) == 1){
@@ -65,4 +67,5 @@ if (nrow(all_res_sqtl) == 1){
 #gtex_info = LDexpress(out.annot.sb$ID, pop = "ALL", tissue = interesting_tissues, r2d = "r2", p_threshold = 0.05, token = "b2735a858324")
 
 # outputs
-save(all_res_sqtl, file = snps_info_path)
+out.gtex = all_res_sqtl
+save(out.gtex, file = snps_info_path)

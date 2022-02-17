@@ -1,3 +1,6 @@
+# libraries
+library(stringr)
+
 # basic paths
 MAIN = "/root/snpXplorer/AnnotateMe/"
 MAIN_SNP = "/root/snpXplorer/snpXplorer_v3/"
@@ -9,12 +12,13 @@ positionalAnn_generic <- function(mapping){
   genes <- data.table::fread(paste(MAIN, "INPUTS_OTHER/NCBI37.3.gene.loc", sep=""), h=F, stringsAsFactors=F)
   colnames(genes) <- c("gene_id", "chr", "start_tss", "stop_tss", "strand", "gene_name")
   #add column to be filled
-  mapping$positional_mapping <- NA
+  mapping$positional_mapping <- 'Not_done'
   #identify snps to look at
-  tmp.exc <- mapping[!(is.na(mapping$coding_snp) & is.na(mapping$eqtl)), ]
-  tmp.todo <- mapping[is.na(mapping$coding_snp) & is.na(mapping$eqtl), ]
+  tmp.exc <- mapping[!(is.na(mapping$coding_snp) & is.na(mapping$eqtl) & is.na(mapping$sqtl)), ]
+  tmp.todo <- mapping[is.na(mapping$coding_snp) & is.na(mapping$eqtl) & is.na(mapping$sqtl), ]
   tmp.todo$pos <- as.numeric(tmp.todo$pos)
   if (nrow(tmp.todo) >0){
+    tmp.todo$positional_mapping = NA
     for (j in 1:nrow(tmp.todo)){
         w = 500000   #set window threshold -- this value will be doubled (upstream and downstream)
         sb.gene <- genes[which(genes$chr == tmp.todo$chr[j]),]       #restrict to chromosome of use
@@ -42,19 +46,11 @@ positionalAnn_generic <- function(mapping){
   return(mapping)
 }
 
-## function to clean file after mapping procedure and output the list of genes -- adjusted for faster computations (library-wise)
-getGeneList_mod_generic <- function(mapping){
-  #put information about which source will be used to get genes: priority is: 1-coding_snp -- 2-eqtl -- 3-positional
-  mapping$source_finalGenes <- NA
-  mapping$geneList <- NA
-
-  #assign source and gene list for coding variants
-  mapping$source_finalGenes[which(!is.na(mapping$coding_snp))] <- "coding"
-  mapping$geneList[which(!is.na(mapping$coding_snp))] <- mapping$snp_conseq_gene[which(!is.na(mapping$coding_snp))]
-
+## function to clean QTLs results --> if pseudogenes are found, remove them
+cleanQTLs <- function(mapping){
   # before assigning, need to exclude pseudogenes (grep a . in the gene name)
   pseudo <- mapping[grep("\\.", mapping$eqtl),]
-  if (nrow(pseudo) >1){
+  if (nrow(pseudo) >=1){
     for (k in 1:nrow(pseudo)){
       tmp <- unlist(strsplit(pseudo$eqtl[k], ","))
       tmp_tis = unlist(strsplit(pseudo$eqtl_tissue[k], ","))
@@ -72,44 +68,94 @@ getGeneList_mod_generic <- function(mapping){
     }
   }
 
-  # assign source for eqtl hits
-  mapping$source_finalGenes[which(!is.na(mapping$eqtl))] <- "eqtl+cadd"
-  for (l in 1:nrow(mapping)){
-    if ((!is.na(mapping$source_finalGenes[l])) & mapping$source_finalGenes[l] == "eqtl+cadd"){
-      if (is.na(mapping$snp_conseq_gene[l]) | (mapping$snp_conseq_gene[l] == mapping$eqtl[l])){
-        mapping$geneList[l] <- mapping$eqtl[l]
+  # do the same for sqtls
+  pseudo <- mapping[grep("\\.", mapping$sqtl),]
+  if (nrow(pseudo) >=1){
+    for (k in 1:nrow(pseudo)){
+      tmp <- unlist(strsplit(pseudo$sqtl[k], ","))
+      tmp_tis = unlist(strsplit(pseudo$sqtl_tissue[k], ","))
+      if (length(tmp) >1){
+        todel <- grep("\\.", tmp)
+        tmp <- tmp[-todel]
+        tmp_tis = tmp_tis[-todel]
+        pseudo$sqtl[k] <- paste0(tmp, collapse=",")
+        pseudo$sqtl_tissue[k] <- paste0(tmp_tis, collapse = ",")
       } else {
-        tmp_eqtl_list <- unlist(strsplit(mapping$eqtl[l], ","))
-        tmp_cadd_list <- unlist(strsplit(mapping$snp_conseq_gene[l], ","))
-        tmp_all_list <- c(tmp_eqtl_list, tmp_cadd_list)
-        is_pseudo <- grep("\\.", tmp_all_list)
-        if (length(is_pseudo) >0){
-          tmp_all_list <- tmp_all_list[-is_pseudo]
-        }
-        tmp_full_list <- paste0(unique(tmp_all_list), collapse=",")
-        mapping$geneList[l] <- tmp_full_list
+        pseudo$sqtl[k] <- NA
+        pseudo$sqtl_tissue[k] <- NA
       }
+      mapping[which(mapping$locus == pseudo$locus[k]), ] <- pseudo[k, ]
+    }
+  }
+
+  # finally clean the cadd scores as well from NAs
+  for (i in 1:nrow(mapping)){
+    if ((is.na(mapping$coding_snp[i])) && (!is.na(mapping$snp_conseq_gene[i])) && (mapping$snp_conseq_gene[i] != 'NA')){
+      # remove NAs from CADD
+      cadd_genes = str_split(mapping$snp_conseq_gene[i], ',')[[1]]
+      cadd_genes = cadd_genes[which(cadd_genes != "NA")]
+      if (length(cadd_genes) >1){
+        mapping$snp_conseq_gene[i] = paste0(cadd_genes, collapse = ',')
+      } else {
+        mapping$snp_conseq_gene[i] = cadd_genes
+      }
+    }
+  }
+  # and finally remove pseudogenes
+  pseudo <- mapping[grep("\\.", mapping$snp_conseq_gene),]
+  if (nrow(pseudo) >=1){
+    for (k in 1:nrow(pseudo)){
+      tmp <- unlist(strsplit(pseudo$snp_conseq_gene[k], ","))
+      if (length(tmp) >1){
+        todel <- grep("\\.", tmp)
+        tmp <- tmp[-todel]
+        pseudo$snp_conseq_gene[k] <- paste0(tmp, collapse=",")
+      } else {
+        pseudo$snp_conseq_gene[k] <- "NA"
+      }
+      mapping[which(mapping$locus == pseudo$locus[k]), ] <- pseudo[k, ]
+    }
+  }
+  return(mapping)
+}
+
+## function to clean file after mapping procedure and output the list of genes -- adjusted for faster computations (library-wise)
+getGeneList_mod_generic <- function(mapping){
+  #put information about which source will be used to get genes: priority is: 1-coding_snp -- 2-eqtl -- 3-positional
+  mapping$source_finalGenes <- NA
+  mapping$geneList <- NA
+
+  #assign source and gene list for coding variants
+  mapping$source_finalGenes[which(!is.na(mapping$coding_snp))] <- "coding"
+  mapping$geneList[which(!is.na(mapping$coding_snp))] <- mapping$snp_conseq_gene[which(!is.na(mapping$coding_snp))]
+
+  # assign source for eqtl hits
+  mapping$source_finalGenes[which(!(is.na(mapping$eqtl) & is.na(mapping$sqtl)))] <- "sqtl+eqtl+cadd"
+  for (l in 1:nrow(mapping)){
+    if ((!is.na(mapping$source_finalGenes[l])) & mapping$source_finalGenes[l] == "sqtl+eqtl+cadd"){
+      tmp_eqtl_list <- unlist(strsplit(mapping$eqtl[l], ","))
+      tmp_cadd_list <- unlist(strsplit(mapping$snp_conseq_gene[l], ","))
+      tmp_sqtl_list <- unlist(strsplit(mapping$sqtl[l], ','))
+      tmp_all_list <- c(tmp_eqtl_list, tmp_cadd_list, tmp_sqtl_list)
+      tmp_all_list <- tmp_all_list[!duplicated(tmp_all_list)]
+      tmp_all_list <- tmp_all_list[which(tmp_all_list != "NA")]
+      tmp_full_list <- paste0(unique(tmp_all_list), collapse=",")
+      mapping$geneList[l] <- tmp_full_list
     }
   }
 
   #assign source for position hits
-  mapping$source_finalGenes[which(is.na(mapping$coding_snp) & is.na(mapping$eqtl))] <- "positional"
+  mapping$source_finalGenes[is.na(mapping$source_finalGenes)] <- "positional"
   #mapping$geneList[which(is.na(mapping$coding_snp) & is.na(mapping$eqtl_blood))] <- mapping$positional_mapping[which(is.na(mapping$coding_snp) & is.na(mapping$eqtl_blood))]
   # for these annotations, also consider the gene suggested by cadd
   tmp_posit <- mapping[which(mapping$source_finalGenes == "positional"),]
   if (nrow(tmp_posit) > 0){
     for (k in 1:nrow(tmp_posit)){
-      # identify cadd genes
-      if (is.na(tmp_posit$snp_conseq_gene[k])){
-        cadd_genes = NA
-      } else {
-        cadd_genes <- unlist(strsplit(tmp_posit$snp_conseq_gene[k], ","))
-      }
+      cadd_genes <- unlist(strsplit(tmp_posit$snp_conseq_gene[k], ","))
+      cadd_genes <- cadd_genes[!is.na(cadd_genes)]
+      cadd_genes <- cadd_genes[which(cadd_genes != 'NA')]
       # identify positional genes
       pos_genes <- unlist(strsplit(tmp_posit$positional_mapping[k], ","))
-      # check for pseudogenes and in case remove them
-      grp.pseu <- grep("\\.", cadd_genes)
-      if (length(grp.pseu) >0){ cadd_genes <- cadd_genes[-grp.pseu] }
       if ((length(cadd_genes) ==0) || (is.na(cadd_genes))){
         mapping$snp_conseq_gene[which(mapping$locus == tmp_posit$locus[k])] <- NA
         mapping$geneList[which(mapping$locus == tmp_posit$locus[k])] <- paste0(pos_genes, collapse = ",")
@@ -159,7 +205,8 @@ snps_info_path = args[1]
 # run function to read snps info
 load(snps_info_path)
 # run functions
-full.annot <- positionalAnn_generic(mapping=out.gtex)
+clean.preannot = cleanQTLs(mapping = out.gtex)
+full.annot <- positionalAnn_generic(mapping=clean.preannot)
 res.clean <- getGeneList_mod_generic(mapping=full.annot)
 annot = removeNAgeneList(res.clean[[2]])
 final_res = list(annot, res.clean[[1]])
