@@ -390,7 +390,7 @@ navbarPage("snpXplorer", inverse = T,
                                                    h5("Niccolo’ Tesi et al., Polygenic risk score of longevity predicts longer survival across an age-continuum. The Journals of Gerontology: Series A, , glaa289, https://doi.org/10.1093/gerona/glaa289"),
                                                    uiOutput(outputId = "longevity_ms"),
                                                    br(),
-                                                   h5("Niccolo’ Tesi et al., The effect of Alzheimer's disease-associated genetic variants on longevity. medRxiv, https://doi.org/10.1101/2021.02.02.21250991"),
+                                                   h5("Niccolo’ Tesi et al., The effect of Alzheimer's disease-associated genetic variants on longevity. Front Genet., https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8724252/"),
                                                    uiOutput(outputId = "rotation_ms"))),
 
                                column(8, uiOutput("pdf_biorxiv_view")),

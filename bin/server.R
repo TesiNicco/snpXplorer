@@ -3073,14 +3073,14 @@ shinyServer(
 
     # this should be the link to longevity paper
     output$longevity_ms <- renderUI({
-      link <- paste0("https://watermark.silverchair.com/glaa289.pdf?token=AQECAHi208BE49Ooan9kkhW_Ercy7Dm3ZL_9Cf3qfKAc485ysgAAAtYwggLSBgkqhkiG9w0BBwagggLDMIICvwIBADCCArgGCSqGSIb3DQEHATAeBglghkgBZQMEAS4wEQQM4rl8OVqn4hzG414GAgEQgIICib1TuTCM4oB033lFSu1Xh4M1isrpFuuC2iy3Gs_EpuFJumkyyW3_cnalB6AOLzKcFSU_imtqL6SvhicDEueJJFKPebSGJUF0iB5d0m3o3rvopAx9OBICuvqueksxUkWxkSrM2ptuAC1gI5kPrHFlSaV3nXk5PEMcjTZfHqfrX2uLRBhEVJWoIqqhVKgzde9S6FtTWyw3613KLHk7wSVROQWGt0WaDkSUy2Xnp9Q-qnA02jJrN6M1Sgz1koJIlk2OONH4pxQSeRlL4JfjwcgsbBmmMVZ3T79Kd9YQYcaJe_Z1lLRxWWX-dgKS6S1aadxZBjTluGENUztN2KCYWGY7FHOuEWQEBqN_I5LkhxtiXgwiMKXl8QrUaoQXryI50wbJmePmuZerKxbQz7PLbR87bZGaR4Ea_q_94r4in9aYvql7iBcB6j16WxTkNZH4t6WHQu91HyjhzwJwvVlWkzExRqZZ9CHx8vmyreqbi6XOwqe2G0XWwox5M0Ap21m1K0F_GMyrP_MeQdJatW-h4aONCTLusediaNt1SLKwFKFBENTw3eaMpEFuFO5sBtDoi79EypFxGp0rxC6dEhIXUCZ6i_-rXsv3nkN1f_lgtxW18d6Q_pmxOYIa9KEyhjClMo4Nee47GleKfuvvsEau_ocXW4jGjc-bQzqKb-T72PW1ilfwxKi_CQJsy-sEu-Wmal-JYTbPqSMpyGnO8ZxlVi8Jv74vOlcswdM9mrddUB0uUbNpRMvaNoNa5DuJLWPuudouhYkbLVn1XtRWFhEKm8pA2vzTKOhvJjvN_bxZ_IoINeinKStEXiIzOOMjEXd4FIyYZb6o3wWszyS20xtX-Djt0OgD6VdWA6humbw")
+      link <- paste0("https://academic.oup.com/biomedgerontology/article/76/5/750/5996044")
       url <- a("Click here!", href = link)
       tagList("Link to the paper:", url)
     })
 
     # this should be the link to rotation paper
     output$rotation_ms <- renderUI({
-      link <- paste0("https://www.medrxiv.org/content/medrxiv/early/2021/02/04/2021.02.02.21250991.full.pdf")
+      link <- paste0("https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8724252/")
       url <- a("Click here!", href = link)
       tagList("Link to the paper:", url)
     })
