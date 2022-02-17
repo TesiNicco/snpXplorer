@@ -581,6 +581,7 @@ navbarPage("snpXplorer", inverse = T,
                     wellPanel(
                       h2("What's new", align="center")),
                       column(12,
+                             h4("17-02-22: Annotation: added sQTL analysis."),
                              h4("24-12-21: GWAS catalog release was updated to the latest available."),
                              h4("11-11-21: New GWAS added: Largest GWAS of Alzheimer's disease was added."),
                              h4("11-11-21: New GWAS added: Multivariate analysis of Longevity, Healthspan and Lifespan was added."),
