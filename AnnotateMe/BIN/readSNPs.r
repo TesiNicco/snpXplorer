@@ -7,6 +7,9 @@ args = commandArgs(trailingOnly=TRUE)
 readSNPs <- function(fname, ftype, MAIN, ref_version, analysis_type){
   ## read input file
   d <- data.table::fread(fname, h=F)
+  
+  ## remove empty lines
+  d <- d[!apply(d == "", 1, all),]
 
   ## check number of rows -- if larger than 1000 SNPs, stop
   if (nrow(d) > 1000 & analysis_type == "enrichment"){
@@ -111,6 +114,65 @@ readSNPs <- function(fname, ftype, MAIN, ref_version, analysis_type){
   return(d)
 }
 
+## function to liftover
+liftOver_fun <- function(df){
+  df$chr <- as.numeric(as.character(df$chr))
+  df$pos <- as.numeric(as.character(df$pos))
+  tmp_df <- data.frame(chr=paste("chr", df$chr, sep=""), start=df$pos, end=df$pos+1)
+  # change to GR class object
+  gr <- GenomicRanges::makeGRangesFromDataFrame(tmp_df)
+  # set chain file
+  chain <- rtracklayer::import.chain(paste(MAIN, "BIN/hg38ToHg19.over.chain", sep=""))
+  # change coordinates
+  gr_hg38 <- rtracklayer::liftOver(gr, chain)
+  # back to dataframe and clean it
+  df_hg38 <- as.data.frame(gr_hg38)
+  # before doing the match below, manage in case there is some mismatch
+  df$group = seq(1, nrow(df))
+  final = merge(df, df_hg38, by = "group")
+  final = final[, c('chr', 'pos', 'ref', 'alt', 'locus', 'rsid', 'start')]
+  colnames(final) = c('chr', 'pos_hg38', 'ref', 'alt', 'locus_hg38', 'rsid', 'pos_hg19')
+  return(final)
+}
+
+## function to use topmed information to extract snp information
+readSNPs_alternative <- function(fname, ftype, MAIN, ref_version, analysis_type){
+  ## read input file
+  d <- data.table::fread(fname, h=F)
+  
+  ## remove empty lines
+  d <- d[!apply(d == "", 1, all),]
+  colnames(d) = "V1"
+  d$V1 = stringr::str_replace_all(d$V1, " ", "")
+  write.table(d, fname, quote=F, row.names=F, col.names=F)
+  # grep rsid
+  cmd <- paste0("zgrep -w -F -f ", fname, " ", MAIN, "INPUTS_OTHER/1000G_frequencies/MARKED_RSID_TO_POSITION_dbSNPv151_and_dbSNPv153VEP_20200626.txt.gz")
+  info = system(cmd, intern=T)
+  info = as.data.frame(stringr::str_split_fixed(info, "\t", 3))
+  if (is.data.frame(info)){
+    df = data.frame(stringr::str_split_fixed(info$V1, ":", 4))
+    colnames(df) = c("chr", "pos", "ref", "alt")
+    df$chr = stringr::str_replace_all(df$chr, 'chr', '')
+    df$locus = info$V1
+    df$rsid = info$V2
+    df_lifted = liftOver_fun(df)
+    df_lifted = df_lifted[, c('chr', 'pos_hg19', 'rsid', 'ref', 'alt')]
+    df_lifted$ALT_FREQS = NA
+    df_lifted$n = NA
+    colnames(df_lifted) <- c("chr", "pos", "ID", "ref", "alt", "ALT_FREQS", "n")
+    miss <- d$V1[which(!(d$V1 %in% df_lifted$ID))]
+    info = df_lifted[, c("chr", "pos", "ID", "ALT_FREQS")]
+    info$locus <- paste(info$chr, info$pos, sep=":")
+    miss_df <- data.frame(chr = rep("NA", length(miss)), pos = rep(NA, length(miss)), ID = miss, ALT_FREQS = rep(NA, length(miss)), locus = rep(NA, length(miss)))
+    d <- rbind(info, miss_df)
+    d <- d[!duplicated(d$ID),]
+    data = d
+  } else {
+    data = NA
+  }
+  return(data)
+}
+
 # read arguments
 fname = args[1]
 ftype = args[2]
@@ -120,5 +182,7 @@ random_num = args[5]
 outpath = paste0("/root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, "/tmp_snpsInfo.RData")
 # run function to read
 data <- try(readSNPs(fname, ftype, MAIN, ref_version, analysis_type), silent = T)
+# check if there were matches, in case there were no matches, try with the other dataset
+if (is.data.frame(data) & nrow(data) == 0 & ftype == 3){ data = try(readSNPs_alternative(fname, ftype, MAIN, ref_version, analysis_type), silent = T) }
 save(data, file = outpath)
 cat(outpath)

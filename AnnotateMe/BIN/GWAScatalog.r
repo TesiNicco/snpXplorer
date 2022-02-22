@@ -36,7 +36,7 @@ GWAScat <- function(annot, geneList, MAIN, random_num){
     traits <- NA
 
     tmp = "!!! No matches for SNP in GWAS catalog\n"
-    write.table(x = tmp, file = paste0("RESULTS_", random_num, "/gwas_cat_snps_overlap.txt"), quote=F, row.names=F, sep = "\t")
+    write.table(x = tmp, file = paste0("RESULTS_", random_num, "/gwas_cat_snps_overlap.txt"), quote=F, row.names=F, sep = "\t", col.names=F)
   }
 
   # also check genes directly -- first read genes~trait dataframe
@@ -78,7 +78,7 @@ GWAScat <- function(annot, geneList, MAIN, random_num){
     cat("  !!! No matches for Genes in GWAS catalog\n")
     tb <- NA
     tmp = "!!! No matches for SNP in GWAS catalog\n"
-    write.table(x = tmp, file = paste0("RESULTS_", random_num, "/gwas_cat_genes_overlap.txt"), quote=F, row.names=F, sep = "\t")
+    write.table(x = tmp, file = paste0("RESULTS_", random_num, "/gwas_cat_genes_overlap.txt"), quote=F, row.names=F, sep = "\t", col.names = F)
   }
 
   ls <- list(traits, tb)
