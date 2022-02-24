@@ -206,7 +206,7 @@ if (length(functional_clusters) == 1){
     tmp$term_name = NULL
     go_data = go_data[!duplicated(go_data$term_id),]
     go_data = merge(go_data, tmp, by.x = "term_id", by.y = "term", all.x = T)
-    go_data = go_data[order(go_data$avg_p),]
+    go_data = go_data[order(go_data$avgP),]
     go_data$cluster = NULL
     write.table(go_data, file = paste0("RESULTS_", random_num, "/geneSet_enrichment_results_and_clusters.txt"), quote=F, row.names=F, sep="\t")
 
