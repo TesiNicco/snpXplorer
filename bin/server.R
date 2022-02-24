@@ -569,11 +569,10 @@ findRecomb <- function(snp.info, genV){
 ## function to assign dot size -- define range
 function.pointSize <- function(dat, range){
   dat$size <- 2
-
   for (x in range){
     dat$size[which(-log10(as.numeric(dat$p)) >= x)] <- x
   }
-
+  dat$size[which(dat$size > 6)] <- 6
   return(dat)
 }
 

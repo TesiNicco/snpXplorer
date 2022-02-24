@@ -323,6 +323,20 @@
                         # finally the email
                         system(paste0("sendEmail -f snpxplorer@gmail.com -t ", username, " -u 'snpXplorer results' -m 'Dear user, \n\n thanks so much for using snpXplorer and its annotation pipeline. \n We hope you find the tool useful. \n\n We now provide a WeTransfer link to download your results. Please find the link below: \n", link, " \n\n Best wishes, \n snpXplorer team.' -cc n.tesi@amsterdamumc.nl snpxplorer@gmail.com -S /usr/sbin/sendmail"))
                         system(paste("rm -rf RESULTS_", random_num, "/", sep=""))
+                    } else {
+                        # CLEAN TEMPORARY DATA
+                        system(paste0("rm /root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, "/tmp_*"))
+                        #system(paste0("mv ", MAIN, "BIN/combined_query_snp_list.txt /root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, "/"))
+                        #system(paste0("mv /root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, "/combined_query_snp_list.txt /root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, "/LD_information.txt"))
+                        system(paste0("rm /root/snpXplorer/snpXplorer_v3/tmp_", random_num, ".json"))
+
+                        # FINISH -- SEND DATA BACK TO THE OWNER
+                        system(paste0("cp /root/snpXplorer/snpXplorer_v3/www/snpXplorer_output_description.pdf RESULTS_", random_num, "/"))
+                        system(paste("tar -czf AnnotateMe_results_", random_num, ".tar.gz RESULTS_", random_num, "/", sep=""))
+                        link = system(paste0("curl --upload-file AnnotateMe_results_", random_num, ".tar.gz https://transfer.sh/AnnotateMe_results_", random_num, ".tar.gz"), intern = T)
+                        # finally the email
+                        system(paste0("sendEmail -f snpxplorer@gmail.com -t ", username, " -u 'snpXplorer results' -m 'Dear user, \n\n thanks so much for using snpXplorer and its annotation pipeline. \n We hope you find the tool useful. \n\n We now provide a WeTransfer link to download your results. Please find the link below: \n", link, " \n\n Best wishes, \n snpXplorer team.' -cc n.tesi@amsterdamumc.nl snpxplorer@gmail.com -S /usr/sbin/sendmail"))
+                        system(paste("rm -rf RESULTS_", random_num, "/", sep=""))
                     }
                 } else {
                     # CLEAN TEMPORARY DATA
