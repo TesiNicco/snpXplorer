@@ -1,0 +1,245 @@
+## FIND POSITION TO PLOT
+  # browsing option is 'Locus, Gene, RsID' 
+  directInput = function(target, window, gene.db, genes.hg38, ref_version, SNPlocs.Hsapiens.dbSNP144.GRCh37){
+    span = 500000
+    if (target %in% c('Type locus, rsID or gene name', '')){
+      chrom = 16; pos1 = 12000000; pos2 = 13000000; snp_interest = NA
+    } else if (length(grep(":", target)) >0){    # input is chr:pos
+      chrom = stringr::str_split_fixed(target, ":", 2)[, 1]
+      chrom = stringr::str_replace_all(chrom, 'chr', '')
+      pos1 = as.numeric(stringr::str_split_fixed(target, ":", 2)[, 2]) - window
+      pos2 = as.numeric(stringr::str_split_fixed(target, ":", 2)[, 2]) + window
+      snp_interest = as.numeric(stringr::str_split_fixed(target, ":", 2)[, 2])
+    } else if (length(grep("rs", target)) >0){
+      snp_info <- NULL
+      try(snp_info <- as.data.frame(snpsById(SNPlocs.Hsapiens.dbSNP144.GRCh37, target)), silent = T)
+      if (!is.null(snp_info)){ chrom = snp_info$seqnames; pos1 = as.numeric(snp_info$pos) - window; pos2 = as.numeric(snp_info$pos) + window; snp_interest = snp_info$pos } else { chrom = NA; pos1 = NA; pos2 = NA; snp_interest = NA }
+      if (ref_version == 'GRCh38 (hg38)'){ data_lifted = liftOver_data(chrom = as.character(chrom), start = pos1, end = pos2, type = "interval"); chrom = data_lifted[[1]]; pos1 = data_lifted[[2]]; pos2 = data_lifted[[3]] }
+    } else {
+      if (ref_version == "GRCh37 (hg19)"){ tmp = gene.db[which(gene.db$"#geneName" == toupper(target)),] } else { tmp = genes.hg38[which(genes.hg38$"#geneName" == toupper(target)),] }
+      if (nrow(tmp) >0){ chrom = tmp$chrom[1]; pos1 = as.numeric(tmp$txStart[1]) - window; pos2 = as.numeric(tmp$txEnd[1]) + window } else { chrom = NA; pos1 = NA; pos2 = NA }
+      snp_interest = NA
+    }
+    df = data.frame(chrom = str_replace_all(chrom, 'chr', ''), start = pos1, end = pos2)
+    df$chrom = as.character(df$chrom)
+    results = list(df, snp_interest)
+    return(results)
+  }
+
+## EXTRACT GENES FROM A REGION
+  findGenes <- function(region_of_interest, reference_genome, genes_hg19, genes_hg38){
+    span = 500000
+    if (reference_genome == 'GRCh37 (hg19)'){ tmp = genes_hg19 } else { tmp = genes_hg38 }
+    genes_in_region = tmp[which(tmp$chrom == paste0('chr', region_of_interest$chrom)),]
+    genes_in_region = genes_in_region[which((genes_in_region$txStart >= (region_of_interest$start - span)) & (genes_in_region$txEnd <= (region_of_interest$end + span))),]
+    if (nrow(genes_in_region) >0){
+      colnames(genes_in_region)[which(colnames(genes_in_region) == "#geneName")] = 'Gene'
+      genes_in_region = genes_in_region[order(genes_in_region$txStart),]
+      # add y-position for the plot
+      n = ceiling(nrow(genes_in_region)/2.5)
+      if (n != 0){v <- -1; genes_in_region$y <- NA; for (i in 1:nrow(genes_in_region)){ genes_in_region$y[i] <- v; v <- v-1; if (v == -n-1){ v = -1 } } }
+    } else {
+      genes_in_region = data.frame(chrom = as.character(), pos = as.character())
+    }
+    return(genes_in_region)
+  }
+## EXTRACT SV TO PLOT
+  findSVs <- function(region_of_interest, reference_genome, all_str, all_str_hg38, span_value, sv_source){
+    if (reference_genome == 'GRCh37 (hg19)'){ tmp = all_str } else { tmp = all_str_hg38 }
+    svs = tmp[which(tmp$chr == paste0('chr', region_of_interest$chrom) & tmp$source == sv_source),]
+    svs = svs[which(svs$start_pos >= (region_of_interest$start - span_value) & svs$end_pos <= (region_of_interest$end + span_value)),]
+    if (nrow(svs) >0){
+      svs$end_pos_plus = svs$end_pos + svs$diff_alleles
+      svs = svs[order(svs$start_pos),]
+      # add y-position for the plot
+      n = ceiling(nrow(svs)/2.5)
+      if (n != 0){v <- -1; svs$y <- NA; for (i in 1:nrow(svs)){ svs$y[i] <- v; v <- v-1; if (v == -n-1){ v = -1 } } }
+    } else {
+      svs = data.frame(chrom = as.character(), pos = as.character())
+    }
+    return(svs)
+  }
+## EXTRACT DATA TO PLOT
+  # function to extract data to plot
+  extractDataForPlot = function(gwas_to_plot, region_of_interest, span, colors, res_example, reference_genome){
+    data_to_plot = list()                 # initialize the list that will contain data to plot
+    main_path = '/Users/nicco/Documents/GitHub/snpXplorer/bin/snpxplorer_v4/data/'
+    if (is.null(gwas_to_plot)){           # this is the case when no input gwas are selected --> example data
+      if (region_of_interest$chrom %in% c(16, 17, 18, 19, 20, 21)){
+        tmp = res_example[[(as.numeric(region_of_interest$chrom) - 15)]]
+        colnames(tmp) = c("chrom", "pos", "p")
+        # in case, we need to liftover
+        data_lifted = liftOver_data(chrom = tmp$chrom, start = tmp$pos, end = tmp$pos + 1, type = "gwas", p = tmp$p); chrom = data_lifted[[1]]; pos = data_lifted[[2]]; p = data_lifted[[3]]
+        tmp = data.frame(chrom = chrom, pos = pos, p = p)
+        # then match based on the position
+        tmp = tmp[which((tmp$pos >= region_of_interest$start - span) & (tmp$pos <= region_of_interest$end + span)),]       
+        tmp$col = colors[1]
+        tmp$name = 'Example'
+        data_to_plot[[(length(data_to_plot) + 1)]] = tmp
+        plotError = FALSE
+      } else {
+        plotError = TRUE; data_to_plot = NULL
+      }
+    } else {
+      for (i in 1:length(gwas_to_plot)){
+        tmp = fread(paste0(main_path, gwas_to_plot[i], '/chr', region_of_interest$chrom, '_', gwas_to_plot[i], '.txt.gz'), h=F, stringsAsFactors=F)
+        colnames(tmp) = c('chrom', 'pos', 'p')
+        tmp$pos = as.numeric(tmp$pos)
+        tmp = tmp[which((tmp$pos >= region_of_interest$start - span) & (tmp$pos <= region_of_interest$end + span)),]
+        tmp$col = colors[i]; tmp$name = str_replace_all(gwas_to_plot[i], '_', ' '); data_to_plot[[i]] = tmp;
+        plotError = FALSE
+      }
+    }
+    results = list(plotError, data_to_plot)
+    return(results)
+  }
+
+  # function to extract recombination rates to plot
+  extractRecombination = function(region_of_interest, reference_genome, genetic_map, genetic_map_hg38, span){
+    if (reference_genome == 'GRCh37 (hg19)'){ tmp = genetic_map } else { tmp = genetic_map_hg38 }
+    tmp = tmp[[as.numeric(region_of_interest$chrom)]]
+    colnames(tmp) = c("chr", "pos", "combined", "cm")
+    tmp$pos = as.numeric(tmp$pos); tmp$combined = as.numeric(tmp$combined)
+    tmp = tmp[which((tmp$pos >= region_of_interest$start - span) & (tmp$pos <= region_of_interest$end + span)),]
+    return(tmp)
+  }
+
+## PLOTS
+  # function to plot points and recombination rates
+  Plot <- function(snps_data, snp_interest, recomb_data, significance, pos_start, pos_end, plot_type, recomb, genes_in_region, svs_in_region, showExons){
+    # PLOT 1 IS THE MAIN SNP-PLOT
+      # initialize the plot
+      fig1 <- plot_ly()
+      # plot data depending on whether Scatter or Density is requested
+      for (snp_group in snps_data){
+        if (plot_type == 'Scatter'){
+          snp_group$pos = as.numeric(snp_group$pos)
+          snp_group$p = as.numeric(snp_group$p)
+          fig1 = fig1 %>% add_trace(data=snp_group, name=unique(snp_group$name), x=~pos, y=~-log10(p), type='scatter', mode='markers', yaxis='y1', marker=list(color=~col, size=8))
+          if (!is.na(snp_interest)){ tmp = snp_group[which(snp_group$pos == snp_interest),]; fig1 = fig1 %>% add_trace(data=tmp, name='SNP of interest', x=~pos, y=~-log10(p), type='scatter', mode='markers', yaxis='y1', marker=list(color=~col, size=16)) }
+        } else {
+          df = densityLinePvalue(snp_group, 20, 0.1)
+          fl = paste0('rgba(', paste(as.vector(col2rgb(unique(snp_group$col))), collapse = ", "), ', 0.5)')
+          fig1 = fig1 %>% add_trace(data = df, name=unique(snp_group$name), x = ~x, y = ~y, type = 'scatter', mode = 'lines', fill='tozeroy', fillcolor=fl)
+        }
+      }
+      # add data from second dataframe Df2
+      if (recomb == "Yes"){ 
+        fig1 = fig1 %>% add_trace(x=recomb_data$pos, y=recomb_data$combined, name="Recombination rate", type = 'scatter', mode = 'lines', yaxis = 'y2', line = list(color = 'orange', width = 2)) 
+      }
+      # show figure
+      fig1 = fig1 %>% layout(plot_bgcolor='#e5ecf6', title = "Regional plots", 
+                    yaxis2 = list(zerolinecolor = '#ffff', gridcolor = 'ffff', zerolinewidth = 4, title = "Recombination rates", autorange = FALSE, range = c(0, 100), overlaying = "y2", side = "right"),
+                    yaxis = list(zerolinecolor = '#ffff', gridcolor = 'ffff', zerolinewidth = 4, title = "-log10(P-value)", autorange = FALSE, range = c(0, significance)), 
+                    xaxis = list(zerolinecolor = '#ffff', gridcolor = 'ffff', zerolinewidth = 4, title = "Genomic position (bp)", autorange = FALSE, range = c(pos_start, pos_end)))
+      fig1 = fig1 %>% layout(legend = list(bgcolor = 'rgba(0,0,0,0)'))
+    # PLOT 2 IS THE GENE TRACK
+      fig2 <- plot_ly()
+      y_space = 0.25
+      for (i in 1:nrow(genes_in_region)){
+        fig2 = fig2 %>% add_trace(x=c(genes_in_region$txStart[i], genes_in_region$txEnd[i]), y=rep(genes_in_region$y[i], 2), type = 'scatter', mode = 'lines', showlegend = F, line = list(width = 4))
+        fig2 = fig2 %>% add_text(x=(genes_in_region$txStart[i] + (genes_in_region$txEnd[i] - genes_in_region$txStart[i])/2), y=genes_in_region$y[i]+y_space*1.3, text = genes_in_region$Gene[i], textposition = 'middle', textfont = list(color = '#000000', size = 12), showlegend = F)
+        exon_start = as.numeric(str_split(genes_in_region$exonStarts[i], ',')[[1]]); exon_end = as.numeric(str_split(genes_in_region$exonEnds[i], ',')[[1]])
+        exon_start = exon_start[!is.na(exon_start)]; exon_end = exon_end[!is.na(exon_end)]
+        if (showExons == "Yes"){ for (j in 1:length(exon_start)){ fig2 = fig2 %>% add_trace(x=c(exon_start[j], exon_end[j], exon_end[j], exon_start[j]), y = c(genes_in_region$y[i]+y_space, genes_in_region$y[i]+y_space, genes_in_region$y[i]-y_space, genes_in_region$y[i]-y_space), type = 'scatter', mode = 'lines', fill = 'tozeroy', fillcolor = 'black', line = list(width = 1, color = 'black'), showlegend = F) } }
+      }
+      fig2 = fig2 %>% layout(plot_bgcolor='#e5ecf6', yaxis = list(zerolinecolor = '#ffff', showticklabels=FALSE, gridcolor = 'ffff', zerolinewidth = 4, title = "Gene track", autorange = FALSE, range = c(min(genes_in_region$y)-1, 0)), xaxis = list(zerolinecolor = '#ffff', gridcolor = 'ffff', zerolinewidth = 4, title = "Genomic position (bp)", autorange = FALSE, range = c(pos_start, pos_end)))
+    # PLOT 3 IS THE SV
+      fig3 <- plot_ly()
+      for (i in 1:nrow(svs_in_region)){ 
+        fig3 = fig3 %>% add_trace(x=c(svs_in_region$start_pos[i], svs_in_region$end_pos_plus[i]), y=rep(svs_in_region$y[i], 2), line = list(color = svs_in_region$col[i], width = 4), type = 'scatter', mode = 'lines', showlegend = F) 
+      }
+      fig3 = fig3 %>% layout(plot_bgcolor='#e5ecf6', yaxis = list(zerolinecolor = '#ffff', showticklabels=FALSE, gridcolor = 'ffff', zerolinewidth = 4, title = "Structural variants", autorange = FALSE, range = c(min(svs_in_region$y)-1, 0)), xaxis = list(zerolinecolor = '#ffff', gridcolor = 'ffff', zerolinewidth = 4, title = "Genomic position (bp)", autorange = FALSE, range = c(pos_start, pos_end)))
+    # COMBINE THE FIGURES
+      fig_final <- subplot(fig1, fig2, fig3, nrows = 3, heights = c(0.6, 0.2, 0.2), shareX = TRUE, titleX = TRUE, titleY = TRUE)    
+      fig_final = fig_final %>% layout(legend = list(font = list(size = 18, color = "#000")))
+    return(fig_final)
+  }
+
+  # function to plot error
+  PlotError <- function(title){
+    p <- plotly_empty(type = "scatter", mode = "markers") %>% config(displayModeBar = FALSE) %>% layout( title = list(text = title, yref = "paper", y = 0.5))
+    return(p)
+  }
+
+  # function to calculate density
+  densityLinePvalue <- function(snps_data, wind.n, span_value){
+    min.wind <- min(snps_data$pos)          # define minimum position
+    max.wind <- max(snps_data$pos)          # define maximum position
+    interval <- ceiling((max.wind - min.wind)/wind.n)   # define windows
+    out = matrix(data = NA, nrow = wind.n, ncol = 3)    # define output
+    colnames(out) <- c("window", "pvalue", "error")
+    #counter for output assignement
+    counter <- 1
+    for (i in seq(min.wind, max.wind, interval)){
+      if (counter <= wind.n){
+        #define internal maximum -- f
+        f <- i + interval
+        #take info in the window of interest
+        data.sbs <- snps_data[which((snps_data$pos >= i) & (snps_data$pos <= f)),]
+        data.sbs$p <- as.numeric(data.sbs$p)
+        data.sbs <- data.sbs[order(data.sbs$p),]
+        #check number of rows
+        if (nrow(data.sbs) > 0){
+          #take maximum pvalue point
+          out[counter, ] <- c(((f - i)/2) + i, -log10(data.sbs$p[1]), sd(na.omit(data.sbs$p)))
+        } else {
+          out[counter, ] <- c(((f - i)/2) + i, 0, 0)
+        }
+        counter <- counter + 1
+      }
+    }
+    out[which(is.na(out[, "error"]) == TRUE), "error"] <- 0
+    out <- as.data.frame(out)
+    lo <- loess(out$pvalue ~ out$window, span=span_value)
+    xl <- seq(min(out$window), max(out$window), (max(out$window) - min(out$window))/100)
+    pred <- predict(lo, xl)
+    pred[which(pred < 0)] <- 0
+    #add limits -- left and right for polygon function
+    xl <- c(xl[1], xl, xl[length(xl)])
+    pred <- c(0, pred, 0)
+    df = data.frame(x = xl, y = pred)
+    return(df)
+  }
+
+## LIFTOVER FUNCTION
+  # function to liftover data
+  liftOver_data <- function(chrom, start, end, type, p = NULL){
+    df <- data.frame(chr=paste("chr", chrom, sep=""), start=start, end=end, p = p)
+    df$group = seq(1, nrow(df))
+    # change to GR class object
+    gr <- makeGRangesFromDataFrame(df)
+    # set chain file
+    chain <- import.chain( "/Users/nicco/Documents/GitHub/snpXplorer/bin/snpxplorer_v4/data/databases/hg19ToHg38.over.chain")
+    # change coordinates
+    gr_hg38 <- liftOver(gr, chain)
+    # back to dataframe and clean it
+    df_hg38 <- as.data.frame(gr_hg38)
+    if (type == "interval"){
+      chrom = as.character(chrom); start = as.numeric(df_hg38$start); end = as.numeric(df_hg38$end)
+      results = list(chrom, start, end)
+    } else {
+      df_hg38 = df_hg38[, c("group", "start", "end")]
+      df_hg38 = merge(df_hg38, df, by = "group")
+      results = list(chrom, df_hg38$start.x, df_hg38$p)
+    }
+    return(results)
+  }
+
+## NOT USED
+  # function to plot densities and recombination rates
+  plot_density <- function(snps_data, recomb_data, significance, pos_start, pos_end){
+    # initialize the plot
+    fig <- plot_ly()
+    # add data from first dataframe Df1
+    for (snp_group in snps_data){
+    }
+    # add data from second dataframe Df2
+    fig <- fig %>% add_trace(data=recomb_data, name="Recombination", x = ~pos, y = ~combined, type = 'scatter', mode = 'lines', yaxis = 'y2')
+    # show figure
+    fig <- fig %>% layout(plot_bgcolor='#e5ecf6', title = "Regional plots", 
+                          yaxis2 = list(zerolinecolor = '#ffff', gridcolor = 'ffff', zerolinewidth = 4, title = "Recombination rates", autorange = FALSE, range = c(0, 100), overlaying = "y", side = "right"),
+                          yaxis = list(zerolinecolor = '#ffff', gridcolor = 'ffff', zerolinewidth = 4, title = "-log10(P-value)", autorange = FALSE, range = c(0, significance)), 
+                          xaxis = list(zerolinecolor = '#ffff', gridcolor = 'ffff', zerolinewidth = 4, title = "Genomic position (bp)", autorange = FALSE, range = c(pos_start, pos_end)))
+    return(fig)
+  }
