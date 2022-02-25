@@ -83,7 +83,7 @@
       fluidRow(
         column(3,
           wellPanel(
-            div(tags$h2("Graphical options"), align = "center"),
+            div(tags$h3("Graphical options"), align = "center"),
             div(dropdown(
               style = "unite", size = "lg", icon = icon("gear"), status = "success", width = "500px", animate = animateOptions(enter = animations$fading_entrances$fadeInLeftBig, exit = animations$fading_exits$fadeOutLeftBig),
               tooltip = tooltipOptions(title = "Click to see available options!"),
@@ -109,8 +109,7 @@
               radioGroupButtons(inputId = "exons", label = "Add exons:", choices = c("No", "Yes"), status = "danger", checkIcon = list(yes = icon("ok", lib = "glyphicon"), no = icon("remove", lib = "glyphicon"))),
               bsPopover("exons", title='Add gene exons', content='Show (Yes) or hide (No) exons in each gene. Note that the waiting time will be slightly higher.', placement="right",trigger="hover", options = list(container = "body")),
             ), align = "center"),
-            br(),
-            div(tags$h2("Linkage Disequilibrium"), align = "center"),
+            div(tags$h3("Linkage Disequilibrium"), align = "center"),
             div(dropdown(
               style = "unite", size = "lg", icon = icon("link"), status = "royal", width = "500px", animate = animateOptions(enter = animations$fading_entrances$fadeInLeftBig, exit = animations$fading_exits$fadeOutLeftBig),
               tooltip = tooltipOptions(title = "Click to see available options!"),
@@ -134,8 +133,7 @@
               h5("Download LD info"),                                                   # button to download LD information
               downloadButton("download_LDtable", "Download LD table"),
             ), align = "center"),
-            br(),
-            div(tags$h2("Structural Variants"), align = "center"),
+            div(tags$h3("Structural Variants"), align = "center"),
             div(dropdown(
               style = "unite", size = "lg", icon = icon("eraser"), status = "warning", width = "500px", animate = animateOptions(enter = animations$fading_entrances$fadeInLeftBig, exit = animations$fading_exits$fadeOutLeftBig),
               tooltip = tooltipOptions(title = "Click to see available options!"),
@@ -146,13 +144,28 @@
               downloadButton("download_SVs", "Download All SVs"),
             ), align = "center"),
             hr(),
-            div(h2("Top SNPs info"), align = "center"),
+            div(h3("Top SNPs info"), align = "center"),
             div(tableOutput('table'), style = "font-size:75%", align = "center"),
+            bsPopover("table", title='Top SNPs table', content='Most significant SNP-associations in the main plot interface. Chr: chromosome; Position: genomic position depending on reference genome choosen; ID: variant identifier (missing if variant is not in 1000Genome or too rare); -log10(P): association p-value (in -log10 scale); Study: name of the study; Alleles: reference and alternative alleles, respectively (from 1000Genome data).', placement="right",trigger="hover", options = list(container = "body")),
+            hr(),
+            div(h3("GWAS Catalog SNPs"), align = "center"),
+            div(tableOutput('gwascat_table'), style = "font-size:75%", align = "center"),
             bsPopover("table", title='Top SNPs table', content='Most significant SNP-associations in the main plot interface. Chr: chromosome; Position: genomic position depending on reference genome choosen; ID: variant identifier (missing if variant is not in 1000Genome or too rare); -log10(P): association p-value (in -log10 scale); Study: name of the study; Alleles: reference and alternative alleles, respectively (from 1000Genome data).', placement="right",trigger="hover", options = list(container = "body")),
           )
         ),
         column(9,
           plotlyOutput(outputId = "plot", height = "1200px"),
+        )
+      ),
+      hr(),
+      fluidRow(
+        column(3,
+          wellPanel(
+            div(tags$h2("eQTL and sQTL"), align = "center"),            
+          )
+        ),
+        column(9,
+          plotlyOutput(outputId = "plot2", height = "300px"),
         )
       )
     )
