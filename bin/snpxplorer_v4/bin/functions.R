@@ -202,7 +202,7 @@
         exon_start = exon_start[!is.na(exon_start)]; exon_end = exon_end[!is.na(exon_end)]
         if (showExons == "Yes"){ for (j in 1:length(exon_start)){ fig2 = fig2 %>% add_trace(x=c(exon_start[j], exon_end[j], exon_end[j], exon_start[j]), y = c(genes_in_region$y[i]+y_space, genes_in_region$y[i]+y_space, genes_in_region$y[i]-y_space, genes_in_region$y[i]-y_space), type = 'scatter', mode = 'lines', fill = 'tozeroy', fillcolor = 'black', line = list(width = 1, color = 'black'), showlegend = F, hoverinfo="none") } }
       }
-      fig2 = fig2 %>% layout(plot_bgcolor='#e5ecf6', yaxis = list(zerolinecolor = '#ffff', showticklabels=FALSE, gridcolor = 'ffff', zerolinewidth = 4, title = "Gene track", autorange = FALSE, range = c(min(genes_in_region$y)-1, 0)), xaxis = list(zerolinecolor = '#ffff', gridcolor = 'ffff', zerolinewidth = 4, title = "Genomic position (bp)", autorange = FALSE, range = c(pos_start, pos_end)))
+      fig2 = fig2 %>% layout(plot_bgcolor='#e5ecf6', yaxis = list(zeroline = F, showticklabels=FALSE, gridcolor = 'ffff', title = "Gene track", autorange = FALSE, range = c(min(genes_in_region$y)-1, 0)), xaxis = list(zerolinecolor = '#ffff', gridcolor = 'ffff', zerolinewidth = 4, title = "Genomic position (bp)", autorange = FALSE, range = c(pos_start, pos_end)))
     # PLOT 3 IS THE SV
       fig3 <- plot_ly()
       svs_in_region$labels = paste0("<b>Start position:<b> ", svs_in_region$start_pos, "<br><b>End position:<b> ", svs_in_region$end_pos, "<br><b>Max. allele size:<b> ", svs_in_region$diff_alleles, "<br><b>Type:<b> ", svs_in_region$type, "<br><b>Source:<b> ", svs_in_region$source, "<extra></extra>")
@@ -218,11 +218,11 @@
         }
       }
       fig3 = fig3 %>% layout(plot_bgcolor='#e5ecf6', 
-                      yaxis = list(zerolinecolor = '#ffff', showticklabels=FALSE, gridcolor = 'ffff', zerolinewidth = 4, title = "Structural variants", autorange = FALSE, range = c(min(svs_in_region$y)-1, 0)), 
-                      xaxis = list(zerolinecolor = '#ffff', gridcolor = 'ffff', zerolinewidth = 4, title = "Genomic position (bp)", autorange = FALSE, range = c(pos_start, pos_end)))
+                      yaxis = list(zeroline = F, showticklabels=FALSE, gridcolor = 'ffff', title = "Structural variants", autorange = FALSE, range = c(min(svs_in_region$y)-1, 0)), 
+                      xaxis = list(zeroline = F, gridcolor = 'ffff', title = "Genomic position (bp)", autorange = FALSE, range = c(pos_start, pos_end)))
     # COMBINE THE FIGURES
       fig_final <- subplot(fig1, fig2, fig3, nrows = 3, heights = c(0.6, 0.2, 0.2), shareX = TRUE, titleX = TRUE, titleY = TRUE, margin = 0.005)    
-      fig_final = fig_final %>% layout(legend = list(x = 0.25, y = 1, orientation = 'h', font = list(size = 13, color = "#000")), margin = list(l = 50, r = 100, b = 50, t = 50, pad = 4))
+      fig_final = fig_final %>% layout(legend = list(x = 0.25, y = 1, orientation = 'h', font = list(size = 13, color = "#000")), margin = list(l = 75, r = 100, b = 75, t = 75, pad = 4))
     return(fig_final)
   }
 

@@ -20,6 +20,8 @@ server <- function(input, output) {
     rsid_region_for_table = reactiveVal()
     reference_genome = reactiveVal()
     plotted_region = reactiveVal()
+    gwascat_mode = reactiveVal()
+    genes_region = reactiveVal()
 
   ## PLOTLY FUNCTION FOR PLOT 1 (SNPS, GENES AND SVS)
     output$plot <- renderPlotly({
@@ -52,18 +54,24 @@ server <- function(input, output) {
         future_svs = future({ results = findSVs(region_of_interest, reference_genome = input$reference_gen, all_str, all_str_hg38, span_value = 500000, sv_source = input$strVar_inp) })
 
       ## GATHER ALL DATA BEFORE THE PLOT
-        rsid_region = future_rsid$result$value
-        results = future_res$result$value; plotError = results[[1]]; data_to_plot = results[[2]]
-        recomb_data = future_rec$result$value
-        genes_in_region = future_genes$result$value
-        svs_in_region = future_svs$result$value
-
+        if (plotError == FALSE){
+          rsid_region = future_rsid$result$value
+          results = future_res$result$value; plotError = results[[1]]; data_to_plot = results[[2]]
+          recomb_data = future_rec$result$value
+          genes_in_region = future_genes$result$value
+          svs_in_region = future_svs$result$value
+        }
+      
       ## UPDATE REACTIVE OBJECT CONTAINING DATA TO PLOT
-        data_for_table(data_to_plot)
-        plotError_for_table(plotError)
-        rsid_region_for_table(rsid_region)
-        reference_genome(input$reference_gen)
-        plotted_region(region_of_interest)
+        if (plotError == FALSE){
+          data_for_table(data_to_plot)
+          plotError_for_table(plotError)
+          rsid_region_for_table(rsid_region)
+          reference_genome(input$reference_gen)
+          plotted_region(region_of_interest)
+          gwascat_mode(input$gwascat_type)
+          genes_region(genes_in_region)
+        }
 
       ## PLOT
         if (plotError == TRUE){
@@ -89,12 +97,12 @@ server <- function(input, output) {
   ## PLOT TABLE OF SNPS
     output$table <- renderTable({
       plotError_for_table = plotError_for_table()
-      rsid_region = rsid_region_for_table()
-      reference_gen = reference_genome()
       if (plotError_for_table == TRUE){ 
         df = data.frame("Rs ID" = as.character(), "Pos" = as.character(), "Ref" = as.character(), "Alt" = as.character(), "MAF" = as.character(), "Log(p)" = as.character(), "Study" = as.character()) 
       } else { 
-        df = rbindlist(data_for_table()); df$p = as.numeric(df$p); df = df[order(as.numeric(df$p)),]; df$p = -log10(df$p); top = head(df, 8); 
+        rsid_region = rsid_region_for_table()
+        reference_gen = reference_genome()
+        df = rbindlist(data_for_table()); df$p = as.numeric(df$p); df = df[order(as.numeric(df$p)),]; df$p = -log10(df$p); top = head(df, 80); 
         if (reference_gen == 'GRCh37 (hg19)'){ top = merge(top, rsid_region, by.x = 'pos', by.y = 'POS', all.x = T) } else { top = merge(top, rsid_region, by.x = 'pos', by.y = 'POS_HG38', all.x = T) }
       }
       if (nrow(df) >0){
@@ -105,32 +113,35 @@ server <- function(input, output) {
           colnames(top) = c('Rs ID', 'Pos', 'Ref', 'Alt', 'MAF', 'Log(p)', 'Study')
         }
         return(top)
-    })
+    }, bordered = TRUE, striped = TRUE)
   
   ## PLOT TABLE OF GWAS-CATALOG
     output$gwascat_table <- renderTable({
       plotError_for_table = plotError_for_table()
-      reference_gen = reference_genome()
-      region_of_interest = plotted_region()
       if (plotError_for_table == TRUE){
         tmp_gwascat = data.frame(Chr = as.character(), Pos = as.character(), P = as.character())
       } else {
+        reference_gen = reference_genome()
+        region_of_interest = plotted_region()
+        gwascat_type = gwascat_mode()
+        genes_in_region = genes_region()
         df = rbindlist(data_for_table()); df$p = as.numeric(df$p); df = df[order(as.numeric(df$p)),]; df$p = -log10(df$p)
-        tmp_gwascat = gwascat[[region_of_interest$chrom]]
-        if (reference_gen == 'GRCh37 (hg19)') { 
-          tmp_gwascat = tmp_gwascat[which(tmp_gwascat$'Pos (hg19)' %in% df$pos),]
-          tmp_gwascat = tmp_gwascat[order(as.numeric(tmp_gwascat$'P-value')),]
+        if (gwascat_type == 'SNPs'){
+          tmp_gwascat = gwascat[[as.numeric(region_of_interest$chrom)]]
+          if (reference_gen == 'GRCh37 (hg19)') { tmp_gwascat = tmp_gwascat[which(tmp_gwascat$'Pos (hg19)' %in% df$pos),]; tmp_gwascat = tmp_gwascat[order(as.numeric(tmp_gwascat$'P-value')),] } else { tmp_gwascat = tmp_gwascat[which(tmp_gwascat$'Pos (hg38)' %in% df$pos),]; tmp_gwascat = tmp_gwascat[order(as.numeric(tmp_gwascat$'P-value')),] }
+          tmp_gwascat = tmp_gwascat[!duplicated(tmp_gwascat[c('SNP', 'Pubmed ID')]),]
         } else {
-          tmp_gwascat = tmp_gwascat[which(tmp_gwascat$'Pos (hg38)' %in% df$pos),]
-          tmp_gwascat = tmp_gwascat[order(as.numeric(tmp_gwascat$'P-value')),]
+          tmp_gwascat = gwascat_genes[which(gwascat_genes$gene %in% genes_in_region$Gene),]
+          colnames(tmp_gwascat) = c('Gene', 'Trait', 'Study', 'Journal')
         }
       }
       if (nrow(tmp_gwascat) >0){
-        top = head(tmp_gwascat, 10); top = top[, c('SNP', 'Gene', 'Trait', 'Pubmed ID', 'P-value')]
-        } else {
-        top = data.frame('SNP' = 'No', 'Gene' = 'entries', 'Trait' = 'in', 'Pubmed ID' = 'GWAS', 'P-value' = 'Catalog')
+        top = head(tmp_gwascat, 50)
+        if (gwascat_type == 'SNPs'){ top = top[, c('SNP', 'Gene', 'Trait', 'Pubmed ID', 'P-value')] }
+      } else {
+        if (gwascat_type == 'SNPs'){ top = data.frame('SNP' = 'No', 'Gene' = 'entries', 'Trait' = 'in', 'Pubmed ID' = 'GWAS', 'P-value' = 'Catalog') } else { top = data.frame('Gene' = 'No entries', 'Trait' = 'in the', 'Study' = 'GWAS', 'Journal' = 'Catalog') } 
       }
       return(top)
-    })
+    }, bordered = TRUE, striped = TRUE)
 }
 
