@@ -109,7 +109,7 @@ readSNPs <- function(fname, ftype, MAIN, ref_version, analysis_type){
       d <- d[!duplicated(d$ID),]
     }
     d = d[which(d$chr != "#CHROM"),]
-    d = d[!is.na(d$pos),]
+    #d = d[!is.na(d$pos),]
   }
   return(d)
 }
@@ -184,5 +184,19 @@ outpath = paste0("/root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, "/tmp_sn
 data <- try(readSNPs(fname, ftype, MAIN, ref_version, analysis_type), silent = T)
 # check if there were matches, in case there were no matches, try with the other dataset
 if (is.data.frame(data) & nrow(data) == 0 & ftype == 3){ data = try(readSNPs_alternative(fname, ftype, MAIN, ref_version, analysis_type), silent = T) }
+# also check with the other dataset for the missing annotations in case was requested ftype 3
+if (ftype == 3){ 
+  missings = data[is.na(data$pos),]
+  if (nrow(missings) >0){
+    newname = stringr::str_replace_all(fname, ".txt", "_miss.txt")
+    write.table(missings$ID, newname, quote=F, row.names=F, col.names=F)
+    miss_data = try(readSNPs_alternative(newname, ftype, MAIN, ref_version, analysis_type), silent = T)
+    if (nrow(miss_data) >0){
+        data = data[!is.na(data$pos),]
+        data = rbind(data, miss_data)
+    }
+    system(paste0("rm ", newname))
+  }
+}
 save(data, file = outpath)
 cat(outpath)
