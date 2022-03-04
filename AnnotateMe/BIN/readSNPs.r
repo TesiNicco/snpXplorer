@@ -190,8 +190,8 @@ if (ftype == 3){
   if (nrow(missings) >0){
     newname = stringr::str_replace_all(fname, ".txt", "_miss.txt")
     write.table(missings$ID, newname, quote=F, row.names=F, col.names=F)
-    miss_data = try(readSNPs_alternative(newname, ftype, MAIN, ref_version, analysis_type), silent = T)
-    if (nrow(miss_data) >0){
+    miss_data = tryCatch({ x = readSNPs_alternative(newname, ftype, MAIN, ref_version, analysis_type) }, error=function(cond) { return(NA) })
+    if (!is.na(miss_data)){
         data = data[!is.na(data$pos),]
         data = rbind(data, miss_data)
     }
