@@ -239,6 +239,9 @@
             # remove data
             system(paste("rm -rf RESULTS_", random_num, "/", sep=""))
         } else {
+            # SAVE DATA WITH MISSING ANNOTATION AS THEY WILL BE SKIPPED
+            missing_data = data[is.na(data$pos),]
+
             # FIND ALL VARIANTS IN LD WITH THE INPUT VARIANTS -- this can be done with LDlink functions easily -- for now just report SNPs in LD, in the future those results will be implemented in the main results
             ld_info = data.frame(chr=NULL, pos=NULL)
             ld_outpath = paste0("/root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, "/tmp_ldInfo.RData")
@@ -281,7 +284,9 @@
 
             # DONE -- SAVE TABLES
             cat("## Saving tables, plotting and finishing\n")
-            write.table(annot, paste("/root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, "/snp_annotation.txt", sep=""), quote=F, row.names=F, sep="\t")
+            # add also missing data when saving results so that user has all data that has inputed
+            annot_with_miss = plyr::rbind.fill(annot, missing_data)
+            write.table(annot_with_miss, paste("/root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, "/snp_annotation.txt", sep=""), quote=F, row.names=F, sep="\t")
             write.table(geneList, paste("/root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, "/snp_annotation_geneList.txt", sep=""), quote=F, row.names=F, col.names=F)
 
             # PLOT MAPPING CHARACTERISTICS
