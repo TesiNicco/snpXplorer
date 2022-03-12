@@ -1,7 +1,7 @@
 ## FIND POSITION TO PLOT
   # browsing option is 'Locus, Gene, RsID' 
-  directInput = function(target, window, gene.db, genes.hg38, ref_version, SNPlocs.Hsapiens.dbSNP144.GRCh37){
-    span = 500000
+  directInput = function(target, window, gene.db, genes.hg38, ref_version, SNPlocs.Hsapiens.dbSNP144.GRCh37, MAIN_PATH){
+    span = 100000
     if (target %in% c('Type locus, rsID or gene name', '')){
       chrom = 16; pos1 = 12000000 - window; pos2 = 12500000 + window; snp_interest = NA
     } else if (length(grep(":", target)) >0){    # input is chr:pos
@@ -14,7 +14,7 @@
       snp_info <- NULL
       try(snp_info <- as.data.frame(snpsById(SNPlocs.Hsapiens.dbSNP144.GRCh37, target)), silent = T)
       if (!is.null(snp_info)){ chrom = snp_info$seqnames; pos1 = as.numeric(snp_info$pos) - window; pos2 = as.numeric(snp_info$pos) + window; snp_interest = snp_info$pos } else { chrom = NA; pos1 = NA; pos2 = NA; snp_interest = NA }
-      if (ref_version == 'GRCh38 (hg38)'){ data_lifted = liftOver_data(chrom = as.character(chrom), start = pos1, end = pos2, type = "interval"); chrom = data_lifted[[1]]; pos1 = data_lifted[[2]]; pos2 = data_lifted[[3]] }
+      if (ref_version == 'GRCh38 (hg38)'){ data_lifted = liftOver_data(chrom = as.character(chrom), start = pos1, end = pos2, type = "interval", MAIN_PATH); chrom = data_lifted[[1]]; pos1 = data_lifted[[2]]; pos2 = data_lifted[[3]] }
     } else {
       if (ref_version == "GRCh37 (hg19)"){ tmp = gene.db[which(gene.db$"#geneName" == toupper(target)),] } else { tmp = genes.hg38[which(genes.hg38$"#geneName" == toupper(target)),] }
       if (nrow(tmp) >0){ chrom = tmp$chrom[1]; pos1 = as.numeric(tmp$txStart[1]) - window; pos2 = as.numeric(tmp$txEnd[1]) + window } else { chrom = NA; pos1 = NA; pos2 = NA }
@@ -27,8 +27,8 @@
   }
 
 ## FIND RSID OF SNPS
-  findRsID <- function(region_of_interest, reference_genome, span){
-    tmp = fread(paste0('/Users/nicco/Documents/GitHub/snpXplorer/bin/snpxplorer_v4/data/databases/snps_info/chr', region_of_interest$chrom, '_snps_info.txt.gz'), h=T, stringsAsFactors=F)
+  findRsID <- function(region_of_interest, reference_genome, span, MAIN_PATH){
+    tmp = fread(paste0(MAIN_PATH, 'data/databases/snps_info/chr', region_of_interest$chrom, '_snps_info.txt.gz'), h=T, stringsAsFactors=F)
     if (reference_genome == 'GRCh37 (hg19)'){ 
       tmp = tmp[which((tmp$POS >= region_of_interest$start - span) & (tmp$POS <= region_of_interest$end + span)),] 
     } else {
@@ -39,7 +39,7 @@
 
 ## EXTRACT GENES FROM A REGION
   findGenes <- function(region_of_interest, reference_genome, genes_hg19, genes_hg38){
-    span = 500000
+    span = 100000
     if (reference_genome == 'GRCh37 (hg19)'){ tmp = genes_hg19 } else { tmp = genes_hg38 }
     genes_in_region = tmp[which(tmp$chrom == paste0('chr', region_of_interest$chrom)),]
     genes_in_region = genes_in_region[which((genes_in_region$txStart >= (region_of_interest$start - span)) & (genes_in_region$txEnd <= (region_of_interest$end + span))),]
@@ -76,9 +76,9 @@
   }
 ## EXTRACT DATA TO PLOT
   # function to extract data to plot
-  extractDataForPlot = function(gwas_to_plot, region_of_interest, span, colors, res_example, reference_genome){
+  extractDataForPlot = function(gwas_to_plot, region_of_interest, span, colors, res_example, reference_genome, MAIN_PATH){
     data_to_plot = list()                 # initialize the list that will contain data to plot
-    main_path = '/Users/nicco/Documents/GitHub/snpXplorer/bin/snpxplorer_v4/data/'
+    main_path = paste0(MAIN_PATH, 'data/')
     if (is.null(gwas_to_plot)){           # this is the case when no input gwas are selected --> example data
       if (region_of_interest$chrom %in% c(16, 17, 18, 19, 20, 21)){
         tmp = res_example[[(as.numeric(region_of_interest$chrom) - 15)]]
@@ -105,7 +105,7 @@
           tmp = fread(paste0(main_path, gwas_to_plot[i], '/chr', region_of_interest$chrom, '_', gwas_to_plot[i], '.txt.gz'), h=T, stringsAsFactors=F)
           colnames(tmp) = c('chrom', 'pos', 'p')
           # in case, we need to liftover
-          if (reference_genome == 'GRCh38 (hg38)'){ data_lifted = liftOver_data(chrom = tmp$chrom, start = tmp$pos, end = tmp$pos + 1, type = "gwas", p = tmp$p); chrom_lf = data_lifted[[1]]; pos_lf = data_lifted[[2]]; p_lf = data_lifted[[3]]; tmp = data.table(chrom = chrom_lf, pos = pos_lf, p = p_lf) }
+          if (reference_genome == 'GRCh38 (hg38)'){ data_lifted = liftOver_data(chrom = tmp$chrom, start = tmp$pos, end = tmp$pos + 1, type = "gwas", p = tmp$p, MAIN_PATH); chrom_lf = data_lifted[[1]]; pos_lf = data_lifted[[2]]; p_lf = data_lifted[[3]]; tmp = data.table(chrom = chrom_lf, pos = pos_lf, p = p_lf) }
           plotError = FALSE
           tmp$name = str_replace_all(gwas_to_plot[i], '_', ' ')
         }
@@ -160,7 +160,7 @@
 
 ## PLOTS
   # function to plot points and recombination rates
-  Plot <- function(reference_genome, region_of_interest, rsid_region, snps_data, snp_interest, recomb_data, significance, pos_start, pos_end, plot_type, recomb, genes_in_region, svs_in_region, showExons){
+  Plot <- function(reference_genome, region_of_interest, rsid_region, snps_data, snp_interest, recomb_data, significance, pos_start, pos_end, plot_type, recomb, genes_in_region, svs_in_region, showExons, ld){
     # PLOT 1 IS THE MAIN SNP-PLOT
       # initialize the plot
       fig1 <- plot_ly()
@@ -172,6 +172,11 @@
           if (reference_genome == 'GRCh37 (hg19)'){ snp_group = merge(snp_group, rsid_region, by.x = 'pos', by.y = "POS", all.x = T) } else { snp_group = merge(snp_group, rsid_region, by.x = 'pos', by.y = "POS_HG38", all.x = T) }
           snp_group$labels = paste0("<b>ID:<b> ", snp_group$ID, "<br><b>Position:<b> %{x} <br><b>Log(p):<b> %{y} <br><b>REF:<b> ", snp_group$REF, "<br><b>ALT:<b> ", snp_group$ALT, "<br><b>MAF:<b> ", snp_group$ALT_FREQS)
           fig1 = fig1 %>% add_trace(data=snp_group, name=unique(snp_group$name), x=~pos, y=~-log10(p), type='scatter', mode='markers', yaxis='y1', marker=list(color=~col, size=8), hovertemplate = ~labels)
+          if (!is.null(ld)){
+            ld = merge(ld, snp_group, by.x = 'BP_B', by.y = 'pos')
+            ld$labels = paste0("<b>ID:<b> ", ld$ID, "<br><b>Position:<b> %{x} <br><b>Log(p):<b> %{y} <br><b>REF:<b> ", ld$REF, "<br><b>ALT:<b> ", ld$ALT, "<br><b>MAF:<b> ", ld$ALT_FREQS, "<br><b>LD with:<b> ", ld$SNP_A, "<br><b>R2:<b> ", ld$R2)
+            if (nrow(ld) >0){ fig1 = fig1 %>% add_trace(data=ld, name='Linkage disequilibrium', x=~BP_B, y=~-log10(p), type='scatter', mode='markers', yaxis='y1', marker=list(color=~colo, size=10, symbol = 'diamond'), hovertemplate = ~labels) }
+          }
           if (!is.na(snp_interest)){ tmp = snp_group[which(snp_group$pos == snp_interest),]; fig1 = fig1 %>% add_trace(data=tmp, name='SNP of interest', x=~pos, y=~-log10(p), type='scatter', mode='markers', yaxis='y1', marker=list(color=~col, size=16), hovertemplate = "<b>Position:<b> %{x} <br><b>Log(p):<b> %{y}") }
         } else {
           df = densityLinePvalue(snp_group, 20, 0.1)
@@ -196,7 +201,7 @@
       genes_in_region$hover_label = paste0("<b>Gene name:<b> ", genes_in_region$Gene, "<br><b>Transcript:<b> ", genes_in_region$name, "<br><b>Strand:<b> ", genes_in_region$strand, "<br><b>TxStart:<b> ", genes_in_region$txStart, "<br><b>TxEnd:<b> ", genes_in_region$txEnd, "<br><b>Exons:<b> ", genes_in_region$exonCount, "<extra></extra>")
       for (i in 1:nrow(genes_in_region)){
         fig2 = fig2 %>% add_trace(x=c(genes_in_region$txStart[i], genes_in_region$txEnd[i]), y=rep(genes_in_region$y[i], 2), type = 'scatter', mode = 'lines', showlegend = F, line = list(width = 4), hovertemplate = genes_in_region$hover_label[i])
-        if (nrow(genes_in_region) <= 20){ txt_size = 12 } else if (nrow(genes_in_region) <= 30){ txt_size = 10 } else if (nrow(genes_in_region) <= 40){ txt_size = 8 } else if (nrow(genes_in_region) <= 50){ txt_size = 4 }
+        if (nrow(genes_in_region) <= 20){ txt_size = 15 } else if (nrow(genes_in_region) <= 30){ txt_size = 12 } else if (nrow(genes_in_region) <= 40){ txt_size = 10 } else if (nrow(genes_in_region) <= 50){ txt_size = 6 }
         if (nrow(genes_in_region) <= 50){ fig2 = fig2 %>% add_text(x=(genes_in_region$txStart[i] + (genes_in_region$txEnd[i] - genes_in_region$txStart[i])/2), y=genes_in_region$y[i]+y_space*1.3, text = genes_in_region$Gene[i], textposition = 'middle', textfont = list(color = '#000000', size = txt_size), showlegend = F, hoverinfo="none") }
         exon_start = as.numeric(str_split(genes_in_region$exonStarts[i], ',')[[1]]); exon_end = as.numeric(str_split(genes_in_region$exonEnds[i], ',')[[1]])
         exon_start = exon_start[!is.na(exon_start)]; exon_end = exon_end[!is.na(exon_end)]
@@ -221,8 +226,9 @@
                       yaxis = list(zeroline = F, showticklabels=FALSE, gridcolor = 'ffff', title = "Structural variants", autorange = FALSE, range = c(min(svs_in_region$y)-1, 0)), 
                       xaxis = list(zeroline = F, gridcolor = 'ffff', title = "Genomic position (bp)", autorange = FALSE, range = c(pos_start, pos_end)))
     # COMBINE THE FIGURES
-      fig_final <- subplot(fig1, fig2, fig3, nrows = 3, heights = c(0.6, 0.2, 0.2), shareX = TRUE, titleX = TRUE, titleY = TRUE, margin = 0.005)    
+      fig_final <- subplot(fig1, fig2, fig3, nrows = 3, heights = c(0.6, 0.2, 0.2), shareX = TRUE, titleX = TRUE, titleY = TRUE, margin = 0.02)    
       fig_final = fig_final %>% layout(legend = list(x = 0.25, y = 1, orientation = 'h', font = list(size = 13, color = "#000")), margin = list(l = 75, r = 100, b = 75, t = 75, pad = 4))
+      fig_final = fig_final %>% config(toImageButtonOptions = list(format = "png", filename = "snpXplorer_plot", width = 1280, height = 960, scale = 3))
     return(fig_final)
   }
 
@@ -274,13 +280,13 @@
 
 ## LIFTOVER FUNCTION
   # function to liftover data
-  liftOver_data <- function(chrom, start, end, type, p = NULL){
+  liftOver_data <- function(chrom, start, end, type, p = NULL, MAIN_PATH){
     df <- data.frame(chr=paste("chr", chrom, sep=""), start=start, end=end, p = p)
     df$group = seq(1, nrow(df))
     # change to GR class object
     gr <- makeGRangesFromDataFrame(df)
     # set chain file
-    chain <- import.chain( "/Users/nicco/Documents/GitHub/snpXplorer/bin/snpxplorer_v4/data/databases/hg19ToHg38.over.chain")
+    chain <- import.chain(paste0(MAIN_PATH, "data/databases/hg19ToHg38.over.chain"))
     # change coordinates
     gr_hg38 <- liftOver(gr, chain)
     # back to dataframe and clean it
@@ -294,6 +300,41 @@
       results = list(rep(chrom[1], nrow(df_hg38)), df_hg38$start.x, df_hg38$p)
     }
     return(results)
+  }
+
+## LD FUNCTIONS
+  # function to manage whether LD should be done
+  findLD <- function(ld_type, pop_interest, data_to_plot, rsid_region, reference_genome, region_of_interest, MAIN_PATH){
+    pop_file = fread(paste0(MAIN_PATH, "data/databases/1000G/people.txt"), h=T, stringsAsFactors = F, sep="\t")     # read all populations
+    # first check for "all" individuals -- in case no group is selected, by default uses european
+    if (length(pop_interest) == 0){ pop_interest = c("ALL_eur") }
+    if ("ALL_eur" %in% pop_interest){ pop_interest = c(pop_interest, "FIN", "GBR", "IBS", "TSI", "FIN", "CEU") }
+    if ("ALL_amr" %in% pop_interest){ pop_interest = c(pop_interest, "CLM", "MXL", "PEL", "PUR") }
+    if ("ALL_afr" %in% pop_interest){ pop_interest = c(pop_interest, "ACB", "ASW", "ESN", "GWD", "LWK", "MSL", "YRI") }
+    if ("ALL_eas" %in% pop_interest){ pop_interest = c(pop_interest, "CDX", "CHB", "CHS", "JPT", "KHV") }
+    if ("ALL_sas" %in% pop_interest){ pop_interest = c(pop_interest, "BEB", "GIH", "ITU", "PJL", "STU") }
+    pop_interest = pop_interest[!duplicated(pop_interest)]; tmp_pop = pop_file[which(pop_file$`Population code` %in% pop_interest),]; tmp_df = data.frame("FID" = tmp_pop$`Sample name`, "IID" = tmp_pop$`Sample name`)
+    write.table(tmp_df, "tmp_populations.txt", quote=F, row.names=F, col.names=T, sep="\t")   # write file with individuals of interest based on population
+    # now choose which snp to find LD for
+    if (ld_type == 'Input variant'){
+      # to implement
+    } else {
+      all_data = rbindlist(data_to_plot); top_snps = head(all_data[order(all_data$p)], 100)     # extract top snps
+      if (reference_genome == 'GRCh37 (hg19)'){ top_snps = merge(top_snps, rsid_region, by.x = 'pos', by.y = 'POS') } else { top_snps = merge(top_snps, rsid_region, by.x = 'pos', by.y = 'POS_HG38') }
+      target_snp = top_snps[!is.na(top_snps$ID),]; target_snp = head(target_snp$ID[order(target_snp$p)], 1)
+    }
+    system(paste0("./plink --bfile ", MAIN_PATH, "data/databases/1000G/chr", region_of_interest$chrom, " --keep tmp_populations.txt --r2 --ld-snp ", target_snp, " --ld-window-kb 250000 --out tmp_ld"))
+    ld <- fread("tmp_ld.ld", h=T)        # read ld file back
+    # assign colors to the original data depending on LD (r2)
+    ld$colo <- NA; ld$colo[which(abs(ld$R) >= 0.2)] <- "deepskyblue3"; ld$colo[which(abs(ld$R) >= 0.4)] <- "yellow"; ld$colo[which(abs(ld$R) >= 0.6)] <- "orange"; ld$colo[which(abs(ld$R) >= 0.8)] <- "red"
+    # finally add genome hg38 position in case this is needed
+    if (reference_genome == 'GRCh38 (hg38)'){ 
+      ld = merge(ld, rsid_region, by.x = 'SNP_B', by.y = 'ID'); ld = ld[, c('SNP_A', 'SNP_B', 'POS_HG38', 'R2', 'colo')]; colnames(ld) = c('SNP_A', 'SNP_B', 'BP_B', 'R2', 'colo')
+    } else { 
+      ld = ld[, c('SNP_A', 'SNP_B', 'BP_B', 'R2', 'colo')]
+    }
+    system("rm tmp_.*")
+    return(ld)
   }
 
 ## NOT USED
