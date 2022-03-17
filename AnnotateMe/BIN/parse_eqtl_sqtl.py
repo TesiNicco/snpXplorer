@@ -64,5 +64,34 @@ for chrom in all_sqtls.keys():
     str_df = df.applymap(lambda x: x.decode() if isinstance(x, bytes) else x)
     str_df.to_csv('%s/%s_summary_sqtls.txt.gz' %(path_sqtl, chrom.decode("utf-8")), sep = '\t', header = False, index = False)
 
+#################################
+## here below the same for eqtls
+path_eqtls = '~/bulkALL/niccolo/lasa/nicco/new_batch2018/AnnotateMe/INPUTS_OTHER/summary_eqtls'
 
-    
+# 1. read all files
+all_tissues = list(os.popen("ls %s/*" %(path_eqtls)))
+
+# 2. main loop on chromsomes
+for f in all_tissues:
+    finp = gzip.open(f.rstrip()).readlines()
+    fname = '/'.join(f.rstrip().split('/')[:-2]) + '/eqtls_snpxplorer/' + f.rstrip().split('/')[-1]
+    fname = fname.replace('.gz', '')
+    fout = open(fname, 'w')
+    for line in finp:
+        line = line.rstrip().split()
+        snp, eqtl = line
+        pos, a1, a2 = snp.split(b'_')[1].decode("utf-8"), snp.split(b'_')[2].decode("utf-8"), snp.split(b'_')[3].decode("utf-8")
+        if len(a1) == 1 and len(a2) == 1:
+            eqtl = eqtl.split(b';')
+            for x in eqtl:
+                if len(x) >0:
+                    x = x.decode("utf-8").split('_')
+                    tissue, gene, beta, p = '_'.join(x[:-3]), x[-3], x[-2], x[-1]
+                    towrite = '%s %s %s %s %s %s %s\n' %(pos, a1, a2, tissue, gene, beta, p)
+                    fout.write(towrite)
+    fout.close()
+    os.system('gzip ' + fname)
+                
+
+
+

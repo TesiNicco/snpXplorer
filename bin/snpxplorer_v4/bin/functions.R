@@ -14,7 +14,7 @@
       snp_info <- NULL
       try(snp_info <- as.data.frame(snpsById(SNPlocs.Hsapiens.dbSNP144.GRCh37, target)), silent = T)
       if (!is.null(snp_info)){ chrom = snp_info$seqnames; pos1 = as.numeric(snp_info$pos) - window; pos2 = as.numeric(snp_info$pos) + window; snp_interest = snp_info$pos } else { chrom = NA; pos1 = NA; pos2 = NA; snp_interest = NA }
-      if (ref_version == 'GRCh38 (hg38)'){ data_lifted = liftOver_data(chrom = as.character(chrom), start = pos1, end = pos2, type = "interval", MAIN_PATH); chrom = data_lifted[[1]]; pos1 = data_lifted[[2]]; pos2 = data_lifted[[3]] }
+      if (ref_version == 'GRCh38 (hg38)'){ data_lifted = liftOver_data(chrom = as.character(chrom), start = pos1, end = pos2, type = "interval", p = NULL, MAIN_PATH, from = 'hg19'); chrom = data_lifted[[1]]; pos1 = data_lifted[[2]]; pos2 = data_lifted[[3]] }
     } else {
       if (ref_version == "GRCh37 (hg19)"){ tmp = gene.db[which(gene.db$"#geneName" == toupper(target)),] } else { tmp = genes.hg38[which(genes.hg38$"#geneName" == toupper(target)),] }
       if (nrow(tmp) >0){ chrom = tmp$chrom[1]; pos1 = as.numeric(tmp$txStart[1]) - window; pos2 = as.numeric(tmp$txEnd[1]) + window } else { chrom = NA; pos1 = NA; pos2 = NA }
@@ -27,8 +27,12 @@
   }
 
 ## FIND RSID OF SNPS
-  findRsID <- function(region_of_interest, reference_genome, span, MAIN_PATH){
-    tmp = fread(paste0(MAIN_PATH, 'data/databases/snps_info/chr', region_of_interest$chrom, '_snps_info.txt.gz'), h=T, stringsAsFactors=F)
+  findRsID <- function(region_of_interest, reference_genome, span, MAIN_PATH, mode){
+    if (mode == 'new'){
+      tmp = snps_info_all[[as.numeric(region_of_interest$chrom)]]
+    } else {
+      tmp = fread(paste0(MAIN_PATH, 'data/databases/snps_info/chr', region_of_interest$chrom, '_snps_info.txt.gz'), h=T, stringsAsFactors=F)
+    }
     if (reference_genome == 'GRCh37 (hg19)'){ 
       tmp = tmp[which((tmp$POS >= region_of_interest$start - span) & (tmp$POS <= region_of_interest$end + span)),] 
     } else {
@@ -84,7 +88,7 @@
         tmp = res_example[[(as.numeric(region_of_interest$chrom) - 15)]]
         colnames(tmp) = c("chrom", "pos", "p")
         # in case, we need to liftover
-        if (reference_genome == 'GRCh38 (hg38)'){ data_lifted = liftOver_data(chrom = tmp$chrom, start = tmp$pos, end = tmp$pos + 1, type = "gwas", p = tmp$p); chrom_lf = data_lifted[[1]]; pos_lf = data_lifted[[2]]; p_lf = data_lifted[[3]]; tmp = data.table(chrom = chrom_lf, pos = pos_lf, p = p_lf) }
+        if (reference_genome == 'GRCh38 (hg38)'){ data_lifted = liftOver_data(chrom = tmp$chrom, start = tmp$pos, end = tmp$pos + 1, type = "gwas", p = tmp$p, MAIN_PATH, from = 'hg19'); chrom_lf = data_lifted[[1]]; pos_lf = data_lifted[[2]]; p_lf = data_lifted[[3]]; tmp = data.table(chrom = chrom_lf, pos = pos_lf, p = p_lf) }
         # then match based on the position
         tmp = tmp[which((tmp$pos >= region_of_interest$start - span) & (tmp$pos <= region_of_interest$end + span)),]       
         tmp$col = colors[1]
@@ -105,7 +109,7 @@
           tmp = fread(paste0(main_path, gwas_to_plot[i], '/chr', region_of_interest$chrom, '_', gwas_to_plot[i], '.txt.gz'), h=T, stringsAsFactors=F)
           colnames(tmp) = c('chrom', 'pos', 'p')
           # in case, we need to liftover
-          if (reference_genome == 'GRCh38 (hg38)'){ data_lifted = liftOver_data(chrom = tmp$chrom, start = tmp$pos, end = tmp$pos + 1, type = "gwas", p = tmp$p, MAIN_PATH); chrom_lf = data_lifted[[1]]; pos_lf = data_lifted[[2]]; p_lf = data_lifted[[3]]; tmp = data.table(chrom = chrom_lf, pos = pos_lf, p = p_lf) }
+          if (reference_genome == 'GRCh38 (hg38)'){ data_lifted = liftOver_data(chrom = tmp$chrom, start = tmp$pos, end = tmp$pos + 1, type = "gwas", p = tmp$p, MAIN_PATH, from = 'hg19'); chrom_lf = data_lifted[[1]]; pos_lf = data_lifted[[2]]; p_lf = data_lifted[[3]]; tmp = data.table(chrom = chrom_lf, pos = pos_lf, p = p_lf) }
           plotError = FALSE
           tmp$name = str_replace_all(gwas_to_plot[i], '_', ' ')
         }
@@ -172,11 +176,13 @@
           if (reference_genome == 'GRCh37 (hg19)'){ snp_group = merge(snp_group, rsid_region, by.x = 'pos', by.y = "POS", all.x = T) } else { snp_group = merge(snp_group, rsid_region, by.x = 'pos', by.y = "POS_HG38", all.x = T) }
           snp_group$labels = paste0("<b>ID:<b> ", snp_group$ID, "<br><b>Position:<b> %{x} <br><b>Log(p):<b> %{y} <br><b>REF:<b> ", snp_group$REF, "<br><b>ALT:<b> ", snp_group$ALT, "<br><b>MAF:<b> ", snp_group$ALT_FREQS)
           fig1 = fig1 %>% add_trace(data=snp_group, name=unique(snp_group$name), x=~pos, y=~-log10(p), type='scatter', mode='markers', yaxis='y1', marker=list(color=~col, size=8), hovertemplate = ~labels)
+          # LD here below
           if (!is.null(ld)){
             ld = merge(ld, snp_group, by.x = 'BP_B', by.y = 'pos')
             ld$labels = paste0("<b>ID:<b> ", ld$ID, "<br><b>Position:<b> %{x} <br><b>Log(p):<b> %{y} <br><b>REF:<b> ", ld$REF, "<br><b>ALT:<b> ", ld$ALT, "<br><b>MAF:<b> ", ld$ALT_FREQS, "<br><b>LD with:<b> ", ld$SNP_A, "<br><b>R2:<b> ", ld$R2)
             if (nrow(ld) >0){ fig1 = fig1 %>% add_trace(data=ld, name='Linkage disequilibrium', x=~BP_B, y=~-log10(p), type='scatter', mode='markers', yaxis='y1', marker=list(color=~colo, size=10, symbol = 'diamond'), hovertemplate = ~labels) }
           }
+          # Input SNP here below
           if (!is.na(snp_interest)){ tmp = snp_group[which(snp_group$pos == snp_interest),]; fig1 = fig1 %>% add_trace(data=tmp, name='SNP of interest', x=~pos, y=~-log10(p), type='scatter', mode='markers', yaxis='y1', marker=list(color=~col, size=16), hovertemplate = "<b>Position:<b> %{x} <br><b>Log(p):<b> %{y}") }
         } else {
           df = densityLinePvalue(snp_group, 20, 0.1)
@@ -226,8 +232,8 @@
                       yaxis = list(zeroline = F, showticklabels=FALSE, gridcolor = 'ffff', title = "Structural variants", autorange = FALSE, range = c(min(svs_in_region$y)-1, 0)), 
                       xaxis = list(zeroline = F, gridcolor = 'ffff', title = "Genomic position (bp)", autorange = FALSE, range = c(pos_start, pos_end)))
     # COMBINE THE FIGURES
-      fig_final <- subplot(fig1, fig2, fig3, nrows = 3, heights = c(0.6, 0.2, 0.2), shareX = TRUE, titleX = TRUE, titleY = TRUE, margin = 0.02)    
-      fig_final = fig_final %>% layout(legend = list(x = 0.25, y = 1, orientation = 'h', font = list(size = 13, color = "#000")), margin = list(l = 75, r = 100, b = 75, t = 75, pad = 4))
+      fig_final <- subplot(fig1, fig2, fig3, nrows = 3, heights = c(0.5, 0.25, 0.25), shareX = TRUE, titleX = TRUE, titleY = TRUE, margin = 0.02)    
+      fig_final = fig_final %>% layout(legend = list(x = 0, y = 1, orientation = 'h', font = list(size = 13, color = "#000")), margin = list(l = 75, r = 100, b = 75, t = 75, pad = 4))
       fig_final = fig_final %>% config(toImageButtonOptions = list(format = "png", filename = "snpXplorer_plot", width = 1280, height = 960, scale = 3))
     return(fig_final)
   }
@@ -280,13 +286,13 @@
 
 ## LIFTOVER FUNCTION
   # function to liftover data
-  liftOver_data <- function(chrom, start, end, type, p = NULL, MAIN_PATH){
-    df <- data.frame(chr=paste("chr", chrom, sep=""), start=start, end=end, p = p)
+  liftOver_data <- function(chrom, start, end, type, p = NULL, MAIN_PATH, from){
+    if (is.null(p)){ df <- data.frame(chr=paste("chr", chrom, sep=""), start=start, end=end) } else { df <- data.frame(chr=paste("chr", chrom, sep=""), start=start, end=end, p = p) }
     df$group = seq(1, nrow(df))
     # change to GR class object
     gr <- makeGRangesFromDataFrame(df)
     # set chain file
-    chain <- import.chain(paste0(MAIN_PATH, "data/databases/hg19ToHg38.over.chain"))
+    if (from == 'hg19') { chain <- import.chain(paste0(MAIN_PATH, "data/databases/hg19ToHg38.over.chain")) } else { chain <- import.chain(paste0(MAIN_PATH, "data/databases/hg38ToHg19.over.chain")) }
     # change coordinates
     gr_hg38 <- liftOver(gr, chain)
     # back to dataframe and clean it
@@ -304,7 +310,7 @@
 
 ## LD FUNCTIONS
   # function to manage whether LD should be done
-  findLD <- function(ld_type, pop_interest, data_to_plot, rsid_region, reference_genome, region_of_interest, MAIN_PATH){
+  findLD <- function(ld_type, pop_interest, data_to_plot, rsid_region, reference_genome, region_of_interest, MAIN_PATH, snp_interest){
     pop_file = fread(paste0(MAIN_PATH, "data/databases/1000G/people.txt"), h=T, stringsAsFactors = F, sep="\t")     # read all populations
     # first check for "all" individuals -- in case no group is selected, by default uses european
     if (length(pop_interest) == 0){ pop_interest = c("ALL_eur") }
@@ -317,7 +323,9 @@
     write.table(tmp_df, "tmp_populations.txt", quote=F, row.names=F, col.names=T, sep="\t")   # write file with individuals of interest based on population
     # now choose which snp to find LD for
     if (ld_type == 'Input variant'){
-      # to implement
+      all_data = rbindlist(data_to_plot); target_snp = all_data[which(all_data$pos == snp_interest),]
+      if (reference_genome == 'GRCh37 (hg19)'){ target_snp = merge(target_snp, rsid_region, by.x = 'pos', by.y = 'POS') } else { target_snp = merge(target_snp, rsid_region, by.x = 'pos', by.y = 'POS_HG38') }
+      target_snp = target_snp$ID
     } else {
       all_data = rbindlist(data_to_plot); top_snps = head(all_data[order(all_data$p)], 100)     # extract top snps
       if (reference_genome == 'GRCh37 (hg19)'){ top_snps = merge(top_snps, rsid_region, by.x = 'pos', by.y = 'POS') } else { top_snps = merge(top_snps, rsid_region, by.x = 'pos', by.y = 'POS_HG38') }
@@ -333,8 +341,113 @@
     } else { 
       ld = ld[, c('SNP_A', 'SNP_B', 'BP_B', 'R2', 'colo')]
     }
-    system("rm tmp_.*")
+    system(paste0("rm ", MAIN_PATH, "snpXplorer_v4/tmp_*"))
     return(ld)
+  }
+
+## PLOT GTEX
+  # function to plot gtex expression information
+  plotGTEx <- function(gtex, color_palette, tissues_interest){
+    if (color_palette == 'Default'){
+      col1 = jcolors('pal9')[5]; col2 = jcolors('pal9')[1]; colfunc <- colorRampPalette(c(col1, col2)); colfunc = colfunc(256)
+    } else if (color_palette == "Viridis"){
+      colfunc = viridis(256)
+    } else if (color_palette == 'Plasma'){
+      colfunc = viridis(256, option = 'plasma')
+    } else if (color_palette == 'Blues'){
+      colfunc <- colorRampPalette(c('light blue', 'navy')); colfunc = colfunc(256)
+    } else if (color_palette == 'Reds'){
+      colfunc <- colorRampPalette(c('pink', 'dark red')); colfunc = colfunc(256)
+    }
+    colfunc_clusters <- colorRampPalette(c('purple', 'yellow', 'red')); col_clusters = colfunc_clusters(31)
+    labels = gtex$Description
+    tissues = data.frame(tissue_name = colnames(gtex), tissue_class = NA); tissues$tissue_class = str_split_fixed(tissues$tissue_name, " - ", 2)[, 1]
+    if (tissues_interest[1] != 'All tissues'){ gtex = as.data.frame(gtex[, ..tissues_interest]); tissues = tissues[which(tissues$tissue_name %in% tissues_interest),] } else { gtex = gtex[, 3:ncol(gtex)] }
+    rownames(gtex) = labels
+    tmp_for_plot = as.matrix(t(gtex)); colnames(tmp_for_plot) = labels
+    cb_grid <- setup_colorbar_grid(nrows = 1, y_start = 0.60, y_length = 0.9, y_spacing = 0.6)
+    toolt_opt <- setup_tooltip_options(row = TRUE, col = TRUE, value = TRUE, prepend_row = "Tissue: ", prepend_col = "Gene: ", prepend_value = "Median TPM: ")
+    if (ncol(tmp_for_plot) <=1){
+        tmp = matrix(data=NA, nrow=1, ncol = 1)
+        main_heatmap(tmp) %>% add_col_title("Ops, too few genes. Please enlarge your region of interest!", side= "top")
+    } else {
+      fig = main_heatmap(tmp_for_plot, colors = colfunc, name = "Median TPM", colorbar_grid = cb_grid, tooltip = toolt_opt) %>% 
+        add_row_clusters(title = "Tissue", name = 'Tissue', factor(tissues$tissue_class), colors = col_clusters) %>% add_col_clustering() %>% add_row_clustering() %>%
+        add_row_title("Tissues") %>% add_col_labels()
+    }
+    return(fig)
+  }
+
+## FIND EQTLS
+  # function to extract eqtls
+  extractEqtls <- function(region_of_interest, reference_genome, MAIN_PATH, tissues_interest, mapping_ensembl){
+    if (reference_genome == 'GRCh37 (hg19)'){ data_lifted = liftOver_data(chrom = region_of_interest$chrom, start = region_of_interest$start, end = region_of_interest$end, type = 'interval', p = NA, MAIN_PATH = MAIN_PATH, from = 'hg19') }
+    chrom = data_lifted[[1]]; start = data_lifted[[2]]; end = data_lifted[[3]]
+    eqtls = fread(paste0(MAIN_PATH, 'data/databases/eqtls_snpxplorer/chr', chrom, '_summary_eqtls.txt.gz'), h = F, stringsAsFactors = F)
+    # restrict by position
+    eqtls = eqtls[which(eqtls$V1 >= start & eqtls$V1 <= end),]
+    # restrict by tissue
+    if (!('All tissues' %in% tissues_interest)){ 
+      tissues_interest = str_replace_all(tissues_interest, '-', ''); tissues_interest = str_replace_all(tissues_interest, '  ', '_'); tissues_interest = str_replace_all(tissues_interest, ' ', '_')
+      tissues_interest = str_replace_all(tissues_interest, '\\(', ''); tissues_interest = str_replace_all(tissues_interest, '\\)', '') 
+      eqtls = eqtls[which(eqtls$V4 %in% tissues_interest)]
+    }
+    # add gene name
+    eqtls$V5 = str_split_fixed(eqtls$V5, '\\.', 2)[, 1]; eqtls = merge(eqtls, mapping_ensembl, by.x = "V5", by.y = 'ensembl')
+    # reduce and output
+    eqtls = eqtls[, c('V1', 'V2', 'V3', 'V4', 'V6', 'V7', 'gene')]; eqtls = eqtls[order(eqtls$V7),]
+    # finally if reference genome was hg19, need to liftover again 
+    if (reference_genome == 'GRCh37 (hg19)'){ 
+      eqtls$index = seq(1, nrow(eqtls))
+      data_lifted = liftOver_data(chrom = rep(region_of_interest$chrom, nrow(eqtls)), start = eqtls$V1, end = eqtls$V1 + 1, type = 'complete', p = eqtls$index, MAIN_PATH = MAIN_PATH, from = 'hg38') 
+      tmp = data.frame(pos_hg19 = data_lifted[[2]], index = data_lifted[[3]])
+      eqtls = merge(eqtls, tmp, by = 'index')
+    }
+    return(eqtls)
+  }
+
+## FIND SQTLS
+  # function to extract sqtls
+  extractSqtls <- function(region_of_interest, reference_genome, MAIN_PATH, tissues_interest, mapping_ensembl = mapping.ensembl){
+    if (reference_genome == 'GRCh37 (hg19)'){ data_lifted = liftOver_data(chrom = region_of_interest$chrom, start = region_of_interest$start, end = region_of_interest$end, type = 'interval', p = NA, MAIN_PATH = MAIN_PATH, from = 'hg19') }
+    chrom = data_lifted[[1]]; start = data_lifted[[2]]; end = data_lifted[[3]]
+    sqtls = fread(paste0(MAIN_PATH, 'data/databases/summary_sqtls/chr', chrom, '_summary_sqtls.txt.gz'), h = F, stringsAsFactors = F)
+    # restrict by position
+    sqtls = sqtls[which(sqtls$V1 >= start & sqtls$V1 <= end),]
+    # restrict by tissue
+    if (!('All tissues' %in% tissues_interest)){ 
+      tissues_interest = str_replace_all(tissues_interest, '-', ''); tissues_interest = str_replace_all(tissues_interest, '  ', '_'); tissues_interest = str_replace_all(tissues_interest, ' ', '_')
+      tissues_interest = str_replace_all(tissues_interest, '\\(', ''); tissues_interest = str_replace_all(tissues_interest, '\\)', '') 
+      sqtls = sqtls[which(sqtls$V7 %in% tissues_interest)]
+    }
+    # add gene name
+    sqtls$V4 = str_split_fixed(sqtls$V4, '\\.', 2)[, 1]; sqtls = merge(sqtls, mapping_ensembl, by.x = "V4", by.y = 'ensembl')
+    # reduce and output
+    sqtls = sqtls[, c('V1', 'V2', 'V3', 'V7', 'V5', 'V6', 'gene')]; sqtls = sqtls[order(sqtls$V6),]
+    # finally if reference genome was hg19, need to liftover again 
+    if (reference_genome == 'GRCh37 (hg19)'){ 
+      sqtls$index = seq(1, nrow(sqtls))
+      data_lifted = liftOver_data(chrom = rep(region_of_interest$chrom, nrow(sqtls)), start = sqtls$V1, end = sqtls$V1 + 1, type = 'complete', p = sqtls$index, MAIN_PATH = MAIN_PATH, from = 'hg38') 
+      tmp = data.frame(pos_hg19 = data_lifted[[2]], index = data_lifted[[3]])
+      sqtls = merge(sqtls, tmp, by = 'index')
+    }
+    return(sqtls)
+  }
+
+## IDENTIFY TARGET REGION FOR THE CROSS-REFERENCE LINK
+  identiTargetRegion <- function(region){
+    # Check if it is a locus (chr:pos)
+    if (region == "Type locus, rsID or gene name"){
+      target <- list("example")
+    } else if (grepl(":", region) == TRUE){
+      tmp <- str_split_fixed(region, ":", 2)
+      target <- list("locus", as.numeric(tmp[, 1]), as.numeric(tmp[, 2]))
+    } else if (grepl("rs", region) == TRUE){
+      target <- list("rsid", region)
+    } else {
+      target <- list("gene_name", region)
+    }
+    return(target)
   }
 
 ## NOT USED

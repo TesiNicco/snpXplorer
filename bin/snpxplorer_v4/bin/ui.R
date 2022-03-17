@@ -1,22 +1,28 @@
-## Libraries
+## LIBRARIES
   suppressPackageStartupMessages({
     library(shiny)
     library(plotly)
+    library(iheatmapr)
     library(shinyWidgets)
     library(shinyBS)
     library(colourpicker)
   })
 
-## User Interface
+## ANNOTATIONS AND DATA REQUIRED FOR UI
+  MAIN_PATH = '/Users/nicco/Documents/GitHub/snpXplorer/bin/snpxplorer_v4/'
+  #MAIN_PATH = '/root/snpXplorer/'
+  gtex_tissues = data.table::fread(paste0(MAIN_PATH, 'data/databases/tissues_gtex.txt'), h=F, sep = "\t")
+
+## USER INTERFACE
   navbarPage("snpXplorer", inverse = T,
     tabPanel("Exploration",             # Exploration panel
       fluidRow(column(12, img(src='dna.png', align="center", width="100%"))),             # place DNA image on top of everything -- this is in a single row 
       fluidRow(column(12, img(src='tutorial.png', align="center", width="100%"))),        # then place in another row with the tutorial information
       hr(),
-      fluidRow(                                                                         # initialize a single row -- in this space there will be input selection, reference genome, browsing options
+      fluidRow(           # INPUT SELECTION -- BROWSING OPTIONS -- REFERENCE GENOME
         column(3,                                                                       # first column will be about the available input data to visualize (datasets or own dataset)
           wellPanel(
-            div(tags$h2("Available GWAS Menu"), align = "center"),                                               # name of the dropdown menu
+            div(tags$h2("Available GWAS"), align = "center"),                                               # name of the dropdown menu
             div(dropdown(                                                                     # dropdown menu here
               style = "unite", circle = F, size = "lg", icon = icon("database"), status = "default", width = "500px", animate = animateOptions(enter = animations$fading_entrances$fadeInLeftBig, exit = animations$fading_exits$fadeOutLeftBig),
               tooltip = tooltipOptions(title = "Click to see available options!"),
@@ -63,7 +69,7 @@
           wellPanel(
             div(tags$h2("Browsing options"), align = "center"),                                              # name of the dropdown menu
             div(dropdown(
-              style = "unite", size = "lg", icon = icon("search"), status = "success", width = "400px", animate = animateOptions(enter = animations$fading_entrances$fadeInRightBig, exit = animations$fading_exits$fadeOutRightBig),
+              style = "unite", size = "lg", icon = icon("search"), status = "success", width = "300px", animate = animateOptions(enter = animations$fading_entrances$fadeInRightBig, exit = animations$fading_exits$fadeOutRightBig),
               tooltip = tooltipOptions(title = "Click to see available options!"),
               h3("Choose how to browse the genome"),
               prettyRadioButtons(inputId = "browsing_options", label = "Available options:", choices = c("Locus, Gene, RsID", "Manual Scroll"), icon = icon("check"), bigger = TRUE, status = "warning", animation = "jelly"),
@@ -80,8 +86,8 @@
         ),
       ),
       hr(),
-      fluidRow(
-        column(3,
+      fluidRow(           # MAIN PLOT WINDOW AND SIDEBAR OPTIONS
+        column(4,
           wellPanel(style = "background: #f2f2f2",
             column(6,
               div(tags$h3("Graphical options"), align = "center"),
@@ -155,7 +161,7 @@
                 bsPopover("gwascat_type", title='GWAS Catalog', content='Match results in GWAS Catalog by SNPs (default) or by Gene.', placement="right",trigger="hover", options = list(container = "body")),
               ), align = "center"),
             ),
-            column(12,
+            column(6,
               div(tags$h3("Download center"), align = "center"),
               div(dropdown(
                 style = "unite", size = "lg", icon = icon("download"), status = "success", width = "300px", animate = animateOptions(enter = animations$fading_entrances$fadeInLeftBig, exit = animations$fading_exits$fadeOutLeftBig),
@@ -180,35 +186,416 @@
                 div(h6('Note that it will take about 10 seconds to produce your plot!'), align = "center"),
               ), align = "center"),
             ),
+            column(6,
+              div(tags$h3("Cross references"), align = "center"),
+              div(dropdown(
+                style = "unite", size = "lg", icon = icon("crosshairs"), status = "royal", width = "300px", animate = animateOptions(enter = animations$fading_entrances$fadeInLeftBig, exit = animations$fading_exits$fadeOutLeftBig),
+                tooltip = tooltipOptions(title = "Click to see available options!"),
+                h5("If you specify a Gene or a SNP id, you will find here links to GeneCards and dbSNP."),
+                uiOutput(outputId = "genecards_link"),
+                hr(),
+                uiOutput(outputId = "gwascat_link"),
+                hr(),
+                uiOutput(outputId = "ld_hub_link"),
+              ), align = "center"),
+            ),
+            div(h6("ss"), style = "color: #f2f2f2", align = "center"),
             div(h6("ss"), style = "color: #f2f2f2", align = "center"),
             hr(),
             div(h3("Top SNPs info"), align = "center"),
-            div(tableOutput('table'), align = "center", style = 'font-size:90%; overflow-x: scroll; overflow-y: scroll; height:250px'),
+            div(tableOutput('table'), align = "center", style = 'font-size:100%; overflow-x: scroll; overflow-y: scroll; height:200px'),
             bsPopover("table", title='Top SNPs table', content='Most significant SNP-associations in the main plot interface. Chr: chromosome; Position: genomic position depending on reference genome choosen; ID: variant identifier (missing if variant is not in 1000Genome or too rare); -log10(P): association p-value (in -log10 scale); Study: name of the study; Alleles: reference and alternative alleles, respectively (from 1000Genome data).', placement="right",trigger="hover", options = list(container = "body")),
             hr(),
             div(h3("GWAS Catalog SNPs"), align = "center"),
-            div(tableOutput('gwascat_table'), align = "center", style = 'font-size:90%; overflow-x: scroll; overflow-y: scroll; height:250px'),
+            div(tableOutput('gwascat_table'), align = "center", style = 'font-size:100%; overflow-x: scroll; overflow-y: scroll; height:200px'),
             bsPopover("gwascat_table", title='GWAS Catalog table', content='Most significant associations of SNPs and genes in the plotted region as found in the GWAS Catalog (updated on 2021-12-21).', placement="right",trigger="hover", options = list(container = "body")),
             hr(),
             div(h3("Structural Variants"), align = "center"),
-            div(tableOutput('sv_table'), align = "center", style = 'font-size:90%; overflow-x: scroll; overflow-y: scroll; height:250px'),
+            div(tableOutput('sv_table'), align = "center", style = 'font-size:100%; overflow-x: scroll; overflow-y: scroll; height:200px'),
             bsPopover("sv_table", title='Structual variants table', content='Most relevant structural variations in the region of interest and from the chosen source.', placement="right",trigger="hover", options = list(container = "body")),
           )
         ),
-        column(9,
+        column(8,
           plotlyOutput(outputId = "plot", height = "1300px"),
         )
       ),
       hr(),
+      fluidRow(           # SECOND PLOT WINDOW AND SIDEBAR OPTIONS
+        column(4,
+          wellPanel(
+            column(6,
+              div(tags$h3("GTEx settings"), align = "center"),
+              div(dropdown(
+                style = "unite", size = "lg", icon = icon("gear"), status = "primary", width = "450px", animate = animateOptions(enter = animations$fading_entrances$fadeInLeftBig, exit = animations$fading_exits$fadeOutLeftBig),
+                tooltip = tooltipOptions(title = "Click to see available options!"),
+                radioGroupButtons(inputId = "heat_cols", label = "Colors:", choices = c("Default", "Viridis", "Plasma", "Blues", "Reds"), status = "danger", checkIcon = list(yes = icon("ok", lib = "glyphicon"), no = icon("remove", lib = "glyphicon"))),
+                multiInput(inputId = "tissues", label = "GTEx tissues", choices = c("All tissues", gtex_tissues$V1), selected = "All tissues", options = list(enable_search = TRUE, non_selected_header = "Choose between:", selected_header = "You have selected:")),
+              ), align = "center")),
+            column(6,
+              div(tags$h3("Download"), align = "center"),
+              div(dropdown(
+                style = "unite", size = "lg", icon = icon("download"), status = "warning", width = "300px", animate = animateOptions(enter = animations$fading_entrances$fadeInLeftBig, exit = animations$fading_exits$fadeOutLeftBig),
+                tooltip = tooltipOptions(title = "Click to see available options!"),
+                div(h5("eQTLs table"), align = "center"),
+                div(downloadButton("download_eQTLsTable", "Download eQTLs"), align = "center"),
+                hr(),
+                div(h5("sQTLs table"), align = "center"),
+                div(downloadButton("download_sQTLsTable", "Download sQTLs"), align = "center"),
+                hr(),
+              ), align = "center")),
+            div(h6("ss"), style = "color: #f2f2f2", align = "center"),
+            hr(),
+            div(h3("eQTL Table"), align = "center"),
+            div(tableOutput('eqtls_table'), align = "center", style = 'font-size:100%; overflow-x: scroll; overflow-y: scroll; height:200px'),
+            bsPopover("eqtls_table", title='eQTL Table', content='Most signiticant Expression-Quantitative-Trait-Loci in the region of interest.', placement="right", trigger="hover", options = list(container = "body")),
+            hr(),
+            div(h3("sQTL Table"), align = "center"),
+            div(tableOutput('sqtls_table'), align = "center", style = 'font-size:100%; overflow-x: scroll; overflow-y: scroll; height:200px'),
+            bsPopover("sqtls_table", title='sQTL Table', content='Most signiticant Splicing-Quantitative-Trait-Loci in the region of interest.', placement="right", trigger="hover", options = list(container = "body")),
+          ),
+        ),
+        column(8,
+          iheatmaprOutput(outputId = "plot2", height = "700px"),
+        )
+      ),
+      hr(),
+      fluidRow(           # BOTTOM ROW WITH LOGOS AND INFO
+        column(8,
+          h5('snpXplorer and its annotation pipeline have been developed in collaboration with Amsterdam UMC and TU Delft.'),
+          h5("Any suggestion or bug report is highly appreciated. Please email n.tesi@amsterdamumc.nl or snpxplorer@gmail.com."),
+        ),
+        column(2, img(src='tudelft1.png', width="90%")),
+        column(2, img(src='amstUMC.jpg', width="90%")),
+      ),
+    ),
+    tabPanel("Annotation",
+      # DNA image
+      fluidRow(column(12, img(src='dna.png', align="center", width="100%"))),
+      # Overview of the tool
+      fluidRow(column(12, img(src='AnnotateMe.png', width="100%", align="center"))),
+      # Tutorial image
+      fluidRow(column(12, img(src='tutorial_annot.png', align="center", width="100%"))),
+      hr(),
+      # Input options for user within a new fluidRow
       fluidRow(
+        # text area for the input variants
+        column(4,
+          textAreaInput(inputId = "snp_list", label = "List of variants", value = "Paste variants of interest, then choose the correct format.\n\nPlease paste 1 variant per line, no commas or colons.\n\nPaste up to 1,000 SNPs if Analysis type is 'Gene-set enrichment analysis' and up to 10,000 SNPs in case of 'SNP-gene annotation'", height = "500px", width = "70%"),
+          bsPopover("snp_list", title='Annotation input', content='Please insert your SNPs of interest here: make sure the format is correct and select the adequate format in the Input type box.', placement="right",trigger="hover", options = list(container = "body"))),
+        # radio buttons for input type
+        column(4,
+          radioGroupButtons(inputId = "snp_list_type", label = "Input type:", choices = c("rsid (rs12345)", "chr:pos (1:12345678)", "chr pos (1 12345678)"), status = "warning", checkIcon = list(yes = icon("ok", lib = "glyphicon"), no = icon("remove", lib = "glyphicon"))),
+          bsPopover("snp_list_type", title='Input type', content='For compatibility, rsid is the preferred input. If your input is not rsid, please specify the Reference version.', placement="right",trigger="hover", options = list(container = "body")),
+          hr(),
+          prettyRadioButtons(inputId = "analysis_type", label = "Analysis type:", choices = c("SNP-gene annotation" = "annot", "Gene-set enrichment analysis" = "gsea"), icon = icon("check"), bigger = TRUE, inline = TRUE, status = "info", animation = "jelly"),
+          conditionalPanel(condition = "input.analysis_type == 'gsea'",
+            prettyCheckboxGroup(inputId = "analysis_mode", label = "Source Enrichment:", choices = c("Default (GO:BP)" = "default", "KEGG" = "KEGG", "Reactome" = "Reactome", "Wiki Pathways" = "wiki"), inline = TRUE, status = "default", fill = TRUE),
+            bsPopover("analysis_mode", title='Source Enrichment', content='Please select here the gene-set databases for the gene-set enrichment analysis.', placement="right",trigger="hover", options = list(container = "body"))),
+          hr(),
+          radioGroupButtons(inputId = "snp_list_reference", label = "Reference Genome:", choices = c("GRCh37 (hg19)", "GRCh38 (hg38)"), status = "danger", checkIcon = list(yes = icon("ok", lib = "glyphicon"), no = icon("remove", lib = "glyphicon"))),
+          hr(),
+          bsPopover("snp_list_reference", title='Reference Genome', content='If your input is different from rsid, then select the correct Reference genome version.', placement="right",trigger="hover", options = list(container = "body")),
+          multiInput(inputId = "gtex_type", label = "GTEx tissues", choices = c("All_tissues", "Adipose_Subcutaneous", "Adipose_Visceral_Omentum", "Adrenal_Gland", "Artery_Aorta", "Artery_Coronary",
+                                                                                                   "Artery_Tibial", "Brain_Amygdala", "Brain_Anterior_cingulate_cortex_BA24", "Brain_Caudate_basal_ganglia",
+                                                                                                   "Brain_Cerebellar_Hemisphere", "Brain_Cerebellum", "Brain_Cortex", "Brain_Frontal_Cortex_BA9", "Brain_Hippocampus",
+                                                                                                   "Brain_Hypothalamus", "Brain_Nucleus_accumbens_basal_ganglia", "Brain_Putamen_basal_ganglia", "Brain_Spinal_cord_cervical_c-1",
+                                                                                                   "Brain_Substantia_nigra", "Breast_Mammary_Tissue", "Cells_Cultured_fibroblasts", "Cells_EBV-transformed_lymphocytes",
+                                                                                                   "Colon_Sigmoid", "Colon_Transverse", "Esophagus_Gastroesophageal_Junction", "Esophagus_Mucosa", "Esophagus_Muscularis",
+                                                                                                   "Heart_Atrial_Appendage", "Heart_Left_Ventricle", "Kidney_Cortex", "Liver", "Lung", "Minor_Salivary_Gland", "Muscle_Skeletal",
+                                                                                                   "Nerve_Tibial", "Ovary", "Pancreas", "Pituitary", "Prostate", "Skin_Not_Sun_Exposed_Suprapubic", "Skin_Sun_Exposed_Lower_leg",
+                                                                                                   "Small_Intestine_Terminal_Ileum", "Spleen", "Stomach", "Testis", "Thyroid", "Uterus", "Vagina", "Whole_Blood"), selected = "Whole_Blood", options = list(enable_search = TRUE, non_selected_header = "Choose between:", selected_header = "You have selected:"), width = "500px"),
+          h6("By default, only Blood is considered. Adding multiple tissues may impact your analysis as a larger number of genes may be associated with each SNP."),
+          bsPopover("analysis_type", title='Analysis type', content='SNP-gene annotation: only performs SNP-to-gene mapping (max 10.000 SNPs allowed). -- Gene-set enrichment analysis: performs SNP-to-gene mapping and gene-set enrichment analysis (max 1.000 SNPs allowed)', placement = "right", trigger = "hover", options = list(container = "body"))),
+        # text area for email
+        column(4,
+          div(textInput(inputId = "email", label = "E-mail", value = "Type your email address...", width = "400px"), align = 'center'),
+          bsPopover("email", title='Your e-mail address', content='We do not do anything with it...apart from sending your annotation results. :)', placement="right",trigger="hover", options = list(container = "body")),
+          # maybe also good to put a submit button -- to avoid refreshes that are annoying and slow down application
+          hr(),
+          div(actionButton(inputId = "run_annotation", label = "Submit analysis!", icon = icon("paper-plane"), width = "300px", style="color: #FFFFFF; background-color: #4472C4; border-color: #1A2C4C; font-size:150%"), align = "center"),
+          div(h5("You will receive a confirmation e-mail for your analysis."), align = "center"),
+          div(h5("Once analysis is done, you'll receive results by e-mail."), align = "center"),
+          div(h5("Please check your spam folder to get your snpXplorer results."), align = "center"),
+          #submitButton(text = "Submit!", icon("paper-plane"), width="250px"),
+        ),
+      ),
+      hr(),
+      # final row with images of tudelft and aumc
+      fluidRow(
+        column(8,
+          h5("snpXplorer and its Annotation pipeline have been developed in collaboration with Amsterdam UMC and TU Delft."),
+          h5("Any suggestion or bug report is highly appreciated. Please email n.tesi@amsterdamumc.nl or snpxplorer@gmail.com.")),
+        column(2, img(src='tudelft1.png', width="90%")),
+        column(2, img(src='amstUMC.jpg', width="90%"))
+      ),
+    ),
+    navbarMenu("More",
+      tabPanel("Studies and References",
+        # DNA image
+        fluidRow(column(12, img(src='dna.png', align="center", width="100%"))),
+        wellPanel(h2("Studies and References", align="center"),
+          h5("We are including more and more summary statistics.", align="center"),
+          h5("For particular requests, please contact snpxplorer@gmail.com", align="center"),
+        ),
+        # References
+        h3("Available summary statistic within snpXplorer"),
+        tableOutput(outputId = 'table_info'),
+        div(style = "margin-top: 50px"),
+        h3("1000 Genome Project population codes"),
+        tableOutput(outputId = 'table_info_1000G'),
+        div(style = "margin-top: 50px"),
+        h3("Structural variants datasets"),
+        tableOutput(outputId = 'table_info_SVs'),
+        # Final row with images of tudelft and aumc
+        br(),
+        br(),
+        br(),
+        fluidRow(
+          column(8,
+            h5("snpXplorer and its annotation pipeline have been developed in collaboration with Amsterdam UMC and TU Delft."),
+            h5("Any suggestion or bug report is highly appreciated. Please email n.tesi@amsterdamumc.nl or snpxplorer@gmail.com")),
+          column(2, img(src='tudelft1.png', width="90%")),
+          column(2, img(src='amstUMC.jpg', width="90%")),
+        ),
+      ),
+      tabPanel("Documentation and code",
+        # DNA image
+        fluidRow(column(12, img(src='dna.png', align="center", width="100%"))),
+        wellPanel(h2("Documentation and code", align="center"),
+          h5("Documentation can be viewed in the blox below.", align="center"),
+          h5("Source code is available at Github", align="center")),
+        column(4, 
+          wellPanel(
+            h5("Source code is freely available through our Github page."),
+            uiOutput("github"),
+            br(),
+            h5("snpXplorer can also be installed locally in your machine, but you will need to download summary statistics yourself."))),
+        column(8, uiOutput("pdf_doc_view")),
+        # final row with images of tudelft and aumc
+        br(),
+        br(),
+        br(),
+        fluidRow(
+          column(8,
+            h5("snpXplorer and AnnotateMe have been developed in collaboration with Amsterdam UMC and TU Delft."),
+            h5("Any suggestion or bug report is highly appreciated. Please email n.tesi@amsterdamumc.nl.")),
+          column(2, img(src='tudelft1.png', width="90%")),
+          column(2, img(src='amstUMC.jpg', width="90%")),
+        ),
+      ),
+      tabPanel("Cite us",
+        # DNA image
+        fluidRow(column(12, img(src='dna.png', align="center", width="100%"))),
+        wellPanel(h2("Cite us", align="center")),
+        column(4, 
+          wellPanel(
+            h4("Please do not forget to cite us if you find snpXplorer useful for your research."),
+            br(),
+            h4("!! snpXplorer was published in Nucleic Acid Research"),
+            uiOutput(outputId = "biorxiv_link"),
+            br(),
+            h4("snpXplorer functional annotation was used in the following papers:"),
+            h5("Niccolo’ Tesi et al., Polygenic risk score of longevity predicts longer survival across an age-continuum. The Journals of Gerontology: Series A, , glaa289, https://doi.org/10.1093/gerona/glaa289"),
+            uiOutput(outputId = "longevity_ms"),
+            br(),
+            h5("Niccolo’ Tesi et al., The effect of Alzheimer's disease-associated genetic variants on longevity. Front Genet., https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8724252/"),
+            uiOutput(outputId = "rotation_ms"))),
+        column(8, uiOutput("pdf_biorxiv_view")),
+        # final row with images of tudelft and aumc
+        br(),
+        br(),
+        br(),
+        fluidRow(
+          column(8,
+            h5("snpXplorer and AnnotateMe have been developed in collaboration with Amsterdam UMC and TU Delft."),
+            h5("Any suggestion or bug report is highly appreciated. Please email n.tesi@amsterdamumc.nl.")),
+          column(2, img(src='tudelft1.png', width="90%")),
+          column(2, img(src='amstUMC.jpg', width="90%")),
+        ),
+      ),
+      tabPanel("Help",
+        # DNA image
+        fluidRow(column(12, img(src='dna.png', align="center", width="100%"))),
+        wellPanel(
+          h2("Help page", align="center"),
+          h4("This page provides sample files to try out both the Exploration and the Annotation part, and a quick-start video.", align = "center")),
+        # add wellpanel for the sample file of the exploration section
+        column(3, 
+          wellPanel(
+            h4("Exploration section"),
+            hr(),
+            h5("For the exploration section, please provide a space- or tab-separated file with header."),
+            h5("Make sure there are at least chromosome number, position and p-value. snpXplorer will try to understand the columns from the file header."),
+            h5("Alternatively, you can use PLINK formatted files. Look at the examples below or download a ready-to-use dataset to try out."),
+            br()
+          ),
+        ),
+        # add wellpanel for example file
+        column(2,
+          h5("Example file", align="center"),
+          hr(),
+          h6("chr pos p"),
+          h6("16 89659 0.19"),
+          h6("16 90318 0.48"),
+          h6("16 439873 0.28"),
+          h6("16 904328 0.01"),
+          h6(".. .. .."),
+          hr(),
+          # Button to download trial and plink-based files
+          downloadButton("download_help_exploration", "Download sample file")
+        ),
+        # add wellpanel for example file
+        column(7,
+          h5("Example PLINK file", align="center"),
+          hr(),
+          h6("#CHROM	POS	ID	REF	ALT	A1	A1_FREQ	A1_CASE_FREQ	A1_CTRL_FREQ	MACH_R2	TEST	OBS_CT	BETA	SE	Z_STAT	P"),
+          h6("17	15802438	rs12449443	G	A	A	0.07	0.06	0.07	0.99	ADD	4191	0.01	0.16	0.05	0.96"),
+          h6("17	29378199	rs57278847	T	C	C	0.01	0.01	0.02	0.31	ADD	4191	16.40	18.15	0.90	0.36"),
+          h6("17	43286432	rs57847	T	C	C	0.02	0.11	0.42	0.31	ADD	4191	1.40	1.15	0.70	0.16"),
+          h6("17	22318299	rs5724327	T	C	C	0.31	0.61	0.42	0.11	ADD	4191	6.40	58.12	0.60	0.26"),
+          h6(".. .. .."),
+          hr(),
+          # Button to download trial and plink-based files
+          downloadButton("download_help_exploration_plink", "Download sample PLINK file")
+        ),
+        fluidRow(),
+        hr(),
+        br(),
+        # add wellpanel for the sample file of the annotation section
         column(3,
           wellPanel(
-            div(tags$h2("eQTL and sQTL"), align = "center"),            
-          )
+            h4("Annotation section"),
+            hr(),
+            h5("The annotation section accepts any set of SNPs (possibly more than 1)."),
+            h5("Multiple format are accepted: you can choose between rs-identifier or genomic position."),
+            h5("Please see examples on the right or download a trial dataset."),
+            br()
+          ),
         ),
-        column(9,
-          plotlyOutput(outputId = "plot2", height = "500px"),
-        )
+        # add wellpanel for example file
+        column(3,
+          h5("Example file #1 ~ chr:position", align="center"),
+          hr(),
+          h6("16:89659"),
+          h6("16:90318"),
+          h6("16:439873"),
+          h6("16:904328"),
+          h6(".. .. .."),
+          hr(),
+          # Button to download trial and plink-based files
+          downloadButton("download_help_annotation1", "Download sample file"),
+        ),
+        # add wellpanel for example file
+        column(3,
+          h5("Example file #1 ~ chr position", align="center"),
+          hr(),
+          h6("16 89659"),
+          h6("16 90318"),
+          h6("16 439873"),
+          h6("16 904328"),
+          h6(".. .. .."),
+          hr(),
+          # Button to download trial and plink-based files
+          downloadButton("download_help_annotation2", "Download sample file")
+        ),
+        column(3,
+          h5("Example file #3 ~ rsID", align="center"),
+          hr(),
+          h6("rs7412"),
+          h6("rs1234"),
+          h6("rs439873"),
+          h6("rs904328"),
+          h6(".. .. .."),
+          hr(),
+          # Button to download trial and plink-based files
+          downloadButton("download_help_annotation3", "Download sample file")
+        ),
+        fluidRow(),
+        hr(),
+        # add wellpanel for the youtube videos
+        column(12, 
+          wellPanel(
+            h3("Video tutorials", align = "center"),
+            h4("Have a look at our quick start videos of snpXplorer.", align = "center"),
+            h4("There are tutorials about exploration section and annotation sections.", align = "center"),
+          ),
+        ),
+        column(6,
+          h4("Quick Start tutorial", align="center"),
+          hr(),
+          uiOutput("video1"),
+          hr(),
+        ),
+        column(6,
+          h4("Load your own file tutorial", align="center"),
+          hr(),
+          uiOutput("video2"),
+          hr(),
+        ),
+        column(6,
+          h4("Functional annotation of your SNP list", align="center"),
+          hr(),
+          uiOutput("video3"),
+          hr(),
+        ),
+        column(6,
+          h4("Discover LD patterns", align="center"),
+          hr(),
+          uiOutput("video4"),
+          hr(),
+        ),
+        # final row with images of tudelft and aumc
+        br(),
+        fluidRow(
+          column(8,
+            h5("snpXplorer and its annotation pipeline have been developed in collaboration with Amsterdam UMC and TU Delft."),
+            h5("Any suggestion or bug report is highly appreciated. Please email n.tesi@amsterdamumc.nl or snpxplorer@gmail.com")),
+          column(2, img(src='tudelft1.png', width="90%")),
+          column(2, img(src='amstUMC.jpg', width="90%")),
+        ),
       )
+    ),
+    tabPanel("Report a bug",
+      # DNA image
+      fluidRow(column(12, img(src='dna.png', align="center", width="100%"))),
+      wellPanel(h2("Bug Report page", align="center")),
+      column(12,
+        h4("snpXplorer remembers the settings of your last run. In case you found a problem in the last run, you can now directly report the bug to snpXplorer."),
+        br(),
+        textInput(inputId = "bug_comments", label = "What did go wrong?", value = "Please add any relevant comment here...", width="350px"),
+        div(style = "margin-top: 20px"),
+        div(style = "border-top: 2px solid #999999"),
+        div(style = "margin-top: 20px"),
+        div(actionButton(inputId = "send_bug", label = "Submit bug!", icon = icon("bug"), width = "300px", style="color: #FFFFFF; background-color: #FF2600; border-color: #771301; font-size:150%"), align = "center"),
+      ),
+    ),
+    tabPanel("What's new",
+      # DNA image
+      fluidRow(column(12, img(src='dna.png', align="center", width="100%"))),
+      wellPanel(h2("What's new", align="center")),
+      column(12,
+        h3('March 2022'),
+        h4('22-03-22: Completely redesigned and reprogrammed Exploration section which allows for much more investigation.'),
+        hr(),
+        h3('February 2022'),
+        h4("17-02-22: Annotation: added sQTL analysis."),
+        hr(),
+        h3('December 2021'),
+        h4("24-12-21: GWAS catalog release was updated to the latest available."),
+        h3('November 2021'),
+        h4("11-11-21: New GWAS added: Largest GWAS of Alzheimer's disease was added."),
+        h4("11-11-21: New GWAS added: Multivariate analysis of Longevity, Healthspan and Lifespan was added."),
+        h4("10-11-21: New Annotation analysis added: possibility to do only SNP-gene mapping without gene-set enrichment analysis. This allows the user to annotate up to 10,000 SNPs."),
+        hr(),
+        h3('August 2021'),
+        h4("25-08-21: CADD v1.6 (the most updated) is now used for SNP annotation."),
+        h4("25-08-21: To cope with rare SNPs, we now use data from all individuals of the 1000Genome Project (before, only European individuals and common SNPs were recognized)."),
+        hr(),
+        h3('July 2021'),
+        h4("25-07-21: New GWAS added: GR@ACE GWAS of Alzheimer's disease was added."),
+        hr(),
+        h3('May 2021'),
+        h4('19-05-21: snpXplorer was born!'),
+      ),
     )
   )
