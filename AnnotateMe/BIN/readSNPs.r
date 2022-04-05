@@ -183,7 +183,7 @@ outpath = paste0("/root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, "/tmp_sn
 # run function to read
 data <- try(readSNPs(fname, ftype, MAIN, ref_version, analysis_type), silent = T)
 # check if there were matches, in case there were no matches, try with the other dataset
-if (is.data.frame(data) & nrow(data) == 0 & ftype == 3){ data = try(readSNPs_alternative(fname, ftype, MAIN, ref_version, analysis_type), silent = T) }
+if (is.data.frame(data) && nrow(data) == 0 && ftype == 3){ data = try(readSNPs_alternative(fname, ftype, MAIN, ref_version, analysis_type), silent = T) }
 # also check with the other dataset for the missing annotations in case was requested ftype 3
 if (ftype == 3){ 
   missings = data[is.na(data$pos),]
