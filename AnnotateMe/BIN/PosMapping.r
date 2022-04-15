@@ -130,7 +130,7 @@ getGeneList_mod_generic <- function(mapping){
   mapping$geneList[which(!is.na(mapping$coding_snp))] <- mapping$snp_conseq_gene[which(!is.na(mapping$coding_snp))]
 
   # assign source for eqtl hits
-  mapping$source_finalGenes[which(!(is.na(mapping$eqtl) & is.na(mapping$sqtl)))] <- "sqtl+eqtl+cadd"
+  mapping$source_finalGenes[which(!(is.na(mapping$eqtl) & is.na(mapping$sqtl)) & is.na(mapping$source_finalGenes))] <- "sqtl+eqtl+cadd"
   for (l in 1:nrow(mapping)){
     if ((!is.na(mapping$source_finalGenes[l])) & mapping$source_finalGenes[l] == "sqtl+eqtl+cadd"){
       tmp_eqtl_list <- unlist(strsplit(mapping$eqtl[l], ","))
