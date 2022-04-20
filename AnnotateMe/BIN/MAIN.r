@@ -228,6 +228,8 @@
         # FIRST STEP IS TO READ SNPS OF INTEREST AND REPORT ERRORS IN CASE OF WRONG INPUT AND/OR TOO LONG INPUT
         cat("## Reading SNPs and positions\n")
         inpf = paste0("/root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, "/", fname)
+        # before starting, make a quick parse of the input file as people sometimes use wrong input like comma
+        cmd = paste0("sed -i 's/,/\\n/g' ", inpf, " | sed '/^$/d'"); system(cmd)
         snps_info_path = system(paste0("Rscript ", MAIN, "BIN/readSNPs.R ", inpf, " ", ftype, " ", ref_version, " ", analysis_type, " ", random_num), intern = T)
         load(snps_info_path)
 
