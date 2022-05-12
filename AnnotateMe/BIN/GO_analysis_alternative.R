@@ -26,7 +26,7 @@ alternative_revigo_results <- function(MAIN, random_num, go_data){
     # loop until at least 3 clusters are found
     n_clust = 0
     minModuleSize = 15
-    while(n_clust < 2){
+    while (n_clust < 2 | n_clust > 15){
       dynamicMods = dynamicTreeCut::cutreeDynamic(dendro = hr1, distM = data,
                                   minClusterSize = minModuleSize, deepSplit = TRUE,
                                   verbose = 0, respectSmallClusters = T)
@@ -34,27 +34,31 @@ alternative_revigo_results <- function(MAIN, random_num, go_data){
       n_clust <- max(as.numeric(as.character(tb$dynamicMods)))
       df_cluster_terms = data.frame(term = colnames(data), cluster = dynamicMods)
       df_cluster_terms$cluster_in_dendro = NA
-      minModuleSize = minModuleSize - 1
+      if (n_clust > 15){
+        minModuleSize = minModuleSize + ceiling(minModuleSize*0.10)
+      } else {
+        minModuleSize = minModuleSize - 1
+      }
     }
 
     # Hierarchical clustering on the distance matrix
-    hr <- as.dendrogram(hclust(as.dist(1-data), method="ward.D2", members = NULL))
-    hc <- hclust(as.dist(1-data), method="ward.D2", members = NULL)
-    order_dendro <- hc$order
-    cluster_number_dendro = 1
-    for (i in 1:length(order_dendro)){
-      # get element
-      tmp_go = colnames(data)[order_dendro[i]]
-      # check whether it was already annotated
-      if (is.na(df_cluster_terms$cluster_in_dendro[which(df_cluster_terms$term == tmp_go)])){
-        # get previous cluster number
-        prev_cluster = df_cluster_terms$cluster[which(df_cluster_terms$term == tmp_go)]
-        df_cluster_terms$cluster_in_dendro[which(df_cluster_terms$cluster == prev_cluster)] <- cluster_number_dendro
-        cluster_number_dendro <- cluster_number_dendro + 1
+      hr <- as.dendrogram(hclust(as.dist(1-data), method="ward.D2", members = NULL))
+      hc <- hclust(as.dist(1-data), method="ward.D2", members = NULL)
+      order_dendro <- hc$order
+      cluster_number_dendro = 1
+      for (i in 1:length(order_dendro)){
+        # get element
+        tmp_go = colnames(data)[order_dendro[i]]
+        # check whether it was already annotated
+        if (is.na(df_cluster_terms$cluster_in_dendro[which(df_cluster_terms$term == tmp_go)])){
+          # get previous cluster number
+          prev_cluster = df_cluster_terms$cluster[which(df_cluster_terms$term == tmp_go)]
+          df_cluster_terms$cluster_in_dendro[which(df_cluster_terms$cluster == prev_cluster)] <- cluster_number_dendro
+          cluster_number_dendro <- cluster_number_dendro + 1
+        }
       }
-    }
-    df_cluster_terms$term <- as.character(df_cluster_terms$term)
-    df_cluster_terms = df_cluster_terms[match(hr1$labels[hr1$order], df_cluster_terms$term),]
+      df_cluster_terms$term <- as.character(df_cluster_terms$term)
+      df_cluster_terms = df_cluster_terms[match(hr1$labels[hr1$order], df_cluster_terms$term),]
 
     if (nrow(data) >= 120){
       plt_w = 28
@@ -65,7 +69,8 @@ alternative_revigo_results <- function(MAIN, random_num, go_data){
     df_cluster_terms$col <- NA
     library(viridis)
     library(RColorBrewer)
-    palett = brewer.pal(n = max(df_cluster_terms$cluster_in_dendro)+1, name = "Set1")[1:max(df_cluster_terms$cluster_in_dendro)]
+    palett = viridis(n = max(df_cluster_terms$cluster_in_dendro)+1, option = 'turbo')[1:max(df_cluster_terms$cluster_in_dendro)]
+    #palett = brewer.pal(n = max(df_cluster_terms$cluster_in_dendro)+1, name = "Set1")[1:max(df_cluster_terms$cluster_in_dendro)]
     for (i in 1:max(df_cluster_terms$cluster_in_dendro)){
       df_cluster_terms$col[which(df_cluster_terms$cluster_in_dendro == i)] <- palett[i]
     }
