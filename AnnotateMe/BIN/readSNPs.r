@@ -185,7 +185,7 @@ data <- try(readSNPs(fname, ftype, MAIN, ref_version, analysis_type), silent = T
 # check if there were matches, in case there were no matches, try with the other dataset
 if (is.data.frame(data) && nrow(data) == 0 && ftype == 3){ data = try(readSNPs_alternative(fname, ftype, MAIN, ref_version, analysis_type), silent = T) }
 # also check with the other dataset for the missing annotations in case was requested ftype 3
-if (ftype == 3 && !is.na(data)){ 
+if (ftype == 3 && is.data.frame(data)){ 
   missings = data[is.na(data$pos),]
   if (nrow(missings) >0){
     newname = stringr::str_replace_all(fname, ".txt", "_miss.txt")
