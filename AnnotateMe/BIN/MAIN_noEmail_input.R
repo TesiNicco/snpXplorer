@@ -191,15 +191,17 @@
     interesting_tissues_all = as.character(args[6])
     # reference genome (in case input is not rsid)
     ref_version = as.character(args[7])
+    # random number should also be inputed
+    random_num = as.numeric(args[8])
 
     # CREATE FOLDER FOR RESULTS -- ADD RANDOM NUMBER AND COPY INPUT FILE IN THERE
-    random_num <- sample(x = seq(1, 100000), size = 1, replace = F)
-    system(paste("mkdir /root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, sep=""))
-    system(paste("mv /root/snpXplorer/snpXplorer_v3/", fname, " /root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, "/", sep=""))
+    #random_num <- sample(x = seq(1, 100000), size = 1, replace = F)        # no need to run this
+    #system(paste("mkdir /root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, sep=""))         # no need to run this -- folder should be already there
+    #system(paste("mv /root/snpXplorer/snpXplorer_v3/", fname, " /root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, "/", sep=""))         # no need to run this -- file should be already there
 
     # SEND EMAIL TO MYSELF AS A NOTIFICATION SOMEONE REQUESTED A JOB
     cmd_mail <- paste("sendEmail -f n.tesi@amsterdamumc.nl -t ", username, " -cc n.tesi@amsterdamumc.nl snpxplorer@gmail.com -u 'AnnotateMe request sent' -m 'Dear user, \n snpXplorer received an annotation request from you. \n You receive this email to confirm that your request is under processing. A typical job takes about 30 minutes to complete, however, due to the high number of requests, jobs may be delayed. \n\nThe following settings were requested: \n input --> ", fname, "\n input_type --> ", ftype, "\n analysis_type --> ", analysis_type, "\n analysis_mode --> ", analysis_mode_all, "\n interest_tissue --> ", interesting_tissues_all, "\n ref_version --> ", ref_version, "\n output_folder --> ", random_num, "\n \n snpXplorer Team' -S /usr/sbin/sendmail")
-    system(cmd_mail)
+    #system(cmd_mail)           # email should not be sent
 
     ## START OF THE PIPELINE
     ## Before the start, we need to check whether enough memory is available otherwise it will crash at some point and i have to look at it manually
@@ -211,9 +213,9 @@
         meminfo = system("free -h | sed 's/  */ /g'", intern = T); values = list()
         used = str_split_fixed(meminfo[2], ' ', 7)[,3]; free = str_split_fixed(meminfo[2], ' ', 7)[,4]; cache = str_split_fixed(meminfo[2], ' ', 7)[,6]
         for (v in c(used, free, cache)){
-            if (length(grep('G', v)) >0){
+            if (length(grep('G', v)) > 0){
                 v = str_replace_all(v, 'G', ''); v = str_replace_all(v, ',', '\\.'); v = as.numeric(v)
-            } else if (length(grep('M', v)) >0){
+            } else if (length(grep('M', v)) > 0){
                 v = str_replace_all(v, 'M', ''); v = str_replace_all(v, ',', '\\.'); v = paste0('0.', v); v = as.numeric(v)
             }
             values[[(length(values) + 1)]] = v
