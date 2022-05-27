@@ -3,7 +3,6 @@
     library(shiny)
     library(SNPlocs.Hsapiens.dbSNP144.GRCh37)
     library(pheatmap)
-    library(patchwork)
     library(plotly)
     library(jcolors)
     library(viridis)
@@ -22,7 +21,7 @@
   #load(paste0(MAIN_PATH, "data/databases/snps_info/chrAll_snps_info.RData"))
 
 ## DEFINE FUTURE CLASS
-  plan(multicore)
+plan(multicore)
 
 ## MAIN SERVER FUNCTION
 server <- function(input, output) {  
@@ -80,7 +79,7 @@ server <- function(input, output) {
     observe({ autoInvalidate(); cat("."); gc() })
 
   ## PLOTLY FUNCTION FOR PLOT 1 (SNPS, GENES AND SVS)
-    output$plot <- renderPlot({
+    output$plot <- renderPlotly({
       ## DEFINE THE REACTIVE VARIABLES
         browsing_options = input$browsing_options; target = input$target; x_axis = input$x_axis; significance = input$y_axis
         reference_genome = input$reference_gen; sv_source = input$strVar_inp; all_colors = c(input$col1, input$col2, input$col3, input$col4, input$col5)
@@ -99,7 +98,7 @@ server <- function(input, output) {
         if (plotError == FALSE) { future_sqtl = future({ extractSqtls(region_of_interest, reference_genome, MAIN_PATH, tissues_interest, mapping_ensembl = mapping.ensembl) }) }
 
       ## FIND RSID FOR ANNOTATION
-        if ((plotError == FALSE)){ future_rsid = future({ findRsID(region_of_interest = region_of_interest, reference_genome = reference_genome, span = 1000, MAIN_PATH, mode = "old") }) }
+        if ((plotError == FALSE)){ future_rsid = future({ findRsID(region_of_interest = region_of_interest, reference_genome = reference_genome, span = 25000, MAIN_PATH, mode = "old") }) }
             
       ## FIND DATA TO PLOT IN CASE THE INPUT BROWSING OPTION WAS VALID
         if ((plotError == FALSE) & (is.null(input$upload_file) == FALSE) & (length(input$owned_gwas) >0)) { uploaded_file = input$upload_file$datapath } else { uploaded_file = NULL }
@@ -107,16 +106,16 @@ server <- function(input, output) {
         gwas_to_show(gwas_to_plot)
 
       ## EXTRACT DATA FROM DATA TO PLOT IN CASE THE INPUT BROWSING OPTION WAS VALID
-        if (plotError == FALSE) { future_res = future({ extractDataForPlot(gwas_to_plot, region_of_interest, span = 1000, colors = all_colors, res_example, reference_genome, MAIN_PATH) }) } else { data_to_plot = NA }
+        if (plotError == FALSE) { future_res = future({ extractDataForPlot(gwas_to_plot, region_of_interest, span =25000, colors = all_colors, res_example, reference_genome, MAIN_PATH) }) } else { data_to_plot = NA }
 
       ## FIND RECOMBINATION RATES
-        if (plotError == FALSE) { future_rec = future({ extractRecombination(region_of_interest, reference_genome, genetic_map = genetic.map, genetic_map_hg38 = genetic.map.hg38, span = 1000) }) } 
+        if (plotError == FALSE) { future_rec = future({ extractRecombination(region_of_interest, reference_genome, genetic_map = genetic.map, genetic_map_hg38 = genetic.map.hg38, span = 25000) }) } 
 
       ## FIND GENES IN THE REGION
         future_genes = future({ findGenes(region_of_interest, reference_genome, genes_hg19 = gene.db, genes_hg38 = genes.hg38) })
 
       ## FIND SVs IN THE REGION
-        future_svs = future({ findSVs(region_of_interest, reference_genome, all_str, all_str_hg38, span_value = 1000, sv_source) })
+        future_svs = future({ findSVs(region_of_interest, reference_genome, all_str, all_str_hg38, span_value = 100000, sv_source) })
       
       ## MANAGE LD IF THIS WAS REQUESTED
         if (plotError == FALSE) { 
@@ -157,11 +156,11 @@ server <- function(input, output) {
           main_fig = Plot(reference_genome, region_of_interest = region_of_interest, rsid_region = rsid_region, snps_data = data_to_plot, snp_interest = snp_interest, recomb_data = recomb_data, significance, 
             pos_start = region_of_interest$start, pos_end = region_of_interest$end, plot_type = input$plot_type, recomb = input$recomb_yn, genes_in_region, svs_in_region, showExons = input$exons, ld)
         }
-        #mainFigure(main_fig); figureFormat(input$plot_format)
+        mainFigure(main_fig); figureFormat(input$plot_format)
         main_fig
     })
 
-  ## PLOT FUNCTION FOR PLOT 2 (GTEX)
+  ## PLOTLY FUNCTION FOR PLOT 2 (GTEX) -- renderIheatmap
     output$plot2 <- renderPlot({
       # get genes in the region and relative GTEx information
       genes_interest = genes_region()
@@ -186,7 +185,7 @@ server <- function(input, output) {
       } else { 
         rsid_region = rsid_region_for_table()
         reference_gen = reference_genome()
-        df = rbindlist(data_for_table()); df$p = as.numeric(df$p); df$p = -log10(df$p); df = df[order(-df$p),]; top = head(df, 80); 
+        df = rbindlist(data_for_table()); df$p = as.numeric(df$p); df$p = -log10(df$p); top = head(df, 80); 
         if (reference_gen == 'GRCh37 (hg19)'){ top = merge(top, rsid_region, by.x = 'pos', by.y = 'POS', all.x = T) } else { top = merge(top, rsid_region, by.x = 'pos', by.y = 'POS_HG38', all.x = T) }
       }
       if (nrow(df) >0){

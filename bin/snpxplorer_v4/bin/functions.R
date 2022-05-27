@@ -43,7 +43,7 @@
 
 ## EXTRACT GENES FROM A REGION
   findGenes <- function(region_of_interest, reference_genome, genes_hg19, genes_hg38){
-    span = 100000
+    span = 1000
     if (reference_genome == 'GRCh37 (hg19)'){ tmp = genes_hg19 } else { tmp = genes_hg38 }
     genes_in_region = tmp[which(tmp$chrom == paste0('chr', region_of_interest$chrom)),]
     genes_in_region = genes_in_region[which((genes_in_region$txStart >= (region_of_interest$start - span)) & (genes_in_region$txEnd <= (region_of_interest$end + span))),]
@@ -163,8 +163,8 @@
   }
 
 ## PLOTS
-  # function to plot points and recombination rates
-  Plot <- function(reference_genome, region_of_interest, rsid_region, snps_data, snp_interest, recomb_data, significance, pos_start, pos_end, plot_type, recomb, genes_in_region, svs_in_region, showExons, ld){
+  # function to plot points and recombination rates -- based on plotly
+  Plot_plotly <- function(reference_genome, region_of_interest, rsid_region, snps_data, snp_interest, recomb_data, significance, pos_start, pos_end, plot_type, recomb, genes_in_region, svs_in_region, showExons, ld){
     # PLOT 1 IS THE MAIN SNP-PLOT
       # initialize the plot
       fig1 <- plot_ly()
@@ -236,6 +236,89 @@
       fig_final = fig_final %>% layout(legend = list(x = 0, y = 1, orientation = 'h', font = list(size = 13, color = "#000")), margin = list(l = 75, r = 100, b = 75, t = 75, pad = 4))
       fig_final = fig_final %>% config(toImageButtonOptions = list(format = "png", filename = "snpXplorer_plot", width = 1280, height = 960, scale = 3))
     return(fig_final)
+  }
+
+  # function to plot points and recombination rates -- based on ggplot
+  Plot <- function(reference_genome, region_of_interest, rsid_region, snps_data, snp_interest, recomb_data, significance, pos_start, pos_end, plot_type, recomb, genes_in_region, svs_in_region, showExons, ld){
+    # PLOT 1 IS THE MAIN SNP-PLOT
+      # put data together for the plot
+      data_combined = rbindlist(snps_data)
+      # change position and pvalue to be numbers
+      data_combined$pos = as.numeric(data_combined$pos); data_combined$p = as.numeric(data_combined$p)
+      # plot based on plot-type
+      if (plot_type == 'Scatter'){
+        # optionally add rsid for the snps that are plotted
+        #if (reference_genome == 'GRCh37 (hg19)'){ snp_group = merge(snp_group, rsid_region, by.x = 'pos', by.y = "POS", all.x = T) } else { snp_group = merge(snp_group, rsid_region, by.x = 'pos', by.y = "POS_HG38", all.x = T) }
+        # main plot 1
+        plot_snp = ggplot(data = data_combined, aes(x = pos, y = -log10(p), color = col)) + geom_point(size = 3) + ylab('-Log10(P-value)') + xlab('') + ylim(0, significance) + 
+          ggtitle(paste0(region_of_interest$chrom, ':', region_of_interest$start, '-', region_of_interest$end)) + xlim(region_of_interest$start, region_of_interest$end) +
+          theme(legend.position = "top", axis.text.x = element_blank(), axis.ticks.x = element_blank()) + scale_color_discrete(name = 'GWAS', labels = unique(data_combined$name))
+      } else {
+        data_combined$bin = NA; data_combined$bin_value = NA; intervals = seq(region_of_interest$start, region_of_interest$end, length.out = 15)
+        for (x in 1:length(intervals)){
+          for (t in unique(data_combined$name)){
+            data_combined$bin[which(data_combined$pos >= intervals[x] & data_combined$pos < intervals[x+1] & data_combined$name == t)] = rep(intervals[x], nrow(data_combined[which(data_combined$pos >= intervals[x] & data_combined$pos < intervals[x+1] & data_combined$name == t),]))
+            data_combined$bin_value[which(data_combined$pos >= intervals[x] & data_combined$pos < intervals[x+1] & data_combined$name == t)] = rep(min(data_combined$p[which(data_combined$pos >= intervals[x] & data_combined$pos < intervals[x+1] & data_combined$name == t)]), nrow(data_combined[which(data_combined$pos >= intervals[x] & data_combined$pos < intervals[x+1] & data_combined$name == t),]))
+          }
+        }
+        data_combined = data_combined[!is.na(data_combined$bin),]
+        plot_snp = ggplot() + stat_smooth(data = data_combined, aes(x = bin, y = -log10(bin_value), fill = col, alpha = 0.5), geom = "area", method = 'loess', span = 0.5, se = T) + ylab('-Log10(P-value)') + xlab('') + ylim(0, significance) + 
+          ggtitle(paste0(region_of_interest$chrom, ':', region_of_interest$start, '-', region_of_interest$end)) + scale_alpha(guide = 'none') + xlim(region_of_interest$start, region_of_interest$end) +
+          theme(legend.position = "top", axis.text.x = element_blank(), axis.ticks.x = element_blank()) + scale_fill_discrete(name = 'GWAS', labels = unique(data_combined$name))
+      }
+      # add recombination rates if they are requested -- first need to scale the recombination rates
+      if (recomb == 'Yes'){
+        recomb_data$combined_scaled = (significance * (recomb_data$combined)) / 100
+        plot_snp = plot_snp + geom_line(data = recomb_data, aes(x = pos, y = combined_scaled), color = 'orange') + xlim(region_of_interest$start, region_of_interest$end) +
+          scale_y_continuous('-Log10(P-value)', limits = c(0, significance), sec.axis = sec_axis(~.*(100/significance), name="Recombination rates")) + 
+          theme(axis.title.y.right = element_text(color = "orange"), axis.text.y.right = element_text(colour = "orange"), axis.ticks.y.right = element_line(color = "orange"))
+      }
+      plot_snp = plot_snp + theme(plot.margin = margin(1, 1, 0, 1, "pt"), plot.title = element_text(size=22), axis.text=element_text(size=14), axis.title=element_text(size=16, face="bold")) + 
+        guides(colour = guide_legend(override.aes = list(size=8)))
+    # PLOT 2 IS THE GENE TRACK
+      # create new variables for the genes (start position based on strand, middle point)
+      genes_in_region$y_space = genes_in_region$y + 0.05*abs(min(genes_in_region$y))
+      genes_in_region$middle = genes_in_region$txStart + (genes_in_region$txEnd - genes_in_region$txStart)/2
+      genes_in_region$start_strand = ifelse(genes_in_region$strand == '+', genes_in_region$txStart, genes_in_region$txEnd)
+      genes_in_region$end_strand = ifelse(genes_in_region$strand == '+', genes_in_region$txEnd, genes_in_region$txStart)
+      # plot gene segment without text and exons
+      plot_genes = ggplot() + geom_segment(data = genes_in_region, aes(x = start_strand, y = y, xend = end_strand, yend = y, colour = strand, size = 2)) + 
+        xlim(region_of_interest$start, region_of_interest$end) + theme(legend.position = 'top', axis.text.y=element_blank(), axis.ticks.y=element_blank(), axis.text.x=element_blank(), axis.ticks.x=element_blank()) + 
+        xlab('') + ylab('Gene track') + ylim(min(genes_in_region$y) - 0.5, max(genes_in_region$y) + 0.5) + scale_color_discrete(name = 'Gene Strand')
+      # if there are not too many genes, show the names
+      if (nrow(genes_in_region) <= 20){ txt_size = 6 } else if (nrow(genes_in_region) <= 30){ txt_size = 4 } else if (nrow(genes_in_region) <= 40){ txt_size = 2 } else if (nrow(genes_in_region) <= 50){ txt_size = 1 }
+      if (nrow(genes_in_region) <= 50){ plot_genes = plot_genes + annotate(geom = 'text', x = genes_in_region$middle, y = genes_in_region$y_space, label = genes_in_region$Gene, fontface = 'italic', size = txt_size) }
+      # if exons are requested, plot them
+      if (showExons == 'Yes'){
+        exons_df = data.frame(start = as.numeric(unlist(strsplit(genes_in_region$exonStarts, ','))), end = as.numeric(unlist(strsplit(genes_in_region$exonEnds, ','))), y_pos = rep(genes_in_region$y, genes_in_region$exonCount), strand = rep(genes_in_region$strand, genes_in_region$exonCount))
+        exons_df$col = ifelse(exons_df$strand == '+', '#55BCC2', '#E87D72')
+        plot_genes = plot_genes + annotate('segment', x = exons_df$start, y = exons_df$y_pos, xend = exons_df$end, yend = exons_df$y_pos, size = 8, colour = exons_df$col) + 
+          scale_size(guide = 'none')
+      }
+      plot_genes = plot_genes + theme(plot.margin = margin(0, 1, 0, 1, "pt"), axis.text=element_text(size=14), axis.title=element_text(size=16, face="bold")) + scale_size(guide = 'none') + 
+        guides(colour = guide_legend(override.aes = list(size=8)))
+    # PLOT 3 IS THE SV
+      # plot small svs as dots, big svs as segments
+      small_svs = svs_in_region[which(svs_in_region$diff_alleles < 3000)]; big_svs = svs_in_region[which(svs_in_region$diff_alleles > 3000)]
+      if (nrow(small_svs) >0){
+        plot_sv = ggplot() + geom_point(data = small_svs, aes(x = start_pos, y = y, colour = type, size = 1), shape = 15) + xlim(region_of_interest$start, region_of_interest$end) + 
+          theme(legend.position = "top", axis.text.y = element_blank(), axis.ticks.y = element_blank()) + scale_color_discrete(name = 'SV Type', labels = unique(svs_in_region$type)) + 
+          ylab('Structural variation') + xlab('Genomic Position (bp)') + scale_size(guide = 'none')
+      } else if (nrow(big_svs) >0){
+        plot_sv = ggplot() + geom_segment(data = big_svs, aes(x = start_pos, y = y, xend = end_pos, yend = y, size = 3, color = type)) + xlim(region_of_interest$start, region_of_interest$end) + 
+          theme(legend.position = "top", axis.text.y = element_blank(), axis.ticks.y = element_blank()) + scale_color_discrete(name = 'SV Type', labels = unique(svs_in_region$type)) + 
+          ylab('Structural variation') + xlab('Genomic Position (bp)') + scale_size(guide = 'none')
+      }
+      if (nrow(big_svs) >0){
+        plot_sv = plot_sv + geom_segment(data = big_svs, aes(x = start_pos, y = y, xend = end_pos, yend = y, size = 3, color = type)) 
+        plot_sv = plot_sv + theme(plot.margin = margin(0, 1, 1, 1, "pt")) + scale_size(guide = 'none')
+      }
+      plot_sv = plot_sv + theme(plot.margin = margin(0, 1, 1, 1, "pt"), axis.text=element_text(size=14), axis.title=element_text(size=16, face="bold")) + scale_size(guide = 'none') +
+        guides(colour = guide_legend(override.aes = list(size=8)))
+    # COMBINE THE FIGURES
+      combined <- (plot_snp / plot_genes / plot_sv) + plot_layout(heights = c(2, 1, 1), guides = "collect") & theme(legend.position = "top", legend.key.size = unit(1, 'cm'), legend.text = element_text(size=12), legend.title = element_text(size=14))
+        #fig_final = fig_final %>% config(toImageButtonOptions = list(format = "png", filename = "snpXplorer_plot", width = 1280, height = 960, scale = 3))
+    return(combined)
   }
 
   # function to plot error
@@ -369,13 +452,15 @@
     toolt_opt <- setup_tooltip_options(row = TRUE, col = TRUE, value = TRUE, prepend_row = "Tissue: ", prepend_col = "Gene: ", prepend_value = "Median TPM: ")
     if (ncol(tmp_for_plot) <=1){
         tmp = matrix(data=NA, nrow=1, ncol = 1)
-        main_heatmap(tmp) %>% add_col_title("Ops, too few genes. Please enlarge your region of interest!", side= "top")
+        #main_heatmap(tmp) %>% add_col_title("Ops, too few genes. Please enlarge your region of interest!", side= "top")
+        return(pheatmap(tmp))
     } else {
-      fig = main_heatmap(tmp_for_plot, colors = colfunc, name = "Median TPM", colorbar_grid = cb_grid, tooltip = toolt_opt) %>% 
-        add_row_clusters(title = "Tissue", name = 'Tissue', factor(tissues$tissue_class), colors = col_clusters) %>% add_col_clustering() %>% add_row_clustering() %>%
-        add_row_title("Tissues") %>% add_col_labels()
+      return(pheatmap(tmp_for_plot))
+      #fig = main_heatmap(tmp_for_plot, colors = colfunc, name = "Median TPM", colorbar_grid = cb_grid, tooltip = toolt_opt) %>% 
+      #  add_row_clusters(title = "Tissue", name = 'Tissue', factor(tissues$tissue_class), colors = col_clusters) %>% add_col_clustering() %>% add_row_clustering() %>%
+      #  add_row_title("Tissues") %>% add_col_labels()
     }
-    return(fig)
+    #return(fig)
   }
 
 ## FIND EQTLS
@@ -397,7 +482,7 @@
     # reduce and output
     eqtls = eqtls[, c('V1', 'V2', 'V3', 'V4', 'V6', 'V7', 'gene')]; eqtls = eqtls[order(eqtls$V7),]
     # finally if reference genome was hg19, need to liftover again 
-    if (reference_genome == 'GRCh37 (hg19)'){ 
+    if (reference_genome == 'GRCh37 (hg19)' && nrow(eqtls) >0){ 
       eqtls$index = seq(1, nrow(eqtls))
       data_lifted = liftOver_data(chrom = rep(region_of_interest$chrom, nrow(eqtls)), start = eqtls$V1, end = eqtls$V1 + 1, type = 'complete', p = eqtls$index, MAIN_PATH = MAIN_PATH, from = 'hg38') 
       tmp = data.frame(pos_hg19 = data_lifted[[2]], index = data_lifted[[3]])
@@ -425,7 +510,7 @@
     # reduce and output
     sqtls = sqtls[, c('V1', 'V2', 'V3', 'V7', 'V5', 'V6', 'gene')]; sqtls = sqtls[order(sqtls$V6),]
     # finally if reference genome was hg19, need to liftover again 
-    if (reference_genome == 'GRCh37 (hg19)'){ 
+    if (reference_genome == 'GRCh37 (hg19)' && nrow(sqtls) >0){ 
       sqtls$index = seq(1, nrow(sqtls))
       data_lifted = liftOver_data(chrom = rep(region_of_interest$chrom, nrow(sqtls)), start = sqtls$V1, end = sqtls$V1 + 1, type = 'complete', p = sqtls$index, MAIN_PATH = MAIN_PATH, from = 'hg38') 
       tmp = data.frame(pos_hg19 = data_lifted[[2]], index = data_lifted[[3]])
