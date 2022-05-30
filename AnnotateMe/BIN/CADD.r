@@ -1,3 +1,8 @@
+# libraries
+library(parallel)
+library(data.table)
+library(stringr)
+
 # basic paths
 MAIN = "/root/snpXplorer/AnnotateMe/"
 MAIN_SNP = "/root/snpXplorer/snpXplorer_v3/"
@@ -97,6 +102,46 @@ mergeInfo_generic <- function(info.sb){
   return(info.sb)
 }
 
+# function to do the lookup in the entire cadd dataset (offline)
+lookup_cadd_updated = function(i, data, random_num){
+    # restrict to chromosome of interest
+    tmp = data[which(data$chr == i),]
+    # we are going to grep information using chromosome;position; --> write that file
+    tmp$towrite = paste0(tmp$chr, ';', tmp$pos, ';')
+    write.table(tmp$towrite, paste0('RESULTS_', random_num, '/tmp_chr', i, '_togrep.txt'), quote=F, row.names=F, col.names=F)
+    # command to grep information
+    cmd = paste0('zgrep -f RESULTS_', random_num, '/tmp_chr', i, '_togrep.txt ', MAIN, '/INPUTS_OTHER/CADD_updated/cadd_annotation_chr', i, '.txt.gz'); caddannot = system(cmd, intern=T)
+    # then we should loop across matches to extract relevant information
+    caddannot = data.frame(str_split_fixed(caddannot, ';', 13)); colnames(caddannot) = c('chrom', 'pos', 'ref', 'alt', 'type', 'annotype', 'consequence', 'genename', 'conseq_details', 'conseq_score', 'dist_mutation', 'geneid', 'phred')
+    # loop on the lines and prioritize results based on highest phred score
+    prioritized = list()
+    for (x in 1:nrow(caddannot)){
+        tmp = caddannot[x, ]; tmp_phred = as.numeric(unlist(strsplit(tmp$phred, '\\|'))); highest_phred_index = which(tmp_phred == max(tmp_phred))[1]
+        tmp_df = tmp[, c('chrom', 'pos', 'ref', 'alt', 'type')]; tmp_df$consequence = unlist(strsplit(tmp$consequence, '\\|'))[highest_phred_index]
+        tmp_df$genename = unlist(strsplit(tmp$genename, '\\|'))[highest_phred_index]; tmp_df$phred = max(tmp_phred)
+        prioritized[[(length(prioritized) + 1)]] = tmp_df
+    }
+    prioritized = rbindlist(prioritized)
+    res = data.frame(locus = paste0(prioritized$chrom, ':', prioritized$pos), snp_conseq = prioritized$consequence, snp_conseq_gene = prioritized$genename, phred = prioritized$phred)
+    return(res)
+}
+
+# function to put information about snp consequences with the permutation sets
+mergeInfo_generic_updated <- function(info.sb){
+  #assign flag for coding snp --> culprit gene known
+  info.sb$coding_snp <- NA
+  for (j in 1:nrow(info.sb)){
+    if (!is.na(info.sb$snp_conseq[j])){
+      info <- strsplit(info.sb$snp_conseq[j], ",|\\|")[[1]]
+      culprit <- unique(info %in% c("NON_SYNONYMOUS", "SYNONYMOUS", "STOP_GAINED", "MISSENSE", 'missense', 'synonymous', 'non_synonymous', 'stop_gained', 'coding_sequence', 'start_lost'))    #if the variant is not missense, synonymous, stop_gained
+      if (TRUE %in% culprit){
+        info.sb$coding_snp[j] <- "yes"
+      }
+    }
+  }
+  return(info.sb)
+}
+
 # read arguments
 random_num = args[1]
 ref_genome = args[2]
@@ -106,13 +151,15 @@ snps_info_path = args[4]
 load(snps_info_path)
 load(ld_path)
 # run cadd annotation
-cadd <- readcadd_v2(data, MAIN, ld_info, ref_genome, random_num)
-# merge cadd with data
-data = merge(data, cadd, by = "locus")
-cadd$coding_snp = NA
-# then run the mergeInfo_generic to add coding_snps [yes/no]
-out.annot <- mergeInfo_generic(info.sb=data)
-out.annot <- out.annot[!duplicated(out.annot$locus),]
+#cadd <- readcadd_v2(data, MAIN, ld_info, ref_genome, random_num)       # previous command based on the online grep of CADD
+# run function in multiprocessing to annotate snps with cadd
+cadd_annotation_results = rbindlist(mclapply(unique(data$chr), lookup_cadd_updated, data = data, random_num = random_num, mc.cores = 2))
+# then merge with data and annotate whether the snp is coding or not
+data = merge(data, cadd_annotation_results, by = 'locus', all.x = T)
+data_codingInfo = mergeInfo_generic_updated(data)
+# finally remove duplicates and save
+out.annot = data_codingInfo[!duplicated(data_codingInfo$LOCUS),]
 
 # outputs
 save(out.annot, file = snps_info_path)
+######################################################################

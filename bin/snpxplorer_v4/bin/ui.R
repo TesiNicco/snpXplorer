@@ -100,16 +100,16 @@
                 style = "unite", size = "lg", icon = icon("gear"), status = "success", width = "500px", animate = animateOptions(enter = animations$fading_entrances$fadeInLeftBig, exit = animations$fading_exits$fadeOutLeftBig),
                 tooltip = tooltipOptions(title = "Click to see available options!"),
                 h3("Customize your plot"),
-                #colourpicker::colourInput("col1", "Select colour", "blue"),             # color selection for the different input gwases
-                #conditionalPanel(condition = "(input.neurol_gwas.length + input.cardio_gwas.length + input.immune_gwas.length + input.cancer_gwas.length + input.physio_gwas.length + input.owned_gwas.length) > 1",
-                #  colourpicker::colourInput("col2", "Select color 2", "coral")),
-                #conditionalPanel(condition = "(input.neurol_gwas.length + input.cardio_gwas.length + input.immune_gwas.length + input.cancer_gwas.length + input.physio_gwas.length + input.owned_gwas.length) > 2",
-                #  colourpicker::colourInput("col3", "Select color 3", "black")),
-                #conditionalPanel(condition = "(input.neurol_gwas.length + input.cardio_gwas.length + input.immune_gwas.length + input.cancer_gwas.length + input.physio_gwas.length + input.owned_gwas.length) > 3",
-                #  colourpicker::colourInput("col4", "Select color 4", "green")),
-                #conditionalPanel(condition = "(input.neurol_gwas.length + input.cardio_gwas.length + input.immune_gwas.length + input.cancer_gwas.length + input.physio_gwas.length + input.owned_gwas.length) > 4",
-                #  colourpicker::colourInput("col5", "Select color 5", "yellow")),
-                #bsPopover("col", title='Colors', content='You can use the colour picker to change the color of the plotted studies.', placement="right",trigger="hover", options = list(container = "body")),
+                colourpicker::colourInput("col1", "Select colour", "blue"),             # color selection for the different input gwases
+                conditionalPanel(condition = "(input.neurol_gwas.length + input.cardio_gwas.length + input.immune_gwas.length + input.cancer_gwas.length + input.physio_gwas.length + input.owned_gwas.length) > 1",
+                  colourpicker::colourInput("col2", "Select color 2", "coral")),
+                conditionalPanel(condition = "(input.neurol_gwas.length + input.cardio_gwas.length + input.immune_gwas.length + input.cancer_gwas.length + input.physio_gwas.length + input.owned_gwas.length) > 2",
+                  colourpicker::colourInput("col3", "Select color 3", "black")),
+                conditionalPanel(condition = "(input.neurol_gwas.length + input.cardio_gwas.length + input.immune_gwas.length + input.cancer_gwas.length + input.physio_gwas.length + input.owned_gwas.length) > 3",
+                  colourpicker::colourInput("col4", "Select color 4", "green")),
+                conditionalPanel(condition = "(input.neurol_gwas.length + input.cardio_gwas.length + input.immune_gwas.length + input.cancer_gwas.length + input.physio_gwas.length + input.owned_gwas.length) > 4",
+                  colourpicker::colourInput("col5", "Select color 5", "yellow")),
+                bsPopover("col", title='Colors', content='You can use the colour picker to change the color of the plotted studies.', placement="right",trigger="hover", options = list(container = "body")),
                 sliderInput(inputId = "x_axis", label = "Window (bp)", value = 25000, min = 1000, max = 1000000, width = "100%"),        # adjust the width of the x-axis
                 bsPopover("x_axis", title='Window size', content='You can use the slider to adjust x-axis of the main plot.', placement="right",trigger="hover", options = list(container = "body")),
                 sliderInput(inputId = "y_axis", label = "-log10 (P-value)", value = 9, min = 5, max = 100, width = "100%"),              # adjust the width of the y-axis

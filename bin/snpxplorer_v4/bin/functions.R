@@ -245,6 +245,8 @@
       data_combined = rbindlist(snps_data)
       # change position and pvalue to be numbers
       data_combined$pos = as.numeric(data_combined$pos); data_combined$p = as.numeric(data_combined$p)
+      # set colors
+      group_colors = c(); for (i in unique(data_combined$col)){ group_colors = c(group_colors, i = i) }; names(group_colors) = unique(data_combined$col2)
       # plot based on plot-type
       if (plot_type == 'Scatter'){
         # optionally add rsid for the snps that are plotted
@@ -252,7 +254,8 @@
         # main plot 1
         plot_snp = ggplot(data = data_combined, aes(x = pos, y = -log10(p), color = col)) + geom_point(size = 3) + ylab('-Log10(P-value)') + xlab('') + ylim(0, significance) + 
           ggtitle(paste0(region_of_interest$chrom, ':', region_of_interest$start, '-', region_of_interest$end)) + xlim(region_of_interest$start, region_of_interest$end) +
-          theme(legend.position = "top", axis.text.x = element_blank(), axis.ticks.x = element_blank()) + scale_color_discrete(name = 'GWAS', labels = unique(data_combined$name))
+          scale_color_manual(values=group_colors, name = 'GWAS', labels = unique(data_combined$name))
+          theme(legend.position = "top", axis.text.x = element_blank(), axis.ticks.x = element_blank())
       } else {
         data_combined$bin = NA; data_combined$bin_value = NA; intervals = seq(region_of_interest$start, region_of_interest$end, length.out = 15)
         for (x in 1:length(intervals)){
@@ -301,7 +304,7 @@
       # plot small svs as dots, big svs as segments
       small_svs = svs_in_region[which(svs_in_region$diff_alleles < 3000)]; big_svs = svs_in_region[which(svs_in_region$diff_alleles > 3000)]
       if (nrow(small_svs) >0){
-        plot_sv = ggplot() + geom_point(data = small_svs, aes(x = start_pos, y = y, colour = type, size = 1), shape = 15) + xlim(region_of_interest$start, region_of_interest$end) + 
+        plot_sv = ggplot() + geom_point(data = small_svs, aes(x = start_pos, y = y, colour = type, size = 3), shape = 15) + xlim(region_of_interest$start, region_of_interest$end) + 
           theme(legend.position = "top", axis.text.y = element_blank(), axis.ticks.y = element_blank()) + scale_color_discrete(name = 'SV Type', labels = unique(svs_in_region$type)) + 
           ylab('Structural variation') + xlab('Genomic Position (bp)') + scale_size(guide = 'none')
       } else if (nrow(big_svs) >0){
@@ -316,7 +319,7 @@
       plot_sv = plot_sv + theme(plot.margin = margin(0, 1, 1, 1, "pt"), axis.text=element_text(size=14), axis.title=element_text(size=16, face="bold")) + scale_size(guide = 'none') +
         guides(colour = guide_legend(override.aes = list(size=8)))
     # COMBINE THE FIGURES
-      combined <- (plot_snp / plot_genes / plot_sv) + plot_layout(heights = c(2, 1, 1), guides = "collect") & theme(legend.position = "top", legend.key.size = unit(1, 'cm'), legend.text = element_text(size=12), legend.title = element_text(size=14))
+      combined <- (plot_snp / plot_genes / plot_sv) + plot_layout(heights = c(2, 1, 1), guides = "collect") & theme(legend.position = "top", legend.key.size = unit(1, 'cm'), legend.text = element_text(size=12), legend.title = element_text(size=14), legend.box="vertical")
         #fig_final = fig_final %>% config(toImageButtonOptions = list(format = "png", filename = "snpXplorer_plot", width = 1280, height = 960, scale = 3))
     return(combined)
   }
