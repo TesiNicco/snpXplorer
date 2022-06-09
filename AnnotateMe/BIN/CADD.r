@@ -158,7 +158,7 @@ cadd_annotation_results = rbindlist(mclapply(unique(data$chr), lookup_cadd_updat
 data = merge(data, cadd_annotation_results, by = 'locus', all.x = T)
 data_codingInfo = mergeInfo_generic_updated(data)
 # finally remove duplicates and save
-out.annot = data_codingInfo[!duplicated(data_codingInfo$LOCUS),]
+out.annot = data_codingInfo[!duplicated(data_codingInfo$locus),]
 
 # outputs
 save(out.annot, file = snps_info_path)

@@ -244,6 +244,7 @@
         inpf = paste0("/root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, "/", fname)
         # before starting, make a quick parse of the input file as people sometimes use wrong input like comma
         cmd = paste0("sed -i 's/,/\\n/g' ", inpf, " | sed '/^$/d'"); system(cmd)
+        cmd = paste0("sed -i 's/chr//g' ", inpf); system(cmd)
         snps_info_path = system(paste0("Rscript ", MAIN, "BIN/readSNPs.R ", inpf, " ", ftype, " ", ref_version, " ", analysis_type, " ", random_num), intern = T)
         load(snps_info_path)
 
@@ -257,6 +258,8 @@
         } else {
             # SAVE DATA WITH MISSING ANNOTATION AS THEY WILL BE SKIPPED
             missing_data = data[is.na(data$pos),]
+            data = data[!is.na(data$pos),]
+            save(data, file = snps_info_path)
 
             # FIND ALL VARIANTS IN LD WITH THE INPUT VARIANTS -- this can be done with LDlink functions easily -- for now just report SNPs in LD, in the future those results will be implemented in the main results
             ld_info = data.frame(chr=NULL, pos=NULL)
@@ -380,7 +383,7 @@
                 system(paste0("rm /root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, "/tmp_*"))
                 #system(paste0("mv ", MAIN, "BIN/combined_query_snp_list.txt /root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, "/"))
                 #system(paste0("mv /root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, "/combined_query_snp_list.txt /root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, "/LD_information.txt"))
-                system(paste0("rm /root/snpXplorer/snpXplorer_v3/tmp_", random_num, ".json"))
+                #system(paste0("rm /root/snpXplorer/snpXplorer_v3/tmp_", random_num, ".json"))
 
                 # FINISH -- SEND DATA BACK TO THE OWNER
                 system(paste0("cp /root/snpXplorer/snpXplorer_v3/www/snpXplorer_output_description.pdf RESULTS_", random_num, "/"))
