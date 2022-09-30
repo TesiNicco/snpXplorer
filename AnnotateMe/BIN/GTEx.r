@@ -23,7 +23,7 @@ matchEQTL <- function(i, mapping, ensembl, interesting_tissues, random_num){
   tmp$eqtl = NA
   tmp$eqtl_tissue = NA
   # main loop to assign eqtls to snps
-  if (!is.na(tmp_res)){
+  if (!is.na(tmp_res[1])){
     # modify structure of data
     tmp_res = data.frame(stringr::str_split_fixed(tmp_res, "\t", 2), stringsAsFactors = F)
     for (i in 1:nrow(tmp_res)){

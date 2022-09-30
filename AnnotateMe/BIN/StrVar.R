@@ -2,6 +2,7 @@
 MAIN = "/root/snpXplorer/AnnotateMe/"
 MAIN_SNP = "/root/snpXplorer/snpXplorer_v3/"
 args = commandArgs(trailingOnly=TRUE)
+setwd('/root/snpXplorer/snpXplorer_v3/')
 
 ## function to find sv close to input snps and genes -- adjusted for faster computations (library-wise)
 function_findSVs <- function(i, annot, all_str_hg38){

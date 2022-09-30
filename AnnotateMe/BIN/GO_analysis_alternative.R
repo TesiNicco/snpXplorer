@@ -216,7 +216,7 @@ if (length(functional_clusters) == 1){
     write.table(go_data, file = paste0("RESULTS_", random_num, "/geneSet_enrichment_results_and_clusters.txt"), quote=F, row.names=F, sep="\t")
 
     # let's try to make some wordcloud images
-    if (!is.na(functional_clusters)){
+    if (is.data.frame(functional_clusters)){
         mostFreq_words <- CountFrequency_words(functional_clusters, n_clust)
     }
 }

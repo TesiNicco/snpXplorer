@@ -19,8 +19,7 @@
   #source(paste0(MAIN_PATH, "bin/functions.R"))
   MAIN_PATH = '/root/snpXplorer/'
   source(paste0(MAIN_PATH, "snpXplorer_v4/functions.R"))
-  load(paste0(MAIN_PATH, "data/databases/202208011_annotationFiles.RData"))
-  #load(paste0(MAIN_PATH, "data/databases/20220803_annotationFiles.RData"))
+  load(paste0(MAIN_PATH, "data/databases/20220803_annotationFiles.RData"))
   #load(paste0(MAIN_PATH, "data/databases/snps_info/chrAll_snps_info.RData"))
 
 ## DEFINE FUTURE CLASS
@@ -44,21 +43,18 @@ server <- function(input, output) {
     gwas_to_show = reactiveVal()
     gwascat_res = reactiveVal()
     ld_populations = reactiveVal()
-    ld_table = reactiveVal()
 
   ## REACTIVE OBJECT THAT OBSERVES THE ANNOTATION SECTION
-    observeEvent(input$email, {
-      if (input$email != "Type your email address..." & isValidEmail(input$email)){
-          show_alert( title = "Analysis submitted!", text = "You should get a confirmation e-mail soon (also check spam folder)!", type = "success")
-          # Sample a number for randomization
+    observeEvent(input$run_annotation, {
+      if (input$run_annotation != 0){
+        message('** Annotation run was requested!\n')
+        # Sample a number for randomization
           random_num <- sample(x = seq(1, 100000), size = 1, replace = F)
-          # Take snps and save them
+        # Take snps and save them
           annotateMe.snplist <- unlist(strsplit(input$snp_list, "\n"))
-          write.table(annotateMe.snplist, paste("/root/snpXplorer/snpXplorer_v3/annotateMe_input_", random_num, ".txt", sep=""), quote=F, row.names=F, col.names = F)
-          print(annotateMe.snplist)
-          # Define log file
+        # Define log file
           log_filename = paste0("annotateMe_run_", random_num, ".log")
-          # Take other arguments
+        # Take other arguments
           ftype <- as.character(input$snp_list_type)
           if (ftype == "chr:pos (1:12345678)"){ ftype = 1 } else if (ftype == "chr pos (1 12345678)"){ ftype = 2 } else if (ftype == "rsid (rs12345)"){ ftype = 3 }
           ref_version = as.character(input$snp_list_reference)
@@ -68,13 +64,16 @@ server <- function(input, output) {
           if (analysis_type == "gsea"){ analysis_type = "enrichment" } else { analysis_type = "mapping" }
           if (analysis_type == "gsea"){ analysis_mode = paste0(as.character(input$analysis_mode), collapse = ",") } else { analysis_mode = "default" }
           gtex_tissues = paste0(input$gtex_type, collapse = ",")
-          # Then run annotate me externally in background -- this depends on the analysis_type requested
-          annotateMe.cmd <- paste0("Rscript /root/snpXplorer/AnnotateMe/BIN/MAIN.R annotateMe_input_", random_num, ".txt ", ftype, " ", username, " ", analysis_type, " ", analysis_mode, " ", gtex_tissues, " ", ref_version, " ", random_num, " > ", log_filename)
-          system(annotateMe.cmd, ignore.stdout = F, wait = F)
-          message('** Annotation run was requested!\n')
+        # Then run annotate me externally in background -- this depends on the analysis_type requested
+          annotateMe.cmd <- paste0("Rscript /root/snpXplorer/AnnotateMe/BIN/MAIN.R annotateMe_input_", random_num, ".txt ", ftype, " ", username, " ", analysis_type, " ", analysis_mode, " ", gtex_tissues, " ", ref_version, " > ", log_filename)
           message(paste0('** ', annotateMe.cmd))
-      } else if (input$email != 'Type your email address...'){
-        show_alert( title = "Email not valid!", text = "Please insert a valid email address", type = "error")
+      }
+      if (username == 'Type your email address...'){
+        show_alert(title = "Please insert your e-mail address!", text = "E-mail address is a mandatory field!", type = "error")
+      } else {
+        write.table(annotateMe.snplist, paste("/root/snpXplorer/snpXplorer_v3/annotateMe_input_", random_num, ".txt", sep=""), quote=F, row.names=F, col.names = F)
+        system(annotateMe.cmd, ignore.stdout = F, wait = F)
+        show_alert( title = "Analysis submitted!", text = "You should get a confirmation e-mail soon!", type = "success")        
       }
     })
 
@@ -93,15 +92,13 @@ server <- function(input, output) {
       ## FIND POSITIONS TO PLOT
         if (browsing_options == 'Locus, Gene, RsID'){ results = directInput(target, x_axis, gene.db, genes.hg38, reference_genome, SNPlocs.Hsapiens.dbSNP144.GRCh37, MAIN_PATH); region_of_interest = results[[1]]; snp_interest = results[[2]] } else { region_of_interest = data.frame(chrom = input$manual_chrom, start = input$manual_pos - input$x_axis, end = input$manual_pos + input$x_axis); snp_interest = NA }
         if (is.na(region_of_interest$start)){ plotError = TRUE } else { plotError = FALSE }
-        cat('** positions of interest FOUND!\n')
+        message('** positions of interest FOUND!')
 
       ## FIND EQTL
-        eqtls = extractEqtls(region_of_interest, reference_genome, MAIN_PATH, tissues_interest)
-        cat('** eqtls to show FOUND!\n')
-
+        if (plotError == FALSE) { future_eqtl = future({ extractEqtls(region_of_interest, reference_genome, MAIN_PATH, tissues_interest) }) }
+      
       ## FIND SQTL
-        sqtls = extractSqtls(region_of_interest, reference_genome, MAIN_PATH, tissues_interest)
-        cat('** sqtls to show FOUND!\n')
+        if (plotError == FALSE) { future_sqtl = future({ extractSqtls(region_of_interest, reference_genome, MAIN_PATH, tissues_interest) }) }
         
       ## FIND DATA TO PLOT IN CASE THE INPUT BROWSING OPTION WAS VALID
         if ((plotError == FALSE) & (is.null(input$upload_file) == FALSE) & (length(input$owned_gwas) >0)) { uploaded_file = input$upload_file$datapath } else { uploaded_file = NULL }
@@ -109,43 +106,43 @@ server <- function(input, output) {
         gwas_to_show(gwas_to_plot)
 
       ## EXTRACT DATA FROM DATA TO PLOT IN CASE THE INPUT BROWSING OPTION WAS VALID
-        if (plotError == FALSE) { results = extractDataForPlot(gwas_to_plot, region_of_interest, span = 1000, colors = all_colors, res_example, reference_genome, MAIN_PATH) } else { results = NA }
-        cat('** data to plot FOUND!\n')
+        if (plotError == FALSE) { future_res = future({ extractDataForPlot(gwas_to_plot, region_of_interest, span = 1000, colors = all_colors, res_example, reference_genome, MAIN_PATH) }) } else { data_to_plot = NA }
 
       ## FIND RECOMBINATION RATES
-        if (plotError == FALSE) { recomb_data = extractRecombination(region_of_interest, reference_genome, span = 1000, MAIN_PATH) } 
-        cat('** recombination to plot FOUND!\n')
+        if (plotError == FALSE) { future_rec = future({ extractRecombination(region_of_interest, reference_genome, span = 1000, MAIN_PATH) }) } 
 
       ## FIND GENES IN THE REGION
-        genes_in_region = findGenes(region_of_interest, reference_genome, genes_hg19 = gene.db, genes_hg38 = genes.hg38)
-        cat('** genes to plot FOUND!\n')
+        future_genes = future({ findGenes(region_of_interest, reference_genome, genes_hg19 = gene.db, genes_hg38 = genes.hg38) })
 
       ## FIND SVs IN THE REGION
-        svs_in_region = findSVs(region_of_interest, reference_genome, span_value = 1000, sv_source, MAIN_PATH)
-        cat('** structural variants to plot FOUND!\n')
+        future_svs = future({ findSVs(region_of_interest, reference_genome, span_value = 1000, sv_source, MAIN_PATH) })
 
       ## FIND GWAS CATALOG ENTRIES
-        gwascat = findGWAScat(region_of_interest, reference_genome, MAIN_PATH, gwascat_type)
-        cat('** GWAS catalog information to show FOUND!\n')
-
+        future_gwascat = future({ findGWAScat(region_of_interest, reference_genome, MAIN_PATH, gwascat_type) })
       ## MANAGE LD IF THIS WAS REQUESTED
         if (plotError == FALSE) { 
-          #results = value(future_res); 
+          results = value(future_res); 
           plotError = results[[1]]; data_to_plot = results[[2]];
           #rsid_region = value(future_rsid)
-          if (plotError == FALSE && ld_type != 'No LD'){ ld = findLD(ld_type, ld_pop, data_to_plot, rsid_region, reference_genome, region_of_interest, MAIN_PATH, snp_interest) } else { ld = NA }
-        } else { ld = NA }
+          if (plotError == FALSE && ld_type != 'No LD'){ future_ld = future({ findLD(ld_type, ld_pop, data_to_plot, rsid_region, reference_genome, region_of_interest, MAIN_PATH, snp_interest) }) }
+        }
 
       ## GATHER ALL DATA BEFORE THE PLOT
-        #if (plotError == FALSE){
-        #  recomb_data = value(future_rec)
-        #  genes_in_region = value(future_genes)
-        #  svs_in_region = value(future_svs)
-        #  if (ld_type != 'No LD'){ ld = value(future_ld) } else { ld = NULL }
-        #  eqtls_info = value(future_eqtl)
-        #  sqtls_info = value(future_sqtl)
-        #  gwascat_info = value(future_gwascat)
-        #}
+        if (plotError == FALSE){
+          recomb_data = value(future_rec)
+          print('ok1')
+          genes_in_region = value(future_genes)
+          print('ok2')
+          svs_in_region = value(future_svs)
+          print('ok3')
+          if (ld_type != 'No LD'){ ld = value(future_ld) } else { ld = NULL }
+          eqtls_info = value(future_eqtl)
+          print('ok4')
+          sqtls_info = value(future_sqtl)
+          print('ok5')
+          gwascat_info = value(future_gwascat)
+          print('ok6')
+        }
       
       ## UPDATE REACTIVE OBJECT CONTAINING DATA TO PLOT
         if (plotError == FALSE){
@@ -156,10 +153,9 @@ server <- function(input, output) {
           plotted_region(region_of_interest)
           genes_region(genes_in_region)
           svs_for_table(svs_in_region)
-          eqtls_for_table(eqtls)
-          sqtls_for_table(sqtls)
-          gwascat_res(gwascat)
-          ld_table(ld)
+          eqtls_for_table(eqtls_info)
+          sqtls_for_table(sqtls_info)
+          gwascat_res(gwascat_info)
         }
 
       ## PLOT
@@ -167,11 +163,11 @@ server <- function(input, output) {
           main_fig = PlotError('Ops, no data in this region!')
         } else {
           message(paste0('** Chrom --> ', region_of_interest$chrom, '\n** Pos --> ', region_of_interest$start, '-', region_of_interest$end, '\n** Data --> ', paste(gwas_to_plot, collapse = ","), '\n\n'))
-          Plot_My(reference_genome, region_of_interest = region_of_interest, snps_data = data_to_plot, snp_interest = snp_interest, recomb_data = recomb_data, significance, 
+          main_fig = Plot(reference_genome, region_of_interest = region_of_interest, snps_data = data_to_plot, snp_interest = snp_interest, recomb_data = recomb_data, significance, 
             pos_start = region_of_interest$start, pos_end = region_of_interest$end, plot_type = input$plot_type, recomb = input$recomb_yn, genes_in_region, svs_in_region, showExons = input$exons, ld)
         }
         #mainFigure(main_fig); figureFormat(input$plot_format)
-        #main_fig
+        main_fig
     })
 
   ## PLOT FUNCTION FOR PLOT 2 (GTEX)
@@ -291,27 +287,36 @@ server <- function(input, output) {
       })
   
   ## DOWNLOAD GWAS CATALOG TABLE
-    output$download_GWASCat <- downloadHandler(
-      filename = function(){ reference_gen = reference_genome(); if (reference_gen == 'GRCh37 (hg19)'){ paste0("GWAS_catalog_hg19.txt") } else { paste0("GWAS_catalog_hg38.txt") } },
-      content = function(file){
-      plotError_for_table = plotError_for_table()
-      if (plotError_for_table == TRUE){
-        tmp_gwascat = data.frame(Chr = as.character(), Pos = as.character(), RsID = as.character(), P = as.character(), Gene = as.character(), Trait = as.character(), Pubmed = as.character())
-      } else {
-        tmp_gwascat = gwascat_res()
-        genes_in_region = genes_region()
-        df = rbindlist(data_for_table()); df$p = as.numeric(df$p); df = df[order(as.numeric(df$p)),]; df$p = -log10(df$p)
-      }
-      write.table(df, file, row.names = FALSE, quote=F, sep = "\t")
-    })
-  
-  ## DOWNLOAD LD TABLE
-    output$download_LDtable <- downloadHandler(
-      filename = function(){ paste0("LD_table.txt")  },
-      content = function(file){
-      LDtable = ld_table()
-      write.table(LDtable, file, row.names = FALSE, quote=F, sep = "\t")
-    })
+    #output$download_GWASCat <- downloadHandler(
+    #  filename = function(){ gwascat_type = gwascat_mode(); reference_gen = reference_genome(); 
+    #    if (reference_gen == 'GRCh37 (hg19)'){ genome = 'hg19' } else { genome = 'hg38' }
+    #    if (gwascat_type == 'SNPs'){ paste0("SNPs_information_from_GWASCatalog_", genome, ".txt") } else { paste0("Genes_information_from_GWASCatalog_", genome, ".txt") } },
+    #  content = function(file) {
+    #    plotError_for_table = plotError_for_table()
+    #    if (plotError_for_table == TRUE){
+    #      tmp_gwascat = data.frame(Chr = as.character(), Pos = as.character(), P = as.character())
+    #    } else {
+    #      reference_gen = reference_genome()
+    #      region_of_interest = plotted_region()
+    #      gwascat_type = gwascat_mode()
+    #      genes_in_region = genes_region()
+    #      df = rbindlist(data_for_table()); df$p = as.numeric(df$p); df = df[order(as.numeric(df$p)),]; df$p = -log10(df$p)
+    #      if (gwascat_type == 'SNPs'){
+    #        tmp_gwascat = gwascat[[as.numeric(region_of_interest$chrom)]]
+    #        if (reference_gen == 'GRCh37 (hg19)') { tmp_gwascat = tmp_gwascat[which(tmp_gwascat$'Pos (hg19)' %in% df$pos),]; tmp_gwascat = tmp_gwascat[order(as.numeric(tmp_gwascat$'P-value')),] } else { tmp_gwascat = tmp_gwascat[which(tmp_gwascat$'Pos (hg38)' %in% df$pos),]; tmp_gwascat = tmp_gwascat[order(as.numeric(tmp_gwascat$'P-value')),] }
+    #        tmp_gwascat = tmp_gwascat[!duplicated(tmp_gwascat[c('SNP', 'Pubmed ID')]),]
+    #      } else {
+    #        tmp_gwascat = gwascat_genes[which(gwascat_genes$gene %in% genes_in_region$Gene),]
+    #        colnames(tmp_gwascat) = c('Gene', 'Trait', 'Study', 'Journal')
+    #      }
+    #    }
+    #    if (nrow(tmp_gwascat) >0){
+    #      if (gwascat_type == 'SNPs'){ tmp_gwascat = tmp_gwascat[, c('SNP', 'Gene', 'Trait', 'Pubmed ID', 'P-value')] }
+    #    } else {
+    #      if (gwascat_type == 'SNPs'){ tmp_gwascat = data.frame('SNP' = 'No', 'Gene' = 'entries', 'Trait' = 'in', 'Pubmed ID' = 'GWAS', 'P-value' = 'Catalog') } else { tmp_gwascat = data.frame('Gene' = 'No entries', 'Trait' = 'in the', 'Study' = 'GWAS', 'Journal' = 'Catalog') } 
+    #    }
+    #    write.table(tmp_gwascat, file, row.names = FALSE, quote=F, sep = "\t")
+    #  })
 
   ## DOWNLOAD SNPS TABLE
     output$download_SNPsTable <- downloadHandler(
@@ -324,13 +329,15 @@ server <- function(input, output) {
           rsid_region = rsid_region_for_table()
           reference_gen = reference_genome()
           df = rbindlist(data_for_table()); df$p = as.numeric(df$p); df = df[order(as.numeric(df$p)),]; df$p = -log10(df$p) 
+          if (reference_gen == 'GRCh37 (hg19)'){ df = merge(df, rsid_region, by.x = 'pos', by.y = 'POS', all.x = T) } else { df = merge(df, rsid_region, by.x = 'pos', by.y = 'POS_HG38', all.x = T) }
         }
         if (nrow(df) >0){
-            df = df[, c('rsid', 'pos', 'ref', 'alt', 'p', 'name')]
+            df = df[, c('ID', 'pos', 'REF', 'ALT', 'ALT_FREQS', 'p', 'name')]
+            colnames(df) = c('Rs ID', 'Pos', 'Ref', 'Alt', 'MAF', 'Log(p)', 'Study')
           } else {
-            df = data.frame(RsID = "No", POS = 'SNPs', Ref = "in", Alt = "the", p = "region of", Study = "interest")
+            df = data.frame(RsID = "No", POS = 'SNPs', Ref = "in", Alt = "the", MAF = "region", p = "of", Study = "interest")
+            colnames(df) = c('Rs ID', 'Pos', 'Ref', 'Alt', 'MAF', 'Log(p)', 'Study')
           }
-          colnames(df) = c('Rs ID', 'Pos', 'Ref', 'Alt', 'Log(p)', 'Study')
           write.table(df, file, row.names = F, quote = F, sep = "\t")
       })
 

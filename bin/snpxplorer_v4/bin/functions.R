@@ -28,16 +28,15 @@
 
 ## FIND RSID OF SNPS
   findRsID <- function(region_of_interest, reference_genome, span, MAIN_PATH, mode){
-    if (mode == 'new'){
-      tmp = snps_info_all[[as.numeric(region_of_interest$chrom)]]
-    } else {
-      tmp = fread(paste0(MAIN_PATH, 'data/databases/snps_info/chr', region_of_interest$chrom, '_snps_info.txt.gz'), h=T, stringsAsFactors=F)
-    }
+    #tmp = fread(paste0(MAIN_PATH, 'data/databases/snps_info/chr', region_of_interest$chrom, '_snps_info.txt.gz'), h=T, stringsAsFactors=F)
+    region_to_search = paste0(region_of_interest$chr, ':', region_of_interest$start, '-', region_of_interest$end)
     if (reference_genome == 'GRCh37 (hg19)'){ 
-      tmp = tmp[which((tmp$POS >= region_of_interest$start - span) & (tmp$POS <= region_of_interest$end + span)),] 
+      target_ref = paste0(MAIN_PATH, '/data/databases/snps_info/chrAll_snps_info_hg19.txt.gz')
     } else {
-      tmp = tmp[which((tmp$POS_HG38 >= region_of_interest$start - span) & (tmp$POS_HG38 <= region_of_interest$end + span)),] 
+      target_ref = paste0(MAIN_PATH, 'data/databases/snps_info/chrAll_snps_info_hg38.txt.gz')
     }
+    tmp = tabix(region_to_search, target_ref, check.chr = F, verbose = FALSE)
+    colnames(tmp) = c("POS", "POS_HG38", "ID", "REF", "ALT", "ALT_FREQS", "CHR")
     return(tmp)
   }
 
@@ -59,13 +58,21 @@
     return(genes_in_region)
   }
 ## EXTRACT SV TO PLOT
-  findSVs <- function(region_of_interest, reference_genome, all_str, all_str_hg38, span_value, sv_source){
-    if (reference_genome == 'GRCh37 (hg19)'){ tmp = all_str } else { tmp = all_str_hg38; tmp$end_pos = as.numeric(tmp$end_pos) }
-    svs = tmp[which(tmp$chr == paste0('chr', region_of_interest$chrom)),]
-    svs = svs[which(svs$start_pos >= (region_of_interest$start - span_value) & svs$end_pos <= (region_of_interest$end + span_value)),]
+  findSVs <- function(region_of_interest, reference_genome, span_value, sv_source, MAIN_PATH){
+    if (reference_genome == 'GRCh37 (hg19)'){ ref = paste0(MAIN_PATH, '/data/databases/Structural_variants/str_set_hg19.txt.gz') } else { ref = paste0(MAIN_PATH, '/data/databases/Structural_variants/str_set_hg38.txt.gz') }
+    region_to_search = paste0('chr', region_of_interest$chrom, ':', region_of_interest$start, '-', region_of_interest$end)
+    svs = tabix(region_to_search, ref, verbose = FALSE)
+    if (reference_genome == 'GRCh37 (hg19)'){
+      colnames(svs) = c('chrom', 'start_pos', 'end_pos', 'type', 'col', 'diff_alleles', 'source')
+    } else {
+      colnames(svs) = c('chrom', 'start_pos', 'end_pos', 'diff_alleles', 'type', 'col', 'source')
+    }
+    #if (reference_genome == 'GRCh37 (hg19)'){ tmp = all_str } else { tmp = all_str_hg38; tmp$end_pos = as.numeric(tmp$end_pos) }
+    #svs = tmp[which(tmp$chr == paste0('chr', region_of_interest$chrom)),]
+    #svs = svs[which(svs$start_pos >= (region_of_interest$start - span_value) & svs$end_pos <= (region_of_interest$end + span_value)),]
     if (sv_source != 'all'){ svs = svs[which(svs$source == sv_source),] }
     if (nrow(svs) >0){
-      svs$end_pos_plus = svs$end_pos + svs$diff_alleles
+      svs$end_pos_plus = as.numeric(svs$end_pos) + as.numeric(svs$diff_alleles)
       svs = svs[order(svs$start_pos),]
       # add y-position for the plot
       n = ceiling(nrow(svs)/2.5)
@@ -81,16 +88,22 @@
 ## EXTRACT DATA TO PLOT
   # function to extract data to plot
   extractDataForPlot = function(gwas_to_plot, region_of_interest, span, colors, res_example, reference_genome, MAIN_PATH){
+    region_to_search = paste0(region_of_interest$chrom, ':', region_of_interest$start, '-', region_of_interest$end)
     data_to_plot = list()                 # initialize the list that will contain data to plot
     main_path = paste0(MAIN_PATH, 'data/')
     if (is.null(gwas_to_plot)){           # this is the case when no input gwas are selected --> example data
       if (region_of_interest$chrom %in% c(16, 17, 18, 19, 20, 21)){
-        tmp = res_example[[(as.numeric(region_of_interest$chrom) - 15)]]
-        colnames(tmp) = c("chrom", "pos", "p")
+        tmp = res_example
+        colnames(tmp) = c("pos", "chrom", "p", "pos_hg38", "rsid", "maf", "ref", "alt")
         # in case, we need to liftover
-        if (reference_genome == 'GRCh38 (hg38)'){ data_lifted = liftOver_data(chrom = tmp$chrom, start = tmp$pos, end = tmp$pos + 1, type = "gwas", p = tmp$p, MAIN_PATH, from = 'hg19'); chrom_lf = data_lifted[[1]]; pos_lf = data_lifted[[2]]; p_lf = data_lifted[[3]]; tmp = data.table(chrom = chrom_lf, pos = pos_lf, p = p_lf) }
-        # then match based on the position
-        tmp = tmp[which((tmp$pos >= region_of_interest$start - span) & (tmp$pos <= region_of_interest$end + span)),]       
+        if (reference_genome == 'GRCh38 (hg38)'){ 
+          #data_lifted = liftOver_data(chrom = tmp$chrom, start = tmp$pos, end = tmp$pos + 1, type = "gwas", p = tmp$p, MAIN_PATH, from = 'hg19'); chrom_lf = data_lifted[[1]]; pos_lf = data_lifted[[2]]; p_lf = data_lifted[[3]]; tmp = data.table(chrom = chrom_lf, pos = pos_lf, p = p_lf) }
+          tmp = tmp[which((tmp$pos_hg38 >= region_of_interest$start - span) & (tmp$pos_hg38 <= region_of_interest$end + span)),]
+          tmp$pos = NULL; colnames(tmp)[3] = 'pos'; tmp = tmp[!is.na(tmp$pos),]
+        } else {
+          # then match based on the position
+          tmp = tmp[which((tmp$pos >= region_of_interest$start - span) & (tmp$pos <= region_of_interest$end + span)),]       
+        }
         tmp$col = colors[1]
         tmp$name = 'Example'
         data_to_plot[[(length(data_to_plot) + 1)]] = tmp
@@ -106,15 +119,18 @@
           tmp$name = 'Uploaded GWAS'
           tmp = tmp[which(tmp$chrom == region_of_interest$chrom),]
         } else {
-          tmp = fread(paste0(main_path, gwas_to_plot[i], '/chr', region_of_interest$chrom, '_', gwas_to_plot[i], '.txt.gz'), h=T, stringsAsFactors=F)
-          colnames(tmp) = c('chrom', 'pos', 'p')
-          # in case, we need to liftover
-          if (reference_genome == 'GRCh38 (hg38)'){ data_lifted = liftOver_data(chrom = tmp$chrom, start = tmp$pos, end = tmp$pos + 1, type = "gwas", p = tmp$p, MAIN_PATH, from = 'hg19'); chrom_lf = data_lifted[[1]]; pos_lf = data_lifted[[2]]; p_lf = data_lifted[[3]]; tmp = data.table(chrom = chrom_lf, pos = pos_lf, p = p_lf) }
+          if (reference_genome == 'GRCh38 (hg38)'){
+            tmp = tabix(region_to_search, paste0(main_path, gwas_to_plot[i], '/chr', region_of_interest$chrom, '_', gwas_to_plot[i], '_hg38.txt.gz'), check.chr = F, verbose = FALSE)
+            colnames(tmp) = c('chrom', 'p', "pos", "rsid", "maf", "ref", "alt")
+          } else {
+            tmp = tabix(region_to_search, paste0(main_path, gwas_to_plot[i], '/chr', region_of_interest$chrom, '_', gwas_to_plot[i], '.txt.gz'), check.chr = F, verbose = FALSE)
+            colnames(tmp) = c('pos', 'chrom', 'p', "pos_hg38", "rsid", "maf", "ref", "alt")
+          }
           plotError = FALSE
           tmp$name = str_replace_all(gwas_to_plot[i], '_', ' ')
         }
-        tmp = tmp[which((tmp$pos >= region_of_interest$start - span) & (tmp$pos <= region_of_interest$end + span)),]
-        tmp$col = colors[i]; tmp$pos = as.numeric(tmp$pos); 
+        #tmp = tmp[which((tmp$pos >= region_of_interest$start - span) & (tmp$pos <= region_of_interest$end + span)),]
+        tmp$col = colors[i]; tmp$pos = as.numeric(tmp$pos); tmp$p = as.numeric(tmp$p)
         data_to_plot[[i]] = tmp
       }
     }
@@ -153,13 +169,54 @@
 
 ## EXTRACT RECOMBINATION RATES
   # function to extract recombination rates to plot
-  extractRecombination = function(region_of_interest, reference_genome, genetic_map, genetic_map_hg38, span){
-    if (reference_genome == 'GRCh37 (hg19)'){ tmp = genetic_map } else { tmp = genetic_map_hg38 }
-    tmp = tmp[[as.numeric(region_of_interest$chrom)]]
+  extractRecombination = function(region_of_interest, reference_genome, span, MAIN_PATH){
+    #if (reference_genome == 'GRCh37 (hg19)'){ tmp = genetic_map } else { tmp = genetic_map_hg38 }
+    if (reference_genome == 'GRCh37 (hg19)'){ ref = paste0(MAIN_PATH, '/data/databases/Recombination_rates/recombination_rates_hg19.txt.gz') } else { ref = paste0(MAIN_PATH, '/data/databases/Recombination_rates/recombination_rates_hg38.txt.gz') }
+    region_to_search = paste0('chr', region_of_interest$chrom, ':', as.character(region_of_interest$start), '-', as.character(region_of_interest$end))
+    tmp = tabix(region_to_search, ref, verbose = FALSE)
+    #tmp = tmp[[as.numeric(region_of_interest$chrom)]]
     colnames(tmp) = c("chr", "pos", "combined", "cm")
     tmp$pos = as.numeric(tmp$pos); tmp$combined = as.numeric(tmp$combined)
-    tmp = tmp[which((tmp$pos >= region_of_interest$start - span) & (tmp$pos <= region_of_interest$end + span)),]
+    #tmp = tmp[which((tmp$pos >= region_of_interest$start - span) & (tmp$pos <= region_of_interest$end + span)),]
     return(tmp)
+  }
+
+## DENSITY OF PVALUES
+  # function to find density line of p-value across chromosomal position
+  DensityLinePvalue <- function(snp.info, wind.n, smooth.par){
+    # define results
+    res = list()
+    # define intervals
+    intervals = seq(min(snp.info$pos), max(snp.info$pos), length.out = wind.n)
+    # loop through values of the intervals
+    for (i in 1:wind.n){
+      # take data in intervals
+      sb = snp.info[which(snp.info$pos >= intervals[i] & snp.info$pos <= intervals[i+1]),]
+      sb$p = as.numeric(sb$p); sb = sb[!is.na(sb$p),]
+      if (nrow(sb) >0){
+        # create results
+        tmp_res = data.frame(window = intervals[i] + (intervals[i + 1] - intervals[i])/2, pvalue = -log10(min(sb$p)), error = as.numeric(quantile(sb$p, na.rm=T, probs = 0.025)))
+        res[[i]] = tmp_res
+      } else {
+        tmp_res = data.frame(window = intervals[i] + (intervals[i + 1] - intervals[i])/2, pvalue = 0, error = 0)
+      }
+    }
+    res = rbindlist(res)
+    # remove NA and substitute them with 0
+    res$error[is.na(res$error)] = 0
+    # local regression on maximal values per bin and prediction
+    options(warn = -1)
+    lo <- loess(res$pvalue ~ res$window, span=smooth.par)
+    xl <- seq(min(res$window), max(res$window), (max(res$window) - min(res$window))/100)
+    pred <- predict(lo, xl)
+    pred[which(pred < 0)] <- 0
+    # add limits -- left and right for polygon function
+    xl <- c(xl[1], xl, xl[length(xl)])
+    pred <- c(0, pred, 0)
+    options(warn = 0)
+    # make object to plot
+    toplot = data.frame(x = xl, y = pred)
+    return(toplot)
   }
 
 ## PLOTS
@@ -239,7 +296,7 @@
   }
 
   # function to plot points and recombination rates -- based on ggplot
-  Plot <- function(reference_genome, region_of_interest, rsid_region, snps_data, snp_interest, recomb_data, significance, pos_start, pos_end, plot_type, recomb, genes_in_region, svs_in_region, showExons, ld){
+  Plot <- function(reference_genome, region_of_interest, snps_data, snp_interest, recomb_data, significance, pos_start, pos_end, plot_type, recomb, genes_in_region, svs_in_region, showExons, ld){
     # PLOT 1 IS THE MAIN SNP-PLOT
       # put data together for the plot
       data_combined = rbindlist(snps_data)
@@ -265,9 +322,10 @@
           }
         }
         data_combined = data_combined[!is.na(data_combined$bin),]
-        plot_snp = ggplot() + stat_smooth(data = data_combined, aes(x = bin, y = -log10(bin_value), fill = col, alpha = 0.5), geom = "area", method = 'loess', span = 0.5, se = T) + ylab('-Log10(P-value)') + xlab('') + ylim(0, significance) + 
+        plot_snp = ggplot() + stat_smooth(data = data_combined, aes(x = bin, y = -log10(bin_value), fill = col, alpha = 0.5), geom = "area", method = 'loess', se = T) + 
+          scale_fill_manual(values=group_colors, name = 'GWAS', labels = unique(data_combined$name)) + ylab('-Log10(P-value)') + xlab('') + ylim(0, significance) + 
           ggtitle(paste0(region_of_interest$chrom, ':', region_of_interest$start, '-', region_of_interest$end)) + scale_alpha(guide = 'none') + xlim(region_of_interest$start, region_of_interest$end) +
-          theme(legend.position = "top", axis.text.x = element_blank(), axis.ticks.x = element_blank()) + scale_fill_discrete(name = 'GWAS', labels = unique(data_combined$name))
+          theme(legend.position = "top", axis.text.x = element_blank(), axis.ticks.x = element_blank())
       }
       # add recombination rates if they are requested -- first need to scale the recombination rates
       if (recomb == 'Yes'){
@@ -302,18 +360,18 @@
         guides(colour = guide_legend(override.aes = list(size=8)))
     # PLOT 3 IS THE SV
       # plot small svs as dots, big svs as segments
-      small_svs = svs_in_region[which(svs_in_region$diff_alleles < 3000)]; big_svs = svs_in_region[which(svs_in_region$diff_alleles > 3000)]
+      small_svs = svs_in_region[which(as.numeric(svs_in_region$diff_alleles) < 3000),]; big_svs = svs_in_region[which(as.numeric(svs_in_region$diff_alleles) > 3000),]
       if (nrow(small_svs) >0){
-        plot_sv = ggplot() + geom_point(data = small_svs, aes(x = start_pos, y = y, colour = type, size = 3), shape = 15) + xlim(region_of_interest$start, region_of_interest$end) + 
+        plot_sv = ggplot() + geom_point(data = small_svs, aes(x = as.numeric(start_pos), y = y, colour = type, size = 3), shape = 15) + xlim(region_of_interest$start, region_of_interest$end) + 
           theme(legend.position = "top", axis.text.y = element_blank(), axis.ticks.y = element_blank()) + scale_color_discrete(name = 'SV Type', labels = unique(svs_in_region$type)) + 
           ylab('Structural variation') + xlab('Genomic Position (bp)') + scale_size(guide = 'none')
       } else if (nrow(big_svs) >0){
-        plot_sv = ggplot() + geom_segment(data = big_svs, aes(x = start_pos, y = y, xend = end_pos, yend = y, size = 3, color = type)) + xlim(region_of_interest$start, region_of_interest$end) + 
+        plot_sv = ggplot() + geom_segment(data = big_svs, aes(x = as.numeric(start_pos), y = y, xend = as.numeric(end_pos), yend = y, size = 3, color = type)) + xlim(region_of_interest$start, region_of_interest$end) + 
           theme(legend.position = "top", axis.text.y = element_blank(), axis.ticks.y = element_blank()) + scale_color_discrete(name = 'SV Type', labels = unique(svs_in_region$type)) + 
           ylab('Structural variation') + xlab('Genomic Position (bp)') + scale_size(guide = 'none')
       }
       if (nrow(big_svs) >0){
-        plot_sv = plot_sv + geom_segment(data = big_svs, aes(x = start_pos, y = y, xend = end_pos, yend = y, size = 3, color = type)) 
+        plot_sv = plot_sv + geom_segment(data = big_svs, aes(x = as.numeric(start_pos), y = y, xend = as.numeric(end_pos), yend = y, size = 3, color = type)) 
         plot_sv = plot_sv + theme(plot.margin = margin(0, 1, 1, 1, "pt")) + scale_size(guide = 'none')
       }
       plot_sv = plot_sv + theme(plot.margin = margin(0, 1, 1, 1, "pt"), axis.text=element_text(size=14), axis.title=element_text(size=16, face="bold")) + scale_size(guide = 'none') +
@@ -324,6 +382,104 @@
     return(combined)
   }
 
+  # function to plot points and recombination rates -- based on ggplot
+  Plot_My <- function(reference_genome, region_of_interest, snps_data, snp_interest, recomb_data, significance, pos_start, pos_end, plot_type, recomb, genes_in_region, svs_in_region, showExons, ld){
+    # PLOT 1 IS THE MAIN SNP-PLOT
+      # put data together for the plot
+      data_combined = rbindlist(snps_data)
+      # change position and pvalue to be numbers
+      data_combined$pos = as.numeric(data_combined$pos); data_combined$p = as.numeric(data_combined$p)
+      # set colors
+      group_colors = c(); for (i in unique(data_combined$col)){ group_colors = c(group_colors, i = i) }; names(group_colors) = unique(data_combined$col2)
+      # set layout for the plot
+      par(mar = c(0, 5, 4, 5))
+      layout(matrix(c(1,1,2,3), nrow = 4, ncol = 1, byrow = T))
+      # basic plot 1
+      plot(x = 0, y = 0, cex = 1.50, pch = 16, col = 'white', ylab = '-Log10(P-value)', xlab = '', ylim = c(0, significance), 
+        main = paste0(region_of_interest$chrom, ':', region_of_interest$start, '-', region_of_interest$end), 
+        xlim = c(region_of_interest$start, region_of_interest$end), xaxt = 'none', cex.lab = 2.25, cex.axis = 1.80, cex.main = 4)
+      # rectange for color panel
+      rect(par("usr")[1], par("usr")[3], par("usr")[2], par("usr")[4], col = "grey95")
+      # grid
+      grid(nx = NULL, ny = NULL, lty = 1, col = "white", lwd = 1.5)
+      # add recombination rates if they are requested -- first need to scale the recombination rates
+      if (recomb == 'Yes'){
+        recomb_data$combined_scaled = (significance * (recomb_data$combined)) / 100
+        lines(recomb_data$pos, recomb_data$combined_scaled, col = 'orange', lwd = 1.25)
+        recomb_axis <- significance * ((seq(0, 100, 25) - min(seq(0, 100, 25)))/(max(seq(0, 100, 25)) - min(seq(0, 100, 25))))
+        axis(side = 4, at = recomb_axis, labels = seq(0, 100, 25), col= 'orange', col.axis = "orange", xpd=T, cex.axis = 1.80)
+        text(x = max(region_of_interest$end), y = significance/3*2, "Recombination rate (cM/Mb)", srt = -90, col='orange', xpd=T, pos = 4, offset = 6, cex = 2.25)
+      }
+      # plot points
+      if (plot_type == 'Scatter'){
+        # points        
+        points(x = data_combined$pos, y = -log10(data_combined$p), cex = 3, pch = 16, col = alpha(data_combined$col, 0.8))
+        # ld in case it's requested
+        if (!is.na(ld)){
+          ld_df = merge(ld, data_combined, by.x = 'SNP_B', by.y = 'rsid')
+          points(x = ld_df$pos, y = -log10(ld_df$p), cex = 3, pch = 16, col = alpha(ld_df$colo, 0.8))
+        }
+        # annotate top snp
+        top = data_combined[which(data_combined$p == min(data_combined$p)),]
+        text(x = top$pos, y = -log10(top$p), label = top$rsid, pos = 3, offset = 1, cex = 1.50)
+        # legend
+        legend('topright', legend = unique(data_combined$name), col = group_colors, pch = 16, ncol = length(group_colors), bg = 'grey95', pt.cex = 3, cex = 1.80)
+      # else plot densities
+      } else {
+        # densities
+        for (i in 1:length(snps_data)){
+          toplot <- DensityLinePvalue(snp.info = snps_data[[i]], wind.n = 50, smooth.par = 0.2)
+          polygon(x = toplot$x, y = toplot$y, col = alpha(group_colors[i], 0.6), lwd=3, xaxs="i", border = group_colors[i])
+        }
+        # legend
+        legend('topright', legend = unique(data_combined$name), col = group_colors, lty = 1, ncol = length(group_colors), bg = 'grey95', lwd = 4, cex = 1.80)
+      }
+    # PLOT 2 IS THE GENE TRACK
+      # parse gene-data
+      genes_in_region$y_space = genes_in_region$y + 0.05*abs(min(genes_in_region$y))
+      genes_in_region$middle = genes_in_region$txStart + (genes_in_region$txEnd - genes_in_region$txStart)/2
+      genes_in_region$start_strand = ifelse(genes_in_region$strand == '+', genes_in_region$txStart, genes_in_region$txEnd)
+      genes_in_region$end_strand = ifelse(genes_in_region$strand == '+', genes_in_region$txEnd, genes_in_region$txStart)
+      genes_in_region$color = ifelse(genes_in_region$strand == '+', 'navy', 'coral')
+      # basic plot 2
+      par(mar = c(0, 5, 1, 5))
+      plot(x = 0, y = 0, cex = 1.50, pch = 16, col = 'white', ylab = 'Gene track', xlab = '', ylim = c(min(genes_in_region$y) - 0.5, max(genes_in_region$y) + 0.5),
+        xlim = c(region_of_interest$start, region_of_interest$end), xaxt = 'none', cex.lab = 2.25, yaxt = 'none')
+      # rectange for color panel
+      rect(par("usr")[1], par("usr")[3], par("usr")[2], par("usr")[4], col = "grey95")
+      # grid
+      grid(nx = NULL, ny = NULL, lty = 1, col = "white", lwd = 1.5)
+      # plot gene segment without text and exons
+      segments(x0 = genes_in_region$start_strand, y0 = genes_in_region$y_space, x1 = genes_in_region$end_strand, y1 = genes_in_region$y_space, lwd = 10, col = genes_in_region$color)
+      # if there are not too many genes, show the names
+      if (nrow(genes_in_region) <= 10){ txt_size = 2.25 } else if (nrow(genes_in_region) <= 20){ txt_size = 1.75 } else if (nrow(genes_in_region) <= 30){ txt_size = 1.25 } else if (nrow(genes_in_region) <= 40){ txt_size = 0.75 } else if (nrow(genes_in_region) <= 50){ txt_size = 0.25 }
+      if (nrow(genes_in_region) <= 50){ text(x = genes_in_region$middle, y = genes_in_region$y_space, label = genes_in_region$Gene, cex = txt_size, pos = 3, offset = 1.5) }
+      # legend for strand
+      legend('topright', legend = c('Forward strand', 'Reverse strand'), col = c('navy', 'coral'), lty = 1, ncol = 2, bg = 'grey95', lwd = 4, cex = 1.80)
+      # if exons are requested, plot them
+      if (showExons == 'Yes'){
+        exons_df = data.frame(start = as.numeric(unlist(strsplit(genes_in_region$exonStarts, ','))), end = as.numeric(unlist(strsplit(genes_in_region$exonEnds, ','))), y_pos = rep(genes_in_region$y_space, genes_in_region$exonCount), strand = rep(genes_in_region$strand, genes_in_region$exonCount))
+        exons_df$color = ifelse(exons_df$strand == '+', 'navy', 'coral')
+        size = ((max(genes_in_region$y) + 0.5) - (min(genes_in_region$y) - 0.5)) * 0.025
+        rect(xleft = exons_df$start, ybottom = exons_df$y_pos - size, xright = exons_df$end, ytop = exons_df$y_pos + size, col = 'white', border = 'black')
+      }
+    # PLOT 3 IS THE SV
+      # basic plot 3
+      par(mar = c(0, 5, 1, 5))
+      plot(x = 0, y = 0, cex = 1.50, pch = 16, col = 'white', ylab = 'Genomic Position (bp)', xlab = '', ylim = c(min(genes_in_region$y) - 0.5, max(genes_in_region$y) + 0.5),
+        xlim = c(region_of_interest$start, region_of_interest$end), cex.lab = 2.25, yaxt = 'none', cex.axis = 1.80)
+      # rectange for color panel
+      rect(par("usr")[1], par("usr")[3], par("usr")[2], par("usr")[4], col = "grey95")
+      # grid
+      grid(nx = NULL, ny = NULL, lty = 1, col = "white", lwd = 1.5)
+      # plot gene segment without text and exons
+      svs_in_region$col = as.character(svs_in_region$col)
+      svs_in_region$start_pos = as.numeric(svs_in_region$start_pos); svs_in_region = svs_in_region[!is.na(svs_in_region$start_pos),]; svs_in_region$end_pos = as.numeric(svs_in_region$end_pos);
+      segments(x0 = as.numeric(svs_in_region$start_pos), y0 = svs_in_region$y, x1 = as.numeric(svs_in_region$end_pos), y1 = svs_in_region$y, lwd = 10, col = svs_in_region$col)
+      # legend
+      legend('topright', legend = unique(svs_in_region$type), col = unique(svs_in_region$col), lty = 1, ncol = length(unique(svs_in_region$type)), bg = 'grey95', lwd = 4, cex = 1.80)
+  }
+ 
   # function to plot error
   PlotError <- function(title){
     p <- plotly_empty(type = "scatter", mode = "markers") %>% config(displayModeBar = FALSE) %>% layout( title = list(text = title, yref = "paper", y = 0.5))
@@ -410,12 +566,13 @@
     # now choose which snp to find LD for
     if (ld_type == 'Input variant'){
       all_data = rbindlist(data_to_plot); target_snp = all_data[which(all_data$pos == snp_interest),]
-      if (reference_genome == 'GRCh37 (hg19)'){ target_snp = merge(target_snp, rsid_region, by.x = 'pos', by.y = 'POS') } else { target_snp = merge(target_snp, rsid_region, by.x = 'pos', by.y = 'POS_HG38') }
-      target_snp = target_snp$ID
+      #if (reference_genome == 'GRCh37 (hg19)'){ target_snp = merge(target_snp, rsid_region, by.x = 'pos', by.y = 'POS') } else { target_snp = merge(target_snp, rsid_region, by.x = 'pos', by.y = 'POS_HG38') }
+      target_snp = target_snp$rsid
     } else {
       all_data = rbindlist(data_to_plot); top_snps = head(all_data[order(all_data$p)], 100)     # extract top snps
-      if (reference_genome == 'GRCh37 (hg19)'){ top_snps = merge(top_snps, rsid_region, by.x = 'pos', by.y = 'POS') } else { top_snps = merge(top_snps, rsid_region, by.x = 'pos', by.y = 'POS_HG38') }
-      target_snp = top_snps[!is.na(top_snps$ID),]; target_snp = head(target_snp$ID[order(target_snp$p)], 1)
+      target_snp = top_snps[!is.na(top_snps$rsid),]; target_snp = target_snp$rsid[1]
+      #if (reference_genome == 'GRCh37 (hg19)'){ top_snps = merge(top_snps, rsid_region, by.x = 'pos', by.y = 'POS') } else { top_snps = merge(top_snps, rsid_region, by.x = 'pos', by.y = 'POS_HG38') }
+      #target_snp = top_snps[!is.na(top_snps$ID),]; target_snp = head(target_snp$ID[order(target_snp$p)], 1)
     }
     system(paste0("./plink --bfile ", MAIN_PATH, "data/databases/1000G/chr", region_of_interest$chrom, " --keep tmp_populations.txt --r2 --ld-snp ", target_snp, " --ld-window-kb 250000 --out tmp_ld"))
     ld <- fread("tmp_ld.ld", h=T)        # read ld file back
@@ -423,13 +580,15 @@
     ld$colo <- NA; ld$colo[which(abs(ld$R) >= 0.2)] <- "deepskyblue3"; ld$colo[which(abs(ld$R) >= 0.4)] <- "yellow"; ld$colo[which(abs(ld$R) >= 0.6)] <- "orange"; ld$colo[which(abs(ld$R) >= 0.8)] <- "red"
     # finally add genome hg38 position in case this is needed
     if (reference_genome == 'GRCh38 (hg38)'){ 
-      ld = merge(ld, rsid_region, by.x = 'SNP_B', by.y = 'ID'); ld = ld[, c('SNP_A', 'SNP_B', 'POS_HG38', 'R2', 'colo')]; colnames(ld) = c('SNP_A', 'SNP_B', 'BP_B', 'R2', 'colo')
+      ld = merge(ld, all_data, by.x = 'SNP_B', by.y = 'rsid'); ld = ld[, c('SNP_A', 'SNP_B', 'pos', 'R2', 'colo')]; colnames(ld) = c('SNP_A', 'SNP_B', 'BP_B', 'R2', 'colo')
     } else { 
       ld = ld[, c('SNP_A', 'SNP_B', 'BP_B', 'R2', 'colo')]
     }
     system(paste0("rm ", MAIN_PATH, "snpXplorer_v4/tmp_*"))
     return(ld)
   }
+
+  findLD_topmed <- function(ld_type, data_to_plot, rsid_region, reference_genome, region_of_interest){}
 
 ## PLOT GTEX
   # function to plot gtex expression information
@@ -468,58 +627,92 @@
 
 ## FIND EQTLS
   # function to extract eqtls
-  extractEqtls <- function(region_of_interest, reference_genome, MAIN_PATH, tissues_interest, mapping_ensembl){
-    if (reference_genome == 'GRCh37 (hg19)'){ data_lifted = liftOver_data(chrom = region_of_interest$chrom, start = region_of_interest$start, end = region_of_interest$end, type = 'interval', p = NA, MAIN_PATH = MAIN_PATH, from = 'hg19') }
-    chrom = data_lifted[[1]]; start = data_lifted[[2]]; end = data_lifted[[3]]
-    eqtls = fread(paste0(MAIN_PATH, 'data/databases/eqtls_snpxplorer/chr', chrom, '_summary_eqtls.txt.gz'), h = F, stringsAsFactors = F)
-    # restrict by position
-    eqtls = eqtls[which(eqtls$V1 >= start & eqtls$V1 <= end),]
+  extractEqtls <- function(region_of_interest, reference_genome, MAIN_PATH, tissues_interest){
+    region_to_search = paste0(region_of_interest$chrom, ':', region_of_interest$start, '-', region_of_interest$end)
+    print(region_to_search)
+    if (reference_genome == 'GRCh37 (hg19)'){
+      eqtls = tabix(region_to_search, paste0(MAIN_PATH, 'data/databases/eqtls_snpxplorer/chr', region_of_interest$chrom, '_summary_eqtls_hg37.txt.gz'), check.chr = F, verbose = FALSE)
+      if (nrow(eqtls) >0){
+        colnames(eqtls) = c('ensg', 'a1', 'a2', 'tissue', 'effect', 'p', 'gene', 'pos', 'chr')
+      } else {
+        eqtls = data.frame(ensg = as.character(), a1 = as.character(), a2 = as.character(), tissue = as.character(), effect = as.character(), p = as.character(), gene = as.character(), pos = as.character(), chr = as.character())
+      }
+    } else {
+      eqtls = tabix(region_to_search, paste0(MAIN_PATH, 'data/databases/eqtls_snpxplorer/chr', region_of_interest$chrom, '_summary_eqtls_hg38.txt.gz'), check.chr = F, verbose = FALSE)
+      if (nrow(eqtls) >0){
+        colnames(eqtls) = c('pos', 'ensg', 'a1', 'a2', 'tissue', 'effect', 'p', 'gene', 'start_hg19', 'chr')
+      } else {
+        eqtls = data.frame(pos = as.character(), ensg = as.character(), a1 = as.character(), a2 = as.character(), tissue = as.character(), effect = as.character(), p = as.character(), gene = as.character(), start_hg19 = as.character(), chr = as.character())
+      }
+    }
     # restrict by tissue
     if (!('All tissues' %in% tissues_interest)){ 
       tissues_interest = str_replace_all(tissues_interest, '-', ''); tissues_interest = str_replace_all(tissues_interest, '  ', '_'); tissues_interest = str_replace_all(tissues_interest, ' ', '_')
       tissues_interest = str_replace_all(tissues_interest, '\\(', ''); tissues_interest = str_replace_all(tissues_interest, '\\)', '') 
-      eqtls = eqtls[which(eqtls$V4 %in% tissues_interest)]
-    }
-    # add gene name
-    eqtls$V5 = str_split_fixed(eqtls$V5, '\\.', 2)[, 1]; eqtls = merge(eqtls, mapping_ensembl, by.x = "V5", by.y = 'ensembl')
+      eqtls = eqtls[which(eqtls$tissue %in% tissues_interest),]
+    } 
     # reduce and output
-    eqtls = eqtls[, c('V1', 'V2', 'V3', 'V4', 'V6', 'V7', 'gene')]; eqtls = eqtls[order(eqtls$V7),]
-    # finally if reference genome was hg19, need to liftover again 
-    if (reference_genome == 'GRCh37 (hg19)' && nrow(eqtls) >0){ 
-      eqtls$index = seq(1, nrow(eqtls))
-      data_lifted = liftOver_data(chrom = rep(region_of_interest$chrom, nrow(eqtls)), start = eqtls$V1, end = eqtls$V1 + 1, type = 'complete', p = eqtls$index, MAIN_PATH = MAIN_PATH, from = 'hg38') 
-      tmp = data.frame(pos_hg19 = data_lifted[[2]], index = data_lifted[[3]])
-      eqtls = merge(eqtls, tmp, by = 'index')
-    }
+    eqtls = eqtls[, c('chr', 'pos', 'a1', 'a2', 'tissue', 'gene', 'effect', 'p')]
+    colnames(eqtls) = c('Chr', 'Pos', 'A1', 'A2', 'Tissue', 'Gene', 'Effect', 'P')
     return(eqtls)
   }
 
 ## FIND SQTLS
   # function to extract sqtls
-  extractSqtls <- function(region_of_interest, reference_genome, MAIN_PATH, tissues_interest, mapping_ensembl = mapping.ensembl){
-    if (reference_genome == 'GRCh37 (hg19)'){ data_lifted = liftOver_data(chrom = region_of_interest$chrom, start = region_of_interest$start, end = region_of_interest$end, type = 'interval', p = NA, MAIN_PATH = MAIN_PATH, from = 'hg19') }
-    chrom = data_lifted[[1]]; start = data_lifted[[2]]; end = data_lifted[[3]]
-    sqtls = fread(paste0(MAIN_PATH, 'data/databases/summary_sqtls/chr', chrom, '_summary_sqtls.txt.gz'), h = F, stringsAsFactors = F)
-    # restrict by position
-    sqtls = sqtls[which(sqtls$V1 >= start & sqtls$V1 <= end),]
+  extractSqtls <- function(region_of_interest, reference_genome, MAIN_PATH, tissues_interest){
+    region_to_search = paste0(region_of_interest$chrom, ':', region_of_interest$start, '-', region_of_interest$end)
+    if (reference_genome == 'GRCh37 (hg19)'){
+      sqtls = tabix(region_to_search, paste0(MAIN_PATH, 'data/databases/summary_sqtls/chr', region_of_interest$chrom, '_summary_sqtls_hg37.txt.gz'), check.chr = F, verbose = FALSE)
+      if (nrow(sqtls) >0){
+        colnames(sqtls) = c('ensg', 'a1', 'a2', 'effect', 'p', 'tissue', 'gene', 'pos', 'chr')
+      } else {
+        sqtls = data.frame(ensg = as.character(), a1 = as.character(), a2 = as.character(), tissue = as.character(), effect = as.character(), p = as.character(), gene = as.character(), pos = as.character(), chr = as.character())
+      }
+    } else {
+      sqtls = tabix(region_to_search, paste0(MAIN_PATH, 'data/databases/summary_sqtls/chr', region_of_interest$chrom, '_summary_sqtls_hg38.txt.gz'), check.chr = F, verbose = FALSE)
+      if (nrow(sqtls) >0){
+        colnames(sqtls) = c('pos', 'ensg', 'a1', 'a2', 'effect', 'p', 'tissue', 'gene', 'start_hg19', 'chr')
+      } else {
+        sqtls = data.frame(pos = as.character(), ensg = as.character(), a1 = as.character(), a2 = as.character(), tissue = as.character(), effect = as.character(), p = as.character(), gene = as.character(), start_hg19 = as.character(), chr = as.character())
+      }
+    }
     # restrict by tissue
     if (!('All tissues' %in% tissues_interest)){ 
       tissues_interest = str_replace_all(tissues_interest, '-', ''); tissues_interest = str_replace_all(tissues_interest, '  ', '_'); tissues_interest = str_replace_all(tissues_interest, ' ', '_')
       tissues_interest = str_replace_all(tissues_interest, '\\(', ''); tissues_interest = str_replace_all(tissues_interest, '\\)', '') 
-      sqtls = sqtls[which(sqtls$V7 %in% tissues_interest)]
-    }
-    # add gene name
-    sqtls$V4 = str_split_fixed(sqtls$V4, '\\.', 2)[, 1]; sqtls = merge(sqtls, mapping_ensembl, by.x = "V4", by.y = 'ensembl')
+      sqtls = eqtls[which(sqtls$tissue %in% tissues_interest),]
+    } 
     # reduce and output
-    sqtls = sqtls[, c('V1', 'V2', 'V3', 'V7', 'V5', 'V6', 'gene')]; sqtls = sqtls[order(sqtls$V6),]
-    # finally if reference genome was hg19, need to liftover again 
-    if (reference_genome == 'GRCh37 (hg19)' && nrow(sqtls) >0){ 
-      sqtls$index = seq(1, nrow(sqtls))
-      data_lifted = liftOver_data(chrom = rep(region_of_interest$chrom, nrow(sqtls)), start = sqtls$V1, end = sqtls$V1 + 1, type = 'complete', p = sqtls$index, MAIN_PATH = MAIN_PATH, from = 'hg38') 
-      tmp = data.frame(pos_hg19 = data_lifted[[2]], index = data_lifted[[3]])
-      sqtls = merge(sqtls, tmp, by = 'index')
-    }
+    sqtls = sqtls[, c('chr', 'pos', 'a1', 'a2', 'tissue', 'gene', 'effect', 'p')]
+    colnames(sqtls) = c('Chr', 'Pos', 'A1', 'A2', 'Tissue', 'Gene', 'Effect', 'P')
     return(sqtls)
+  }
+
+## FIND GWASCATALOG INFO
+  # function to extract Gwas cat info
+  findGWAScat <- function(region_of_interest, reference_genome, MAIN_PATH, gwascat_type){
+    region_to_search = paste0(region_of_interest$chrom, ':', region_of_interest$start, '-', region_of_interest$end)
+    if (reference_genome == 'GRCh37 (hg19)'){
+      gwascat = tabix(region_to_search, paste0(MAIN_PATH, 'data/databases/GWAS_catalog/Gwas_catalog_hg19.txt.gz'), check.chr = F, verbose = FALSE)
+      colnames(gwascat) = c('chr', 'pos', 'pos_hg38', 'rsid', 'gene', 'trait', 'pubmed_id', 'p')
+    } else {
+      gwascat = tabix(region_to_search, paste0(MAIN_PATH, 'data/databases/GWAS_catalog/Gwas_catalog_hg38.txt.gz'), check.chr = F, verbose = FALSE)
+      colnames(gwascat) = c('chr', 'pos_hg19', 'pos', 'rsid', 'gene', 'trait', 'pubmed_id', 'p')
+    }
+    if (nrow(gwascat) >0){
+      tmp = gwascat[, c('chr', 'pos', 'rsid', 'p', 'gene', 'trait', 'pubmed_id')]
+      colnames(tmp) = c('Chr', 'Pos', 'RsID', 'P', 'Gene', 'Trait', 'Pubmed')
+      if (gwascat_type == 'SNPs'){
+        tmp = tmp[order(as.numeric(tmp$P)),]
+        tmp = tmp[!duplicated(tmp$Pos),]
+      } else {
+        tmp = tmp[order(as.numeric(tmp$P)),]
+        tmp = tmp[!duplicated(tmp$Gene),]
+      }
+    } else {
+      tmp = data.frame(Chr = as.character(), Pos = as.character(), RsID = as.character(), P = as.character(), Gene = as.character(), Trait = as.character(), Pubmed = as.character())
+    }
+    return(tmp)
   }
 
 ## IDENTIFY TARGET REGION FOR THE CROSS-REFERENCE LINK
@@ -536,6 +729,11 @@
       target <- list("gene_name", region)
     }
     return(target)
+  }
+
+## CHECK IF STRING IS EMAIL ADDRESS
+  isValidEmail <- function(x) {
+    grepl("\\<[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}\\>", as.character(x), ignore.case=TRUE)
   }
 
 ## NOT USED

@@ -222,9 +222,9 @@
         }
         used = values[[1]]; free = values[[2]]; cache = values[[3]]
         #memfree <- as.numeric(system("awk '/MemFree/ {print $2}' /proc/meminfo", intern=T))
-        memfree = free + cache
+        memfree = tryCatch({ free + cache }, error = function(e){ 0 }) 
         # check if this is >8Gb
-        if (memfree > 4 && analysis_type != "enrichment"){
+        if (memfree > 8 && analysis_type != "enrichment"){
             START = TRUE
             print("Start the job!")
         } else if (memfree > 8 && analysis_type == "enrichment"){
@@ -249,6 +249,7 @@
         load(snps_info_path)
 
         # CHECK WHETHER INPUT LIST OF SNPS WAS CORRECT
+        if (!is.na(data)){ if (length(unique(data$chr)) == 1 && unique(data$chr) == "NA"){ data = NA } }
         if ((is.na(data)) || (length(data) == 1) || (nrow(data) == 0)){
             system(paste0("sendEmail -f n.tesi@amsterdamumc.nl -t ", username, " -u 'snpXplorer input error' -m 'Dear user, \n\n thanks so much for using snpXplorer and its annotation pipeline. \n\n Unfortunately, an error occurred while reading the input SNPs you provided. Possible reasons include: \n- the number of SNP(s) is >1000 for enrichment analysis; \n- the number of SNP(s) is >10000 for mapping analysis; \n- the input type is wrong; \n\n Please correct the input and try again. In the More/Help section of the website you can find example datasets. \n\n Please do not hesitate to contact us in case of any question. \n snpXplorer team.' -a '", inpf, "' -cc n.tesi@amsterdamumc.nl snpxplorer@gmail.com -S /usr/sbin/sendmail"))
             # zip data

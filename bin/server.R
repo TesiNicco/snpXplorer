@@ -1046,7 +1046,7 @@ function.catchChromosome <- function(chr, gwas, res_example){
     #read data
     dat <- as.data.frame(matrix(data = NA, nrow = 0, ncol = 3))
     try(dat <- res_example[[chr_toMatch]], silent = T)
-    colnames(dat) <- c("chr", "pos", "p")
+    if (ncol(dat) > 3){ colnames(dat) <- c('pos', 'chr', 'p', 'na', 'na', 'na', 'na', 'na') } else { colnames(dat) <- c('chr', 'pos', 'p') }
     dat <- dat[!which(is.na(dat$p)),]
     chrom = dat$chr[1]
     dat$p <- as.numeric(dat$p)
@@ -1059,7 +1059,7 @@ function.catchChromosome <- function(chr, gwas, res_example){
 
     #read data
     dat <- fread(fname, h=T, stringsAsFactors = F)
-    colnames(dat) <- c('chr', 'pos', 'p')
+    if (ncol(dat) > 3){ colnames(dat) <- c('pos', 'chr', 'p', 'na', 'na', 'na', 'na', 'na') } else { colnames(dat) <- c('chr', 'pos', 'p') }
     dat$p <- as.numeric(dat$p)
     dat <- dat[!which(is.na(dat$p)),]
     dat$p[which(dat$p == 0)] <- 0.00000001
@@ -1251,7 +1251,7 @@ function.manageInput <- function(inp, supp_f, res_example){
   # Example as input
   if (length(inp) == 0){
     dat <- res_example[[1]]
-    colnames(dat) <- c("chr", "pos", "p")
+    if (ncol(dat) > 3){ colnames(dat) <- c('pos', 'chr', 'p', 'na', 'na', 'na', 'na', 'na') } else { colnames(dat) <- c('chr', 'pos', 'p') }
     dat <- dat[!which(is.na(dat$p)),]
     dat$p[which(dat$p == 0)] <- 0.00000001
     chrom = dat$chr[1]
@@ -1275,7 +1275,7 @@ function.manageInput <- function(inp, supp_f, res_example){
 
   } else if (inp == 'IGAP') {
     dat <- fread('../data/IGAP/chr19_IGAP.txt.gz', h=T, stringsAsFactors=F)
-    colnames(dat) <- c('chr', 'pos', 'p')
+    if (ncol(dat) > 3){ colnames(dat) <- c('pos', 'chr', 'p', 'na', 'na', 'na', 'na', 'na') } else { colnames(dat) <- c('chr', 'pos', 'p') }
     dat <- dat[!which(is.na(dat$p)),]
     dat$p[which(dat$p == 0)] <- 0.00000001
     chrom <- dat$chr[1]
@@ -1284,7 +1284,7 @@ function.manageInput <- function(inp, supp_f, res_example){
     gwas <- 'IGAP'
   } else if (inp == 'CAD') {
     dat <- fread('../data/CAD/chr19_CAD.txt.gz', h=F, stringsAsFactors = F)
-    colnames(dat) <- c('chr', 'pos', 'p')
+    if (ncol(dat) > 3){ colnames(dat) <- c('pos', 'chr', 'p', 'na', 'na', 'na', 'na', 'na') } else { colnames(dat) <- c('chr', 'pos', 'p') }
     dat <- dat[!which(is.na(dat$p)),]
     dat$p[which(dat$p == 0)] <- 0.00000001
     chrom <- dat$chr[1]
@@ -1293,7 +1293,7 @@ function.manageInput <- function(inp, supp_f, res_example){
     gwas <- 'CAD'
   } else if (inp == 'CAD_Diabetics') {
     dat <- fread('../data/CAD_Diabetics/chr19_CAD_Diabetics.txt.gz', h=T, stringsAsFactors=F)
-    colnames(dat) <- c('chr', 'pos', 'p')
+    if (ncol(dat) > 3){ colnames(dat) <- c('pos', 'chr', 'p', 'na', 'na', 'na', 'na', 'na') } else { colnames(dat) <- c('chr', 'pos', 'p') }
     dat <- dat[!which(is.na(dat$p)),]
     dat$p[which(dat$p == 0)] <- 0.00000001
     chrom <- dat$chr[1]
@@ -1302,7 +1302,7 @@ function.manageInput <- function(inp, supp_f, res_example){
     gwas <- 'CAD_Diabetics'
   } else if (inp == '100plus') {
     dat <- fread('../data/100plus/chr19_100plus.txt.gz', h=T, stringsAsFactors=F)
-    colnames(dat) <- c('chr', 'pos', 'p')
+    if (ncol(dat) > 3){ colnames(dat) <- c('pos', 'chr', 'p', 'na', 'na', 'na', 'na', 'na') } else { colnames(dat) <- c('chr', 'pos', 'p') }
     dat <- dat[!which(is.na(dat$p)),]
     dat$p[which(dat$p == 0)] <- 0.00000001
     chrom <- dat$chr[1]
@@ -1311,7 +1311,7 @@ function.manageInput <- function(inp, supp_f, res_example){
     gwas <- '100plus'
   } else if (inp == 'GR@ACE') {
     dat <- fread('../data/GR@ACE/chr19_GR@ACE.txt.gz', h=T, stringsAsFactors=F)
-    colnames(dat) <- c('chr', 'pos', 'p')
+    if (ncol(dat) > 3){ colnames(dat) <- c('pos', 'chr', 'p', 'na', 'na', 'na', 'na', 'na') } else { colnames(dat) <- c('chr', 'pos', 'p') }
     dat <- dat[!which(is.na(dat$p)),]
     dat$p[which(dat$p == 0)] <- 0.00000001
     chrom <- dat$chr[1]
@@ -1320,7 +1320,7 @@ function.manageInput <- function(inp, supp_f, res_example){
     gwas <- 'GR@ACE'
   } else if (inp == 'UKBaging') {
     dat <- fread('../data/UKBaging/chr19_UKBaging.txt.gz', h=T, stringsAsFactors=F)
-    colnames(dat) <- c('chr', 'pos', 'p')
+    if (ncol(dat) > 3){ colnames(dat) <- c('pos', 'chr', 'p', 'na', 'na', 'na', 'na', 'na') } else { colnames(dat) <- c('chr', 'pos', 'p') }
     dat <- dat[!which(is.na(dat$p)),]
     dat$p[which(dat$p == 0)] <- 0.00000001
     chrom <- dat$chr[1]
@@ -1329,7 +1329,7 @@ function.manageInput <- function(inp, supp_f, res_example){
     gwas <- 'UKBaging'
   } else if (inp == 'exomeADES') {
     dat <- fread('../data/exomeADES/chr19_exomeADES.txt.gz', h=T, stringsAsFactors=F)
-    colnames(dat) <- c('chr', 'pos', 'p')
+    if (ncol(dat) > 3){ colnames(dat) <- c('pos', 'chr', 'p', 'na', 'na', 'na', 'na', 'na') } else { colnames(dat) <- c('chr', 'pos', 'p') }
     dat <- dat[!which(is.na(dat$p)),]
     dat$p[which(dat$p == 0)] <- 0.00000001
     chrom <- dat$chr[1]
@@ -1338,7 +1338,7 @@ function.manageInput <- function(inp, supp_f, res_example){
     gwas <- 'exomeADES'
   } else if (inp == 'LVV') {
     dat <- fread('../data/LVV/chr19_LVV.txt.gz', h=T, stringsAsFactors=F)
-    colnames(dat) <- c('chr', 'pos', 'p')
+    if (ncol(dat) > 3){ colnames(dat) <- c('pos', 'chr', 'p', 'na', 'na', 'na', 'na', 'na') } else { colnames(dat) <- c('chr', 'pos', 'p') }
     dat <- dat[!which(is.na(dat$p)),]
     dat$p[which(dat$p == 0)] <- 0.00000001
     chrom <- dat$chr[1]
@@ -1347,7 +1347,7 @@ function.manageInput <- function(inp, supp_f, res_example){
     gwas <- 'LVV'
   } else if (inp == 'EADB_AD') {
     dat <- fread('../data/EADB_AD/chr19_EADB_AD.txt.gz', h=T, stringsAsFactors=F)
-    dat <- dat[, c("chr", "pos", "p")]
+    if (ncol(dat) > 3){ colnames(dat) <- c('pos', 'chr', 'p', 'na', 'na', 'na', 'na', 'na') } else { colnames(dat) <- c('chr', 'pos', 'p') }
     colnames(dat) <- c('chr', 'pos', 'p')
     dat <- dat[!which(is.na(dat$p)),]
     dat$p[which(dat$p == 0)] <- 0.00000001
@@ -1357,7 +1357,7 @@ function.manageInput <- function(inp, supp_f, res_example){
     gwas <- 'EADB_AD'
   } else if (inp == 'COVID') {
     dat <- fread('../data/COVID/chr19_COVID.txt.gz', h=T, stringsAsFactors=F)
-    colnames(dat) <- c('chr', 'pos', 'p')
+    if (ncol(dat) > 3){ colnames(dat) <- c('pos', 'chr', 'p', 'na', 'na', 'na', 'na', 'na') } else { colnames(dat) <- c('chr', 'pos', 'p') }
     dat <- dat[!which(is.na(dat$p)),]
     dat$p[which(dat$p == 0)] <- 0.00000001
     chrom <- dat$chr[1]
@@ -1366,7 +1366,7 @@ function.manageInput <- function(inp, supp_f, res_example){
     gwas <- 'COVID'
   } else if (inp == "Height") {
     dat <- fread('../data/Height/chr19_Height.txt.gz', h=T, stringsAsFactors=F)
-    colnames(dat) <- c('chr', 'pos', 'p')
+    if (ncol(dat) > 3){ colnames(dat) <- c('pos', 'chr', 'p', 'na', 'na', 'na', 'na', 'na') } else { colnames(dat) <- c('chr', 'pos', 'p') }
     dat <- dat[!which(is.na(dat$p)),]
     dat$p[which(dat$p == 0)] <- 0.00000001
     chrom <- dat$chr[1]
@@ -1375,7 +1375,7 @@ function.manageInput <- function(inp, supp_f, res_example){
     gwas <- 'Height'
   } else if (inp == "SBP") {
     dat <- fread('../data/SBP/chr19_SBP.txt.gz', h=T, stringsAsFactors=F)
-    colnames(dat) <- c('chr', 'pos', 'p')
+    if (ncol(dat) > 3){ colnames(dat) <- c('pos', 'chr', 'p', 'na', 'na', 'na', 'na', 'na') } else { colnames(dat) <- c('chr', 'pos', 'p') }
     dat <- dat[!which(is.na(dat$p)),]
     dat$p[which(dat$p == 0)] <- 0.00000001
     chrom <- dat$chr[1]
@@ -1384,7 +1384,7 @@ function.manageInput <- function(inp, supp_f, res_example){
     gwas <- 'SBP'
   } else if (inp == "BMI") {
     dat <- fread('../data/BMI/chr19_BMI.txt.gz', h=T, stringsAsFactors=F)
-    colnames(dat) <- c('chr', 'pos', 'p')
+    if (ncol(dat) > 3){ colnames(dat) <- c('pos', 'chr', 'p', 'na', 'na', 'na', 'na', 'na') } else { colnames(dat) <- c('chr', 'pos', 'p') }
     dat <- dat[!which(is.na(dat$p)),]
     dat$p[which(dat$p == 0)] <- 0.00000001
     chrom <- dat$chr[1]
@@ -1393,7 +1393,7 @@ function.manageInput <- function(inp, supp_f, res_example){
     gwas <- 'BMI'
   } else if (inp == "Breast_cancer") {
     dat <- fread('../data/Breast_cancer/chr19_Breast_cancer.txt.gz', h=T, stringsAsFactors=F)
-    colnames(dat) <- c('chr', 'pos', 'p')
+    if (ncol(dat) > 3){ colnames(dat) <- c('pos', 'chr', 'p', 'na', 'na', 'na', 'na', 'na') } else { colnames(dat) <- c('chr', 'pos', 'p') }
     dat <- dat[!which(is.na(dat$p)),]
     dat$p[which(dat$p == 0)] <- 0.00000001
     chrom <- dat$chr[1]
@@ -1402,7 +1402,7 @@ function.manageInput <- function(inp, supp_f, res_example){
     gwas <- 'Breast_cancer'
   } else if (inp == "proxy_AD") {
     dat <- fread('../data/proxy_AD/chr19_proxy_AD.txt.gz', h=T, stringsAsFactors=F)
-    colnames(dat) <- c('chr', 'pos', 'p')
+    if (ncol(dat) > 3){ colnames(dat) <- c('pos', 'chr', 'p', 'na', 'na', 'na', 'na', 'na') } else { colnames(dat) <- c('chr', 'pos', 'p') }
     dat <- dat[!which(is.na(dat$p)),]
     dat$p[which(dat$p == 0)] <- 0.00000001
     chrom <- dat$chr[1]
@@ -1410,8 +1410,8 @@ function.manageInput <- function(inp, supp_f, res_example){
     dat$'-log10(P-value)' <- -log10(dat$p)
     gwas <- 'proxy_AD'
   } else if (inp == "Lupus") {
-    dat = fread("../data/Lupus/chr19_Lupus.txt.gz", h=F, stringsAsFactors = F)
-    colnames(dat) <- c("chr", "pos", "p")
+    dat = fread("../data/Lupus/chr19_Lupus.txt.gz", h=T, stringsAsFactors = F)
+    if (ncol(dat) > 3){ colnames(dat) <- c('pos', 'chr', 'p', 'na', 'na', 'na', 'na', 'na') } else { colnames(dat) <- c('chr', 'pos', 'p') }
     dat <- dat[!which(is.na(dat$p)),]
     dat$p[which(dat$p == 0)] <- 0.00000001
     chrom <- dat$chr[1]
@@ -1419,8 +1419,8 @@ function.manageInput <- function(inp, supp_f, res_example){
     dat$"-log10(P-value)" <- -log10(dat$p)
     gwas = "Lupus"
   } else if (inp == "Education") {
-    dat = fread("../data/Education/chr19_Education.txt.gz", h=F, stringsAsFactors = F)
-    colnames(dat) <- c("chr", "pos", "p")
+    dat = fread("../data/Education/chr19_Education.txt.gz", h=T, stringsAsFactors = F)
+    if (ncol(dat) > 3){ colnames(dat) <- c('pos', 'chr', 'p', 'na', 'na', 'na', 'na', 'na') } else { colnames(dat) <- c('chr', 'pos', 'p') }
     dat <- dat[!which(is.na(dat$p)),]
     dat$p[which(dat$p == 0)] <- 0.00000001
     chrom <- dat$chr[1]
@@ -1428,8 +1428,8 @@ function.manageInput <- function(inp, supp_f, res_example){
     dat$"-log10(P-value)" <- -log10(dat$p)
     gwas = "Education"
   } else if (inp == "Inflammation"){
-    dat = fread("../data/Inflammation/chr19_Inflammation.txt.gz", h=F, stringsAsFactors = F)
-    colnames(dat) <- c("chr", "pos", "p")
+    dat = fread("../data/Inflammation/chr19_Inflammation.txt.gz", h=T, stringsAsFactors = F)
+    if (ncol(dat) > 3){ colnames(dat) <- c('pos', 'chr', 'p', 'na', 'na', 'na', 'na', 'na') } else { colnames(dat) <- c('chr', 'pos', 'p') }
     dat <- dat[!which(is.na(dat$p)),]
     dat$p[which(dat$p == 0)] <- 0.00000001
     chrom <- dat$chr[1]
@@ -1437,8 +1437,8 @@ function.manageInput <- function(inp, supp_f, res_example){
     dat$"-log10(P-value)" <- -log10(dat$p)
     gwas = "Inflammation"
   } else if (inp == "Myeloproliferative"){
-    dat = fread("../data/Myeloproliferative/chr19_Myeloproliferative.txt.gz", h=F, stringsAsFactors = F)
-    colnames(dat) <- c("chr", "pos", "p")
+    dat = fread("../data/Myeloproliferative/chr19_Myeloproliferative.txt.gz", h=T, stringsAsFactors = F)
+    if (ncol(dat) > 3){ colnames(dat) <- c('pos', 'chr', 'p', 'na', 'na', 'na', 'na', 'na') } else { colnames(dat) <- c('chr', 'pos', 'p') }
     dat <- dat[!which(is.na(dat$p)),]
     dat$p[which(dat$p == 0)] <- 0.00000001
     chrom <- dat$chr[1]
@@ -1446,8 +1446,8 @@ function.manageInput <- function(inp, supp_f, res_example){
     dat$"-log10(P-value)" <- -log10(dat$p)
     gwas = "Myeloproliferative"
   } else if (inp == "Bone_density"){
-    dat = fread("../data/Bone_density/chr19_Bone_density.txt.gz", h=F, stringsAsFactors = F)
-    colnames(dat) <- c("chr", "pos", "p")
+    dat = fread("../data/Bone_density/chr19_Bone_density.txt.gz", h=T, stringsAsFactors = F)
+    if (ncol(dat) > 3){ colnames(dat) <- c('pos', 'chr', 'p', 'na', 'na', 'na', 'na', 'na') } else { colnames(dat) <- c('chr', 'pos', 'p') }
     dat <- dat[!which(is.na(dat$p)),]
     dat$p[which(dat$p == 0)] <- 0.00000001
     chrom <- dat$chr[1]
@@ -1455,8 +1455,8 @@ function.manageInput <- function(inp, supp_f, res_example){
     dat$"-log10(P-value)" <- -log10(dat$p)
     gwas = "Bone_density"
   } else if (inp == "Prostate"){
-    dat = fread("../data/Prostate/chr19_Prostate.txt.gz", h=F, stringsAsFactors = F)
-    colnames(dat) <- c("chr", "pos", "p")
+    dat = fread("../data/Prostate/chr19_Prostate.txt.gz", h=T, stringsAsFactors = F)
+    if (ncol(dat) > 3){ colnames(dat) <- c('pos', 'chr', 'p', 'na', 'na', 'na', 'na', 'na') } else { colnames(dat) <- c('chr', 'pos', 'p') }
     dat <- dat[!which(is.na(dat$p)),]
     dat$p[which(dat$p == 0)] <- 0.00000001
     chrom <- dat$chr[1]
@@ -1464,8 +1464,8 @@ function.manageInput <- function(inp, supp_f, res_example){
     dat$"-log10(P-value)" <- -log10(dat$p)
     gwas = "Prostate"
   } else if (inp == "Lung"){
-    dat = fread("../data/Lung/chr19_Lung.txt.gz", h=F, stringsAsFactors = F)
-    colnames(dat) <- c("chr", "pos", "p")
+    dat = fread("../data/Lung/chr19_Lung.txt.gz", h=T, stringsAsFactors = F)
+    if (ncol(dat) > 3){ colnames(dat) <- c('pos', 'chr', 'p', 'na', 'na', 'na', 'na', 'na') } else { colnames(dat) <- c('chr', 'pos', 'p') }
     dat <- dat[!which(is.na(dat$p)),]
     dat$p[which(dat$p == 0)] <- 0.00000001
     chrom <- dat$chr[1]
@@ -1473,8 +1473,8 @@ function.manageInput <- function(inp, supp_f, res_example){
     dat$"-log10(P-value)" <- -log10(dat$p)
     gwas = "Lung"
   } else if (inp == "Leukemia"){
-    dat = fread("../data/Leukemia/chr19_Leukemia.txt.gz", h=F, stringsAsFactors = F)
-    colnames(dat) <- c("chr", "pos", "p")
+    dat = fread("../data/Leukemia/chr19_Leukemia.txt.gz", h=T, stringsAsFactors = F)
+    if (ncol(dat) > 3){ colnames(dat) <- c('pos', 'chr', 'p', 'na', 'na', 'na', 'na', 'na') } else { colnames(dat) <- c('chr', 'pos', 'p') }
     dat <- dat[!which(is.na(dat$p)),]
     dat$p[which(dat$p == 0)] <- 0.00000001
     chrom <- dat$chr[1]
@@ -1482,8 +1482,8 @@ function.manageInput <- function(inp, supp_f, res_example){
     dat$"-log10(P-value)" <- -log10(dat$p)
     gwas = "Leukemia"
   } else if (inp == "Autism"){
-    dat = fread("../data/Autism/chr19_Autism.txt.gz", h=F, stringsAsFactors = F)
-    colnames(dat) <- c("chr", "pos", "p")
+    dat = fread("../data/Autism/chr19_Autism.txt.gz", h=T, stringsAsFactors = F)
+    if (ncol(dat) > 3){ colnames(dat) <- c('pos', 'chr', 'p', 'na', 'na', 'na', 'na', 'na') } else { colnames(dat) <- c('chr', 'pos', 'p') }
     dat <- dat[!which(is.na(dat$p)),]
     dat$p[which(dat$p == 0)] <- 0.00000001
     chrom <- dat$chr[1]
@@ -1491,8 +1491,8 @@ function.manageInput <- function(inp, supp_f, res_example){
     dat$"-log10(P-value)" <- -log10(dat$p)
     gwas = "Autism"
   } else if (inp == "Asthma"){
-    dat = fread("../data/Asthma/chr19_Asthma.txt.gz", h=F, stringsAsFactors = F)
-    colnames(dat) <- c("chr", "pos", "p")
+    dat = fread("../data/Asthma/chr19_Asthma.txt.gz", h=T, stringsAsFactors = F)
+    if (ncol(dat) > 3){ colnames(dat) <- c('pos', 'chr', 'p', 'na', 'na', 'na', 'na', 'na') } else { colnames(dat) <- c('chr', 'pos', 'p') }
     dat <- dat[!which(is.na(dat$p)),]
     dat$p[which(dat$p == 0)] <- 0.00000001
     chrom <- dat$chr[1]
@@ -1500,8 +1500,8 @@ function.manageInput <- function(inp, supp_f, res_example){
     dat$"-log10(P-value)" <- -log10(dat$p)
     gwas = "Asthma"
   } else if (inp == "Depression"){
-    dat = fread("../data/Depression/chr19_Depression.txt.gz", h=F, stringsAsFactors = F)
-    colnames(dat) <- c("chr", "pos", "p")
+    dat = fread("../data/Depression/chr19_Depression.txt.gz", h=T, stringsAsFactors = F)
+    if (ncol(dat) > 3){ colnames(dat) <- c('pos', 'chr', 'p', 'na', 'na', 'na', 'na', 'na') } else { colnames(dat) <- c('chr', 'pos', 'p') }
     dat <- dat[!which(is.na(dat$p)),]
     dat$p[which(dat$p == 0)] <- 0.00000001
     chrom <- dat$chr[1]
@@ -1509,8 +1509,8 @@ function.manageInput <- function(inp, supp_f, res_example){
     dat$"-log10(P-value)" <- -log10(dat$p)
     gwas = "Depression"
   } else if (inp == "Vitamin_D"){
-    dat = fread("../data/Vitamin_D/chr19_Vitamin_D.txt.gz", h=F, stringsAsFactors = F)
-    colnames(dat) <- c("chr", "pos", "p")
+    dat = fread("../data/Vitamin_D/chr19_Vitamin_D.txt.gz", h=T, stringsAsFactors = F)
+    if (ncol(dat) > 3){ colnames(dat) <- c('pos', 'chr', 'p', 'na', 'na', 'na', 'na', 'na') } else { colnames(dat) <- c('chr', 'pos', 'p') }
     dat <- dat[!which(is.na(dat$p)),]
     dat$p[which(dat$p == 0)] <- 0.00000001
     chrom <- dat$chr[1]
@@ -1518,8 +1518,8 @@ function.manageInput <- function(inp, supp_f, res_example){
     dat$"-log10(P-value)" <- -log10(dat$p)
     gwas = "Vitamin_D"
   } else if (inp == "Diabetes"){
-    dat = fread("../data/Diabetes/chr19_Diabetes.txt.gz", h=F, stringsAsFactors = F)
-    colnames(dat) <- c("chr", "pos", "p")
+    dat = fread("../data/Diabetes/chr19_Diabetes.txt.gz", h=T, stringsAsFactors = F)
+    if (ncol(dat) > 3){ colnames(dat) <- c('pos', 'chr', 'p', 'na', 'na', 'na', 'na', 'na') } else { colnames(dat) <- c('chr', 'pos', 'p') }
     dat <- dat[!which(is.na(dat$p)),]
     dat$p[which(dat$p == 0)] <- 0.00000001
     chrom <- dat$chr[1]
@@ -1527,8 +1527,8 @@ function.manageInput <- function(inp, supp_f, res_example){
     dat$"-log10(P-value)" <- -log10(dat$p)
     gwas = "Diabetes"
   } else if (inp == "pTAU"){
-    dat = fread("../data/pTAU/chr19_pTAU.txt.gz", h=F, stringsAsFactors = F)
-    colnames(dat) <- c("chr", "pos", "p")
+    dat = fread("../data/pTAU/chr19_pTAU.txt.gz", h=T, stringsAsFactors = F)
+    if (ncol(dat) > 3){ colnames(dat) <- c('pos', 'chr', 'p', 'na', 'na', 'na', 'na', 'na') } else { colnames(dat) <- c('chr', 'pos', 'p') }
     dat <- dat[!which(is.na(dat$p)),]
     dat$p[which(dat$p == 0)] <- 0.00000001
     chrom <- dat$chr[1]
@@ -1536,8 +1536,8 @@ function.manageInput <- function(inp, supp_f, res_example){
     dat$"-log10(P-value)" <- -log10(dat$p)
     gwas = "pTAU"
   } else if (inp == "Multivariate_Longevity"){
-    dat = fread("../data/Multivariate_Longevity/chr19_Multivariate_Longevity.txt.gz", h=F, stringsAsFactors = F)
-    colnames(dat) <- c("chr", "pos", "p")
+    dat = fread("../data/Multivariate_Longevity/chr19_Multivariate_Longevity.txt.gz", h=T, stringsAsFactors = F)
+    if (ncol(dat) > 3){ colnames(dat) <- c('pos', 'chr', 'p', 'na', 'na', 'na', 'na', 'na') } else { colnames(dat) <- c('chr', 'pos', 'p') }
     dat <- dat[!which(is.na(dat$p)),]
     dat$p[which(dat$p == 0)] <- 0.00000001
     chrom <- dat$chr[1]
@@ -1545,8 +1545,8 @@ function.manageInput <- function(inp, supp_f, res_example){
     dat$"-log10(P-value)" <- -log10(dat$p)
     gwas = "Multivariate_Longevity"
   } else if (inp == "Alzheimer_million"){
-    dat = fread("../data/Alzheimer_million/chr19_Alzheimer_million.txt.gz", h=F, stringsAsFactors = F)
-    colnames(dat) <- c("chr", "pos", "p")
+    dat = fread("../data/Alzheimer_million/chr19_Alzheimer_million.txt.gz", h=T, stringsAsFactors = F)
+    if (ncol(dat) > 3){ colnames(dat) <- c('pos', 'chr', 'p', 'na', 'na', 'na', 'na', 'na') } else { colnames(dat) <- c('chr', 'pos', 'p') }
     dat <- dat[!which(is.na(dat$p)),]
     dat$p[which(dat$p == 0)] <- 0.00000001
     chrom <- dat$chr[1]
@@ -2889,7 +2889,7 @@ shinyServer(
              analysis_mode = paste0(as.character(input$analysis_mode), collapse = ",")
              gtex_tissues = paste0(input$gtex_type, collapse = ",")
              # Then run annotate me externally in background -- this depends on the analysis_type requested
-             annotateMe.cmd <- paste0("Rscript /root/snpXplorer/AnnotateMe/BIN/MAIN.R annotateMe_input_", random_num, ".txt ", ftype, " ", username, " ", analysis_type, " ", analysis_mode, " ", gtex_tissues, " ", ref_version, " > ", log_filename)
+             annotateMe.cmd <- paste0("Rscript /root/snpXplorer/AnnotateMe/BIN/MAIN.R annotateMe_input_", random_num, ".txt ", ftype, " ", username, " ", analysis_type, " ", analysis_mode, " ", gtex_tissues, " ", ref_version, " ", random_num, " > ", log_filename)
              print(annotateMe.cmd)
              system(annotateMe.cmd, ignore.stdout = F, wait = F)
              # Finally update the email address so that AnnotateMe is not executed every time user load a new page

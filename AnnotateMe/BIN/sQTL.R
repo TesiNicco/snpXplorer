@@ -21,7 +21,7 @@ matchSQTL <- function(i, mapping, ensembl, interesting_tissues, random_num){
     tmp$sqtl = NA
     tmp$sqtl_tissue = NA
     # main loop to assign eqtls to snps
-    if (!is.na(tmp_res)){
+    if (!is.na(tmp_res[1])){
         # modify structure of data
         tmp_res = data.frame(stringr::str_split_fixed(tmp_res, "\t", 5), stringsAsFactors = F)
         # restrict to tissues of interest

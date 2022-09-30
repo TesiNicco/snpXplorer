@@ -14,7 +14,8 @@
         library(stringr)
         library(LDlinkR)
     })
-
+    setwd('/root/snpXplorer/snpXplorer_v3/')
+    
 # FUNCTIONS
     ## function to wait some time -- to manage memory consumption
     waitForMe <- function(x){
@@ -191,9 +192,10 @@
     interesting_tissues_all = as.character(args[6])
     # reference genome (in case input is not rsid)
     ref_version = as.character(args[7])
+    # random number is the same as the input -- easier
+    random_num <- as.character(args[8])
 
     # CREATE FOLDER FOR RESULTS -- ADD RANDOM NUMBER AND COPY INPUT FILE IN THERE
-    random_num <- sample(x = seq(1, 100000), size = 1, replace = F)
     system(paste("mkdir /root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, sep=""))
     system(paste("mv /root/snpXplorer/snpXplorer_v3/", fname, " /root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, "/", sep=""))
 
@@ -211,18 +213,18 @@
         meminfo = system("free -h | sed 's/  */ /g'", intern = T); values = list()
         used = str_split_fixed(meminfo[2], ' ', 7)[,3]; free = str_split_fixed(meminfo[2], ' ', 7)[,4]; cache = str_split_fixed(meminfo[2], ' ', 7)[,6]
         for (v in c(used, free, cache)){
-            if (length(grep('G', v)) >0){
+            if (length(grep('G', v)) > 0){
                 v = str_replace_all(v, 'G', ''); v = str_replace_all(v, ',', '\\.'); v = as.numeric(v)
-            } else if (length(grep('M', v)) >0){
+            } else if (length(grep('M', v)) > 0){
                 v = str_replace_all(v, 'M', ''); v = str_replace_all(v, ',', '\\.'); v = paste0('0.', v); v = as.numeric(v)
             }
             values[[(length(values) + 1)]] = v
         }
         used = values[[1]]; free = values[[2]]; cache = values[[3]]
         #memfree <- as.numeric(system("awk '/MemFree/ {print $2}' /proc/meminfo", intern=T))
-        memfree = free + cache
+        memfree = tryCatch({ free + cache }, error = function(e){ 0 }) 
         # check if this is >8Gb
-        if (memfree > 4 && analysis_type != "enrichment"){
+        if (memfree > 8 && analysis_type != "enrichment"){
             START = TRUE
             print("Start the job!")
         } else if (memfree > 8 && analysis_type == "enrichment"){
@@ -235,6 +237,7 @@
             START = FALSE
         }
     }
+    
     # IN CASE ENOUGH MEMORY IS AVAILABLE, LET'S START
     if (START == TRUE){
         # FIRST STEP IS TO READ SNPS OF INTEREST AND REPORT ERRORS IN CASE OF WRONG INPUT AND/OR TOO LONG INPUT
@@ -247,6 +250,7 @@
         load(snps_info_path)
 
         # CHECK WHETHER INPUT LIST OF SNPS WAS CORRECT
+        if (length(unique(data$chr)) == 1 && unique(data$chr) == "NA"){ data = NA }
         if ((is.na(data)) || (length(data) == 1) || (nrow(data) == 0)){
             system(paste0("sendEmail -f n.tesi@amsterdamumc.nl -t ", username, " -u 'snpXplorer input error' -m 'Dear user, \n\n thanks so much for using snpXplorer and its annotation pipeline. \n\n Unfortunately, an error occurred while reading the input SNPs you provided. Possible reasons include: \n- the number of SNP(s) is >1000 for enrichment analysis; \n- the number of SNP(s) is >10000 for mapping analysis; \n- the input type is wrong; \n\n Please correct the input and try again. In the More/Help section of the website you can find example datasets. \n\n Please do not hesitate to contact us in case of any question. \n snpXplorer team.' -a '", inpf, "' -cc n.tesi@amsterdamumc.nl snpxplorer@gmail.com -S /usr/sbin/sendmail"))
             # zip data

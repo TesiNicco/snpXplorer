@@ -2,9 +2,10 @@
 MAIN = "/root/snpXplorer/AnnotateMe/"
 MAIN_SNP = "/root/snpXplorer/snpXplorer_v3/"
 args = commandArgs(trailingOnly=TRUE)
+setwd('/root/snpXplorer/snpXplorer_v3/')
 
 ## function to annotate using GWAS catalog -- adjusted for faster computations (library-wise)
-GWAScat <- function(annot, geneList, MAIN, random_num){
+GWAScat <- function(annot, geneList, MAIN, random_num, MAIN_SNP){
   # read gwas catalog
   gwas <- data.table::fread(paste(MAIN, "INPUTS_OTHER/GWAS_catalog_20211210.txt.gz", sep=""), h=T, showProgress=FALSE, quote="", stringsAsFactors=F)
 
@@ -25,18 +26,18 @@ GWAScat <- function(annot, geneList, MAIN, random_num){
     traits$id <- seq(1, nrow(traits))
 
     # run function for lolliplot
-    pdf(paste("RESULTS_", random_num, "/gwas_cat_snps_overlap.pdf", sep=""), height=7, width=7)
+    pdf(paste(MAIN_SNP, "RESULTS_", random_num, "/gwas_cat_snps_overlap.pdf", sep=""), height=7, width=7)
     lolliPlot_snp(traits, all.m)
     invisible(dev.off())
 
     # finally write the table
-    write.table(x = tmp, file = paste0("RESULTS_", random_num, "/gwas_cat_snps_overlap.txt"), quote=F, row.names=F, sep = "\t")
+    write.table(x = tmp, file = paste0(MAIN_SNP, "RESULTS_", random_num, "/gwas_cat_snps_overlap.txt"), quote=F, row.names=F, sep = "\t")
   } else {
     cat("  !!! No matches for SNP in GWAS catalog\n")
     traits <- NA
 
     tmp = "!!! No matches for SNP in GWAS catalog\n"
-    write.table(x = tmp, file = paste0("RESULTS_", random_num, "/gwas_cat_snps_overlap.txt"), quote=F, row.names=F, sep = "\t", col.names=F)
+    write.table(x = tmp, file = paste0(MAIN_SNP, "RESULTS_", random_num, "/gwas_cat_snps_overlap.txt"), quote=F, row.names=F, sep = "\t", col.names=F)
   }
 
   # also check genes directly -- first read genes~trait dataframe
@@ -62,7 +63,7 @@ GWAScat <- function(annot, geneList, MAIN, random_num){
     tb <- tb[!is.na(tb$Var1),]
 
     # finally lolliplot for genes
-    pdf(paste("RESULTS_", random_num, "/gwas_cat_genes_overlap.pdf", sep=""), height=7, width=7)
+    pdf(paste(MAIN_SNP, "RESULTS_", random_num, "/gwas_cat_genes_overlap.pdf", sep=""), height=7, width=7)
     lolliPlot_gene(tb, overlapping.genes, geneList)
     invisible(dev.off())
     options(warn=0)
@@ -73,12 +74,12 @@ GWAScat <- function(annot, geneList, MAIN, random_num){
     tb = merge(tb, tmp_info, by.x="Var1", by.y="MAPPED_TRAIT")
 
     # write table as output
-    write.table(x = tb, file = paste0("RESULTS_", random_num, "/gwas_cat_genes_overlap.txt"), quote=F, row.names=F, sep = "\t")
+    write.table(x = tb, file = paste0(MAIN_SNP, "RESULTS_", random_num, "/gwas_cat_genes_overlap.txt"), quote=F, row.names=F, sep = "\t")
   } else {
     cat("  !!! No matches for Genes in GWAS catalog\n")
     tb <- NA
     tmp = "!!! No matches for SNP in GWAS catalog\n"
-    write.table(x = tmp, file = paste0("RESULTS_", random_num, "/gwas_cat_genes_overlap.txt"), quote=F, row.names=F, sep = "\t", col.names = F)
+    write.table(x = tmp, file = paste0(MAIN_SNP, "RESULTS_", random_num, "/gwas_cat_genes_overlap.txt"), quote=F, row.names=F, sep = "\t", col.names = F)
   }
 
   ls <- list(traits, tb)
@@ -230,4 +231,4 @@ random_num = args[2]
 load(snps_info_path)
 annot <- final_res[[1]]
 geneList <- final_res[[2]]
-gwascat_res = GWAScat(annot, geneList, MAIN, random_num)
+gwascat_res = GWAScat(annot, geneList, MAIN, random_num, MAIN_SNP)

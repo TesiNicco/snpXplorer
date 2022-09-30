@@ -9,8 +9,8 @@
   })
 
 ## ANNOTATIONS AND DATA REQUIRED FOR UI
-  MAIN_PATH = '/Users/nicco/Documents/GitHub/snpXplorer/bin/snpxplorer_v4/'
-  #MAIN_PATH = '/root/snpXplorer/'
+  #MAIN_PATH = '/Users/nicco/Documents/GitHub/snpXplorer/bin/snpxplorer_v4/'
+  MAIN_PATH = '/root/snpXplorer/'
   gtex_tissues = data.table::fread(paste0(MAIN_PATH, 'data/databases/tissues_gtex.txt'), h=F, sep = "\t")
 
 ## USER INTERFACE
@@ -110,7 +110,7 @@
                 conditionalPanel(condition = "(input.neurol_gwas.length + input.cardio_gwas.length + input.immune_gwas.length + input.cancer_gwas.length + input.physio_gwas.length + input.owned_gwas.length) > 4",
                   colourpicker::colourInput("col5", "Select color 5", "yellow")),
                 bsPopover("col", title='Colors', content='You can use the colour picker to change the color of the plotted studies.', placement="right",trigger="hover", options = list(container = "body")),
-                sliderInput(inputId = "x_axis", label = "Window (bp)", value = 25000, min = 1000, max = 1000000, width = "100%"),        # adjust the width of the x-axis
+                sliderInput(inputId = "x_axis", label = "Window (bp)", value = 25000, min = 1000, max = 500000, width = "100%"),        # adjust the width of the x-axis
                 bsPopover("x_axis", title='Window size', content='You can use the slider to adjust x-axis of the main plot.', placement="right",trigger="hover", options = list(container = "body")),
                 sliderInput(inputId = "y_axis", label = "-log10 (P-value)", value = 9, min = 5, max = 100, width = "100%"),              # adjust the width of the y-axis
                 bsPopover("y_axis", title='Window y-size', content='You can use the slider to adjust y-axis of the main plot.', placement="right",trigger="hover", options = list(container = "body")),
@@ -293,10 +293,9 @@
           radioGroupButtons(inputId = "snp_list_type", label = "Input type:", choices = c("rsid (rs12345)", "chr:pos (1:12345678)", "chr pos (1 12345678)"), status = "warning", checkIcon = list(yes = icon("ok", lib = "glyphicon"), no = icon("remove", lib = "glyphicon"))),
           bsPopover("snp_list_type", title='Input type', content='For compatibility, rsid is the preferred input. If your input is not rsid, please specify the Reference version.', placement="right",trigger="hover", options = list(container = "body")),
           hr(),
-          prettyRadioButtons(inputId = "analysis_type", label = "Analysis type:", choices = c("SNP-gene annotation" = "annot", "Gene-set enrichment analysis" = "gsea"), icon = icon("check"), bigger = TRUE, inline = TRUE, status = "info", animation = "jelly"),
-          conditionalPanel(condition = "input.analysis_type == 'gsea'",
-            prettyCheckboxGroup(inputId = "analysis_mode", label = "Source Enrichment:", choices = c("Default (GO:BP)" = "default", "KEGG" = "KEGG", "Reactome" = "Reactome", "Wiki Pathways" = "wiki"), inline = TRUE, status = "default", fill = TRUE),
-            bsPopover("analysis_mode", title='Source Enrichment', content='Please select here the gene-set databases for the gene-set enrichment analysis.', placement="right",trigger="hover", options = list(container = "body"))),
+          prettyRadioButtons(inputId = "analysis_type", label = "Analysis type:", choices = c("SNP-gene annotation" = "annot", "Gene-set enrichment analysis (GSEA)" = "gsea"), icon = icon("check"), bigger = TRUE, inline = TRUE, status = "info", animation = "jelly"),
+          prettyCheckboxGroup(inputId = "analysis_mode", label = "Source Enrichment (if GSEA was selected):", choices = c("Default (GO:BP)" = "default", "KEGG" = "KEGG", "Reactome" = "Reactome", "Wiki Pathways" = "wiki"), inline = TRUE, selected = c("default") status = "default", fill = TRUE),
+          bsPopover("analysis_mode", title='Source Enrichment', content='Please select here the gene-set databases for the gene-set enrichment analysis.', placement="right",trigger="hover", options = list(container = "body")),
           hr(),
           radioGroupButtons(inputId = "snp_list_reference", label = "Reference Genome:", choices = c("GRCh37 (hg19)", "GRCh38 (hg38)"), status = "danger", checkIcon = list(yes = icon("ok", lib = "glyphicon"), no = icon("remove", lib = "glyphicon"))),
           hr(),
@@ -315,14 +314,14 @@
         # text area for email
         column(4,
           div(textInput(inputId = "email", label = "E-mail", value = "Type your email address...", width = "400px"), align = 'center'),
-          bsPopover("email", title='Your e-mail address', content='We do not do anything with it...apart from sending your annotation results. :)', placement="right",trigger="hover", options = list(container = "body")),
+          bsPopover("email", title='Your e-mail address', content='We do not do anything with it...apart from sending your annotation results. :)', placement="left",trigger="hover", options = list(container = "body")),
           # maybe also good to put a submit button -- to avoid refreshes that are annoying and slow down application
           hr(),
-          div(actionButton(inputId = "run_annotation", label = "Submit analysis!", icon = icon("paper-plane"), width = "300px", style="color: #FFFFFF; background-color: #4472C4; border-color: #1A2C4C; font-size:150%"), align = "center"),
+          #div(actionButton(inputId = "run_annotation", label = "Submit analysis!", icon = icon("paper-plane"), width = "300px", style="color: #FFFFFF; background-color: #4472C4; border-color: #1A2C4C; font-size:150%"), align = "center"),
           div(h5("You will receive a confirmation e-mail for your analysis."), align = "center"),
           div(h5("Once analysis is done, you'll receive results by e-mail."), align = "center"),
           div(h5("Please check your spam folder to get your snpXplorer results."), align = "center"),
-          #submitButton(text = "Submit!", icon("paper-plane"), width="250px"),
+          submitButton(text = "Submit!", icon("paper-plane"), width="250px"),
         ),
       ),
       hr(),

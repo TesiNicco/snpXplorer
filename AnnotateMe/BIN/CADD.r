@@ -2,6 +2,7 @@
 library(parallel)
 library(data.table)
 library(stringr)
+library(bedr)
 
 # basic paths
 MAIN = "/root/snpXplorer/AnnotateMe/"
@@ -142,6 +143,28 @@ mergeInfo_generic_updated <- function(info.sb){
   return(info.sb)
 }
 
+# function to use tabix
+lookup_cadd_tabix = function(i, data, random_num){
+  # restrict to chromosome of interest
+  tmp = data[which(data$chr == i),]
+  tmp$roi = paste0(tmp$chr, ':', as.numeric(tmp$pos) - 1, '-', tmp$pos)
+  tmp = tmp[!is.na(tmp$pos),]
+  # tabix command
+  caddinfo = tabix(tmp$roi, paste0(MAIN, '/INPUTS_OTHER/CADD_updated/cadd_annotation_chr', i, '_tabix.txt.gz'), check.chr = F, verbose = FALSE)
+  colnames(caddinfo) = c('chrom', 'pos', 'ref', 'alt', 'type', 'annotype', 'consequence', 'genename', 'conseq_details', 'conseq_score', 'dist_mutation', 'geneid', 'phred')
+  # loop on the lines and prioritize results based on highest phred score
+  prioritized = list()
+  for (x in 1:nrow(caddinfo)){
+    tmp = caddinfo[x, ]; tmp_phred = as.numeric(unlist(strsplit(tmp$phred, '\\|'))); highest_phred_index = which(tmp_phred == max(tmp_phred))[1]
+    tmp_df = tmp[, c('chrom', 'pos', 'ref', 'alt', 'type')]; tmp_df$consequence = unlist(strsplit(tmp$consequence, '\\|'))[highest_phred_index]
+    tmp_df$genename = unlist(strsplit(tmp$genename, '\\|'))[highest_phred_index]; tmp_df$phred = max(tmp_phred)
+    prioritized[[(length(prioritized) + 1)]] = tmp_df
+  }
+  prioritized = rbindlist(prioritized)
+  res = data.frame(locus = paste0(prioritized$chrom, ':', prioritized$pos), snp_conseq = prioritized$consequence, snp_conseq_gene = prioritized$genename, phred = prioritized$phred)
+  return(res)
+}
+
 # read arguments
 random_num = args[1]
 ref_genome = args[2]
@@ -152,8 +175,9 @@ load(snps_info_path)
 load(ld_path)
 # run cadd annotation
 #cadd <- readcadd_v2(data, MAIN, ld_info, ref_genome, random_num)       # previous command based on the online grep of CADD
-# run function in multiprocessing to annotate snps with cadd
-cadd_annotation_results = rbindlist(mclapply(unique(data$chr), lookup_cadd_updated, data = data, random_num = random_num, mc.cores = 2))
+# run function in multiprocessing to annotate snps with cadd using tabix
+#cadd_annotation_results = rbindlist(mclapply(unique(data$chr), lookup_cadd_updated, data = data, random_num = random_num, mc.cores = 2))
+cadd_annotation_results = rbindlist(mclapply(unique(data$chr), lookup_cadd_tabix, data = data, random_num = random_num, mc.cores = 2))
 # then merge with data and annotate whether the snp is coding or not
 data = merge(data, cadd_annotation_results, by = 'locus', all.x = T)
 data_codingInfo = mergeInfo_generic_updated(data)
