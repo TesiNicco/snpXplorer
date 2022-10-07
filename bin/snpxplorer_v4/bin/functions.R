@@ -629,7 +629,6 @@
   # function to extract eqtls
   extractEqtls <- function(region_of_interest, reference_genome, MAIN_PATH, tissues_interest){
     region_to_search = paste0(region_of_interest$chrom, ':', region_of_interest$start, '-', region_of_interest$end)
-    print(region_to_search)
     if (reference_genome == 'GRCh37 (hg19)'){
       eqtls = tabix(region_to_search, paste0(MAIN_PATH, 'data/databases/eqtls_snpxplorer/chr', region_of_interest$chrom, '_summary_eqtls_hg37.txt.gz'), check.chr = F, verbose = FALSE)
       if (nrow(eqtls) >0){
@@ -645,12 +644,14 @@
         eqtls = data.frame(pos = as.character(), ensg = as.character(), a1 = as.character(), a2 = as.character(), tissue = as.character(), effect = as.character(), p = as.character(), gene = as.character(), start_hg19 = as.character(), chr = as.character())
       }
     }
+    print('eqtl2')
     # restrict by tissue
     if (!('All tissues' %in% tissues_interest)){ 
       tissues_interest = str_replace_all(tissues_interest, '-', ''); tissues_interest = str_replace_all(tissues_interest, '  ', '_'); tissues_interest = str_replace_all(tissues_interest, ' ', '_')
       tissues_interest = str_replace_all(tissues_interest, '\\(', ''); tissues_interest = str_replace_all(tissues_interest, '\\)', '') 
       eqtls = eqtls[which(eqtls$tissue %in% tissues_interest),]
-    } 
+    }
+    print('eqtl3')
     # reduce and output
     eqtls = eqtls[, c('chr', 'pos', 'a1', 'a2', 'tissue', 'gene', 'effect', 'p')]
     colnames(eqtls) = c('Chr', 'Pos', 'A1', 'A2', 'Tissue', 'Gene', 'Effect', 'P')
