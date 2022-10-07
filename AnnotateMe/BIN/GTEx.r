@@ -37,7 +37,7 @@ matchEQTL <- function(i, mapping, ensembl, interesting_tissues, random_num){
       tissues_genes_df = data.frame(tissue = tissues, gene = genes)
       tissues_genes_df = merge(tissues_genes_df, ensembl, by.x = "gene", by.y = "Gene stable ID", all.x = T)
       # filter according to tissues of interest
-      if (interesting_tissues != "All_tissues"){ tissues_genes_df = tissues_genes_df[which(tissues_genes_df$tissue %in% interesting_tissues),] }
+      if (!("All_tissues" %in% interesting_tissues)){ tissues_genes_df = tissues_genes_df[which(tissues_genes_df$tissue %in% interesting_tissues),] }
       # take union of all tissues and genes
       all_tissues = paste0(tissues_genes_df$tissue, collapse = ",")
       all_genes = paste0(tissues_genes_df$"Gene name", collapse = ",")

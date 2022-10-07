@@ -25,7 +25,7 @@ matchSQTL <- function(i, mapping, ensembl, interesting_tissues, random_num){
         # modify structure of data
         tmp_res = data.frame(stringr::str_split_fixed(tmp_res, "\t", 5), stringsAsFactors = F)
         # restrict to tissues of interest
-        if (interesting_tissues != 'All_tissues'){ tmp_res = tmp_res[which(tmp_res$X5 %in% str_split(interesting_tissues, ',')[[1]]), ] }
+        if (!('All_tissues' %in% interesting_tissues)){ tmp_res = tmp_res[which(tmp_res$X5 %in% str_split(interesting_tissues, ',')[[1]]), ] }
         for (snp in unique(tmp_res$X1)){
             snp_id = paste0(stringr::str_replace_all(paste(stringr::str_split_fixed(snp, "_", 5)[, 1:2], collapse = "_"), "chr", ""), "_")
             tissues = tmp_res$X5[which(tmp_res$X1 == snp)]
