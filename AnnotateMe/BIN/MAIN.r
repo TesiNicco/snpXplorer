@@ -244,13 +244,14 @@
         cat("## Reading SNPs and positions\n")
         inpf = paste0("/root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, "/", fname)
         # before starting, make a quick parse of the input file as people sometimes use wrong input like comma
-        cmd = paste0("sed -i 's/,/\\n/g' ", inpf, " | sed '/^$/d'"); system(cmd)
+        cmd = paste0("sed -i 's/,/\\n/g' ", inpf); system(cmd)
+        cmd = paste0("sed -i 's/;/\\n/g' ", inpf, " | sed '/^$/d'"); system(cmd)
         cmd = paste0("sed -i 's/chr//g' ", inpf); system(cmd)
         snps_info_path = system(paste0("Rscript ", MAIN, "BIN/readSNPs.R ", inpf, " ", ftype, " ", ref_version, " ", analysis_type, " ", random_num), intern = T)
         load(snps_info_path)
 
         # CHECK WHETHER INPUT LIST OF SNPS WAS CORRECT
-        if (length(unique(data$chr)) == 1 && unique(data$chr) == "NA"){ data = NA }
+        if (is.data.frame(data) && length(unique(data$chr)) == 1 && unique(data$chr) == "NA"){ data = NA }
         if ((is.na(data)) || (length(data) == 1) || (nrow(data) == 0)){
             system(paste0("sendEmail -f n.tesi@amsterdamumc.nl -t ", username, " -u 'snpXplorer input error' -m 'Dear user, \n\n thanks so much for using snpXplorer and its annotation pipeline. \n\n Unfortunately, an error occurred while reading the input SNPs you provided. Possible reasons include: \n- the number of SNP(s) is >1000 for enrichment analysis; \n- the number of SNP(s) is >10000 for mapping analysis; \n- the input type is wrong; \n\n Please correct the input and try again. In the More/Help section of the website you can find example datasets. \n\n Please do not hesitate to contact us in case of any question. \n snpXplorer team.' -a '", inpf, "' -cc n.tesi@amsterdamumc.nl snpxplorer@gmail.com -S /usr/sbin/sendmail"))
             # zip data

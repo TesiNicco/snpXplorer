@@ -6,7 +6,7 @@ args = commandArgs(trailingOnly=TRUE)
 ## function to read input set of snp given the name and the input type -- adjusted for faster computations (library-wise)
 readSNPs <- function(fname, ftype, MAIN, ref_version, analysis_type){
   ## read input file
-  d <- data.table::fread(fname, h=F)
+  d <- data.table::fread(fname, h=F, fill=T)
   
   ## remove empty lines
   d <- d[!apply(d == "", 1, all),]
@@ -138,7 +138,7 @@ liftOver_fun <- function(df){
 ## function to use topmed information to extract snp information
 readSNPs_alternative <- function(fname, ftype, MAIN, ref_version, analysis_type){
   ## read input file
-  d <- data.table::fread(fname, h=F)
+  d <- data.table::fread(fname, h=F, fill=T)
   
   ## remove empty lines
   d <- d[!apply(d == "", 1, all),]
