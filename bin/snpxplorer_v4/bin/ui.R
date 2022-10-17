@@ -294,7 +294,7 @@
           bsPopover("snp_list_type", title='Input type', content='For compatibility, rsid is the preferred input. If your input is not rsid, please specify the Reference version.', placement="right",trigger="hover", options = list(container = "body")),
           hr(),
           prettyRadioButtons(inputId = "analysis_type", label = "Analysis type:", choices = c("SNP-gene annotation" = "annot", "Gene-set enrichment analysis (GSEA)" = "gsea"), icon = icon("check"), bigger = TRUE, inline = TRUE, status = "info", animation = "jelly"),
-          prettyCheckboxGroup(inputId = "analysis_mode", label = "Source Enrichment (if GSEA was selected):", choices = c("Default (GO:BP)" = "default", "KEGG" = "KEGG", "Reactome" = "Reactome", "Wiki Pathways" = "wiki"), inline = TRUE, selected = c("default") status = "default", fill = TRUE),
+          prettyCheckboxGroup(inputId = "analysis_mode", label = "Source Enrichment (if GSEA was selected):", choices = c("Default (GO:BP)" = "default", "KEGG" = "KEGG", "Reactome" = "Reactome", "Wiki Pathways" = "wiki"), inline = TRUE, selected = c("default"), status = "default", fill = TRUE),
           bsPopover("analysis_mode", title='Source Enrichment', content='Please select here the gene-set databases for the gene-set enrichment analysis.', placement="right",trigger="hover", options = list(container = "body")),
           hr(),
           radioGroupButtons(inputId = "snp_list_reference", label = "Reference Genome:", choices = c("GRCh37 (hg19)", "GRCh38 (hg38)"), status = "danger", checkIcon = list(yes = icon("ok", lib = "glyphicon"), no = icon("remove", lib = "glyphicon"))),
