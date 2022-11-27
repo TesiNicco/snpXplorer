@@ -319,7 +319,7 @@
           hr(),
           #div(actionButton(inputId = "run_annotation", label = "Submit analysis!", icon = icon("paper-plane"), width = "300px", style="color: #FFFFFF; background-color: #4472C4; border-color: #1A2C4C; font-size:150%"), align = "center"),
           div(h5("You will receive a confirmation e-mail for your analysis."), align = "center"),
-          div(h5("Once analysis is done, you'll receive results by e-mail."), align = "center"),
+          div(h5("Once analysis is done (typically less than 30 minutes), you'll receive results by e-mail."), align = "center"),
           div(h5("Please check your spam folder to get your snpXplorer results."), align = "center"),
           submitButton(text = "Submit!", icon("paper-plane"), width="250px"),
         ),

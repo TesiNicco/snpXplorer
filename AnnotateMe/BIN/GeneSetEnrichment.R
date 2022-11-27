@@ -20,7 +20,7 @@ overlapAnalysis <- function(i, gene_list, source_gset){
   g <- gene_list[[i]]
 
   res <- suppressMessages(gprofiler2::gost(g, organism = "hsapiens", ordered_query = FALSE, multi_query = FALSE, significant = FALSE, exclude_iea = TRUE,
-                               measure_underrepresentation = FALSE, evcodes = FALSE, user_threshold = 1, correction_method = "fdr",
+                               measure_underrepresentation = FALSE, evcodes = TRUE, user_threshold = 1, correction_method = "fdr",
                                domain_scope = "annotated", custom_bg = NULL, numeric_ns = "", sources = source_gset))
   return(res$result)
 }
@@ -72,6 +72,16 @@ mergeSampling <- function(enrich.res){
   all.terms.avg <- data.table::rbindlist(parallel::mclapply(1:length(term_list), avgP, terms=terms, term_list = term_list, slow = slow, mc.cores=1))
   all.terms.avg <- all.terms.avg[order(all.terms.avg$avgP),]
   all.terms.avg$log10P <- -log10(all.terms.avg$avgP)
+
+  # if intersection were requested, add them back here
+  if (slow == TRUE){
+    all.terms.avg$intersection = NA
+    for (i in 1:nrow(all.terms.avg)){
+      cat(paste0('** processing line ', i, '                         \r'))
+      all.terms.avg$intersection[i] = paste(unique(unlist(strsplit(paste(all.enrich$intersection[which(all.enrich$term_id == all.terms.avg$term_id[i])], collapse = ','), ','))), collapse = ',')
+    }
+  }
+
   #print(head(all.terms.avg))
   #write.table(all.terms.avg, paste("RESULTS_", random_num, "/enrichent_results_sampling.txt", sep=""), quote=F, row.names=F, sep="\t")
 
