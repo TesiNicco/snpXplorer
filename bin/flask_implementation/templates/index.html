@@ -1,0 +1,22 @@
+<html>
+    <head>
+        <title>Plot of x and y</title>
+    </head>
+    <body>
+        <form method="post">
+            chrom: <input type="text" name="chrom"><br>
+            position: <input type="text" name="position"><br>
+            window: <input type="range" min="1000" max="2000000" value="25000" step="1000" name="window"><br>
+            <br>
+            
+            gwas: <input type="checkbox" name="gwas" value="CAD">CAD
+            <input type="checkbox" name="gwas" value="COVID">COVID<br>
+
+            <br>
+            <input type="submit" value="Submit">
+        </form>
+        {% if plot_url %}
+            <img src="data:image/png;base64,{{ plot_url }}"/>
+        {% endif %}
+    </body>
+</html>
