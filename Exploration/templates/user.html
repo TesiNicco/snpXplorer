@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1>{% block title %} Log in or Register {% endblock %}</h1>
+    <h5>The new version of snpXplorer supports the creation of personal account where to store your annotation runs. Click the Register button to start with registration. If you already have an account, Log in to see your annotations. If you don't want to create an account at this step, ignore.</h5>
+
+    <!-- Here is the block to Log in -->
+    <div style="padding: 10px; background-color: #EEE; margin: 20px; width: 40%; float:left">
+        <h5>Login</h5>
+        {% if error_login %}
+            <p style="color: red">{{ error_login }}</p>
+        {% endif %}
+        {% if success_login %}
+            <p style="color: green">{{ success_login }}</p>
+        {% endif %}
+        <br>
+        <form method="POST" action="{{ url_for('login') }}">
+            <label for="username">Username:</label>
+            <input type="text" id="username" name="username">
+            <br>
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password">
+            <br>
+            <input type="submit" value="Login">
+        </form>
+    </div>
+
+    <!-- Here is the block to register -->
+    <div style="padding: 10px; background-color: #EEE; margin: 20px; width: 50%; float:left">
+        <h5>Register</h5>
+        {% if error_register %}
+            <p style="color: red">{{ error_register }}</p>
+        {% endif %}
+        {% if success_register %}
+            <p style="color: green">{{ success_register }}</p>
+        {% endif %}
+        <form method="POST" action="{{ url_for('register') }}">
+            <label for="username">Username:</label>
+            <input type="text" id="username" name="username" required>
+            <label for="email">Email:</label>
+            <input type="email" id="email" name="email" value="" required>
+            <br>
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password" required>
+            <label for="confirm_password">Confirm Password:</label>
+            <input type="password" id="confirm_password" name="confirm_password" required>
+            <br>
+            <input type="submit" value="Register">
+          </form>
+    </div>
+
+{% endblock %}

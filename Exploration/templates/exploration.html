@@ -1,0 +1,377 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <body id="exploration_sec">
+        <!-- DNA image at the top -->
+        <div class="centered-container">
+            <img class="centered-image" src="{{ url_for('static', filename='images/dna.png') }}" alt="Image">
+        </div>
+
+        <!-- Title at the top -->
+        <h2>{% block title %} Exploration {% endblock %}</h2>
+        
+        <!-- Subtitle below the title -->
+        <h3>Here you can browse GWAS association statistics and overlay multiple GWAS on top of each other.</h3>
+
+        <!-- Here's the first block: GWAS choice, Reference genome and Browsing options -->
+        <form id="exploration_form" method="post">
+                <!-- GWAS choice -->
+                <div id="gwas_option" style="padding: 10px; background-color: #9FD8C6; margin: 20px; width: 35%; float:left">
+                    <div style="text-align: center;">
+                        <h1>GWAS to include</h1>
+                    </div>
+                    <div style="text-align: left; margin-left: 20%;">
+                    <select name="gwas_data" multiple class="form-control">
+                        <option value="" disabled selected>Click to select datasets...</option>
+                        <option value=""></option>
+                        <optgroup label="Datasets">
+                            <!-- <option value="all_tissues" {% if gwas == 'all_tissues' %} selected {% endif %}>All datasets</option> -->
+                            <option value="Alzheimer_million" {% if 'Alzheimer_million' in gwas %} selected {% endif %} >Alzheimer's Disease (Wightman et al., 2022) </option>
+                            <option value="Bellenguez" {% if 'Bellenguez' in gwas %} selected {% endif %} >Alzheimer's Disease (Bellenguez et al., 2022) </option>
+                            <option value="GR@ACE" {% if 'GR@ACE' in gwas %} selected {% endif %} >Alzheimer's Disease (De Rojas et al., 2021) </option>
+                            <option value="IGAP" {% if 'IGAP' in gwas %} selected {% endif %} >Alzheimer's Disease (Kunkle et al., 2019) </option>
+                            <option value="proxy_AD" {% if 'proxy_AD' in gwas %} selected {% endif %} >Alzheimer's Disease (Jansen et al., 2019) </option>
+                            <option value="Autism" {% if 'Autism' in gwas %} selected {% endif %}>Autism (Matoba et al., 2020) </option>
+                            <option value="Depression" {% if 'Depression' in gwas %} selected {% endif %} >Depression (Cai et al., 2020) </option>
+                            <option value="CAD" {% if 'CAD' in gwas %} selected {% endif %}>Coronary Artery Disease (Van der Harst et al., 2017) </option>
+                            <option value="GWAS-Cat" {% if 'GWAS-Cat' in gwas %} selected {% endif %}>GWAS Catalog</option>
+                            <option value="CAD_Diabetics" {% if 'CAD_Diabetics' in gwas %} selected {% endif %}>Coronary Artery Disease and Diabetes (Fall et al., 2017) </option>
+                            <option value="LVV" {% if 'LVV' in gwas %} selected {% endif %}>Lateral Ventricular Volume (Vojinovic et al., 2018) </option>
+                            <option value="SBP" {% if 'SBP' in gwas %} selected {% endif %}>Systolic Blood Pressure (Evangelou et al., 2018) </option>
+                            <option value="BMI" {% if 'BMI' in gwas %} selected {% endif %}>Body Mass Index (Yengo et al., 2018) </option>
+                            <option value="Diabetes" {% if 'Diabetes' in gwas %} selected {% endif %}>Type-1 Diabetes (Forgetta et al., 2018) </option>
+                            <option value="COVID" {% if 'COVID' in gwas %} selected {% endif %}>COVID-19 critical illness (Erola Pairo-Castineira et al., 2020) </option>
+                            <option value="Lupus" {% if 'Lupus' in gwas %} selected {% endif %}>Systemic Lupus (Yong-Fei Wang et al., 2021) </option>
+                            <option value="Inflammation" {% if 'Inflammation' in gwas %} selected {% endif %}>Inflammation Biomarkers (Ruotsalainen et al., 2020) </option>
+                            <option value="Asthma" {% if 'Asthma' in gwas %} selected {% endif %}>Asthma (Han et al., 2020) </option>
+                            <option value="Breast_cancer" {% if 'Breast_cancer' in gwas %} selected {% endif %}>Breast Cancer (Zhang et al., 2020) </option>
+                            <option value="Myeloproliferative" {% if 'Myeloproliferative' in gwas %} selected {% endif %}>Myeloproliferative Neoplasm (Bao et al., 2020) </option>
+                            <option value="Prostate" {% if 'Prostate' in gwas %} selected {% endif %}>Prostate Cancer (Fiorica et al., 2020) </option>
+                            <option value="Lung" {% if 'Lung' in gwas %} selected {% endif %}>Lung Cancer (Rashkin et al., 2020) </option>
+                            <option value="Leukemia" {% if 'Leukemia' in gwas %} selected {% endif %}>Lymphocytic Leukemia (Rashkin et al., 2020) </option>
+                            <option value="Multivariate_Longevity" {% if 'Multivariate_Longevity' in gwas %} selected {% endif %}>Longevity/Lifespan/Healthspan (Timmers et al., 2020) </option>
+                            <option value="UKBaging" {% if 'UKBaging' in gwas %} selected {% endif %}>Parental Longevity (Timmers et al., 2019) </option>
+                            <option value="Height" {% if 'Height' in gwas %} selected {% endif %}>Height (Yengo et al., 2018) </option>
+                            <option value="Education" {% if 'Education' in gwas %} selected {% endif %}>Education (Demange et al., 2021) </option>
+                            <option value="Bone_density" {% if 'Bone_density' in gwas %} selected {% endif %}>Bone Density (Surakka et al., 2020) </option>
+                            <option value="Vitamin_D" {% if 'Vitamin_D' in gwas %} selected {% endif %}>Vitamin D (Manousaki et al., 2020) </option>
+                        </optgroup>
+                    </select>
+                    <script>
+                        $(document).ready(function() {
+                            $('select').select2();
+                        });
+                    </script>
+                    </div>
+                </div>
+                
+                <!-- Reference genome -->
+                <div style="padding: 10px; background-color: #9FD8C6; margin: 20px; width: 20%; float:left">
+                    <h1>Reference Genome</h1>
+                    <input type="radio" name="refGenome" id="GRCh37" value="GRCh37" checked> GRCh37 </input><br>
+                    <input type="radio" name="refGenome" id="GRCh38" value="GRCh38" {% if request.form.get('refGenome') == 'GRCh38' %} checked {% endif %}> GRCh38 </input><br>
+                </div>
+
+                <!-- Browsing option -->
+                <div style="padding: 10px; background-color: #9FD8C6; margin: 20px; width: 35%; float:left">
+                    <h1>Browsing options</h1>
+                    <style>
+                        /* Style for the textarea */
+                        #browse_option {
+                            height: 30px; /* Adjust the height as needed */
+                            font-size: 16px; /* Adjust the font size as needed */
+                        }
+                    </style>
+                    Locus/Interval/RsID/Gene <br><input id="browse_option" type="text" name="browse" placeholder="PLCG2" value="{{ request.form.get('browse', '') }}"><br> 
+                    Window <input type="range" min="1000" max="250000" value="{{ request.form.get('window', '25000') }}" step="1000" name="window" oninput="updateValue(this.value)">
+                    <p>Current value: <span id="slider-value">{{ request.form.get('window', '25000') }}</span></p>
+                    <small style="color: blue;">Example: 1:1000000 / 1:1000000-1200000 / APOE / rs7412</small>
+                </div>
+                
+                <!-- Submit button to start the search -->
+                <div style="padding: 10px; background-color: #9FD8C6; margin: 20px; text-align: center">
+                    <button style="background-color: #4C837A; color: white">Show region!</button>
+                </div>
+
+            <script>
+                document.getElementById("submit_button").addEventListener("click", function(event) {
+                event.preventDefault(); // Prevent the form from submitting
+            
+                // Get the selected radio button values
+                var selectedCheckboxes = document.querySelectorAll('input[name="allGwas"]:checked');
+            
+                // Get the text input value
+                var textInput = document.getElementById("browse_option").value;
+            
+                // Check if at least one checkbox is selected or if the text input is empty
+                if (selectedCheckboxes.length === 0 && textInput.trim() === "") {
+                    // Display an error message
+                    alert("Please select a GWAS dataset to show from the GWAS to include and the region to show from the Browsing options!");
+                } else if (selectedCheckboxes.length === 0) {
+                    // Display an error message
+                    alert("Please select a GWAS dataset to show from the GWAS to include.");
+                } else if (textInput.trim() === "") {
+                    // Display an error message
+                    alert("Please select a region to show from the Browsing options!");
+                } else {
+                    // Submit the form
+                    document.getElementById("exploration_form").submit();
+                }
+                });
+            </script>          
+
+            <!-- Side panel and plot -->
+            <div style="display: flex">
+                <!-- Side panel for additional options -->
+                <div style="padding: 10px; background-color: #E0E5F0; margin-left: 20px;">
+                    <!-- Visualization options -->
+                    <style>
+                        /* Adjust spacing between heading and radio buttons */
+                        .visualization-options {
+                            margin-bottom: 1px; /* Adjust the value as needed */
+                            margin-top: 1px;
+                        }
+                    
+                        /* Increase the size of the radio buttons' title */
+                        .radio-title {
+                            font-size: 16px; /* Adjust the font size as needed */
+                        }
+                    </style>
+                    <h3 class="visualization-options">Visualization options</h3>
+                    <!-- Plot type -->
+                    <div style="background-color: #E0E5F0; width: 25%; float: left; margin-right: 20px;">
+                        <h6 class="radio-title">Plot type</h6>
+                        <input type="radio" name="plotype" id="Scatter" value="Scatter" checked > Scatter <br>
+                        <input type="radio" name="plotype" id="Smooth" value="Smooth" {% if request.form.get('plotype') == 'Smooth' %} checked {% endif %}> Smooth
+                    </div>
+
+                    <!-- Show exons -->
+                    <div style="background-color: #E0E5F0; width: 20%; float: left; margin-left: 10px; margin-right: 20px;">
+                        <h6 class="radio-title">Exons</h6>
+                        <input type="radio" name="exons" id="No" value="No" checked > No </input><br>
+                        <input type="radio" name="exons" id="Yes" value="Yes" {% if request.form.get('exons') == 'Yes' %} checked {% endif %}> Yes </input>
+                    </div>
+        
+                    <!-- Recombination rates -->
+                    <div style="background-color: #E0E5F0; width: 20%; float: left; margin-left: 10px; margin-bottom: 50px;">
+                        <h6 class="radio-title">Recombination</h6>
+                        <input type="radio" name="recomb" id="No" value="No" checked > No </input><br>
+                        <input type="radio" name="recomb" id="Yes" value="Yes" {% if request.form.get('recomb') == 'Yes' %} checked {% endif %}> Yes </input>
+                    </div><br><br>
+
+                    <!-- Structural variant datasets -->
+                    <div style="clear: both; text-align: center; margin-top: 50px;">
+                        <h6 class="radio-title">Structural Variants (SV)</h6>
+                        <input type="checkbox" name="sv_source" value="jasper" {% if 'jasper' in request.form.getlist('sv_source') or not request.form.getlist('sv_source') %} checked {% endif %}>Linthrost et al.
+                        <input type="checkbox" name="sv_source" value="chaisson" {% if 'chaisson' in request.form.getlist('sv_source') %} checked {% endif %}>Chaisson et al.
+                        <input type="checkbox" name="sv_source" value="audano" {% if 'audano' in request.form.getlist('sv_source') %} checked {% endif %}>Audano et al.
+                        <br><br>
+                    </div>
+
+                    <!-- SNP table -->
+                    <div style="clear: both; text-align: center; margin-top: 50px;">
+                        <h6 class="radio-title">SNPs Table</h6>
+                    </div>
+                    <div style="height: 300px; overflow: auto; overflow-x: auto; width: 400px;">
+                        <table class="scrollable-table">
+                            <thead>
+                                <tr>
+                                    <th>Locus</th>
+                                    <th>RsID</th>
+                                    <th>Trait</th>
+                                    <th>Alleles</th>
+                                    <th>Pvalue</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in table_snps %}
+                                <tr>
+                                    <td>{{ row['Locus'] }}</td>
+                                    <td>{{ row['Rsid'] }}</td>
+                                    <td>{{ row['Gwas'] }}</td>
+                                    <td>{{ row['Alleles'] }}</td>
+                                    <td>{{ row['Pvalue'] }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <small style="color: blue;">Alleles: Ref/Alt - Pvalue: log10 scale</small><br>
+
+                    <!-- Button to download SNP table -->
+                    <a href="{{ url_for('download_snp_table') }}">Download SNPs as CSV</a>
+                    <br><br>
+
+                    <!-- SV table -->
+                    <div style="clear: both; text-align: center; margin-top: 50px;">
+                        <h6 class="radio-title">Structural Variants Table</h6>
+                    </div>
+                    <div style="height: 200px; overflow: auto; overflow-x: auto; width: 400px;">
+                        <table class="scrollable-table">
+                            <thead>
+                                <tr>
+                                    <th>Locus</th>
+                                    <th>Size</th>
+                                    <th>Type</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in table_svs %}
+                                <tr>
+                                    <td>{{ row['Region'] }}</td>
+                                    <td>{{ row['diff'] }}</td>
+                                    <td>{{ row['type'] }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div><br>
+
+                    <!-- Button to download SV table -->
+                    <a href="{{ url_for('download_sv_table') }}">Download SVs as CSV</a>
+                    <br><br>
+
+                    <!-- GWAS-catalog table -->
+                    <div style="clear: both; text-align: center; margin-top: 50px;">
+                        <h6 class="radio-title">GWAS Catalog Table</h6>
+                    </div>
+                    <div style="height: 300px; overflow: auto; overflow-x: auto; width: 400px;">
+                        <table class="scrollable-table">
+                            <thead>
+                                <tr>
+                                    <th>Locus</th>
+                                    <th>RsID</th>
+                                    <th>Gene</th>
+                                    <th>Trait</th>
+                                    <th>Pubmed</th>
+                                    <th>Pvalue</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in table_gwas %}
+                                <tr>
+                                    <td>{{ row['Locus'] }}</td>
+                                    <td>{{ row['snp'] }}</td>
+                                    <td>{{ row['gene'] }}</td>
+                                    <td>{{ row['trait'] }}</td>
+                                    <td>{{ row['pubmed_id'] }}</td>
+                                    <td>{{ row['pvalue'] }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div><br>
+
+                    <!-- Button to download SNP table -->
+                    <a href="{{ url_for('download_gwascat_table') }}">Download GWAS-Catalog as CSV</a>
+                    <br><br>
+
+                    <!-- GTEx Expression -->
+                    <div style="clear: both; text-align: center; margin-top: 50px;">
+                        <h6 class="radio-title">GTEx expression Table</h6>
+                    </div>
+                    <a href="{{ url_for('download_gtex_expression') }}">Download GTEx expression as CSV</a>
+                    <br><br>
+
+                    <!-- Button to download SNP plot -->
+                    <a href="{{ url_for('download_snp_plot') }}">Download Main SNP plot</a>
+                    <br><br>
+
+                    <!-- Button to download GTEx plot -->
+                    <a href="{{ url_for('download_gtex_plot') }}">Download GTEx plot</a>
+                    <br><br>
+                    
+                    <!-- GTEx eQTLs  (to be implemented)
+                    <div style="clear: both; text-align: center; margin-top: 50px;">
+                        <h6 class="radio-title">GTEx eQTLs Table</h6>
+                    </div>
+                    <select name="QTLtissuesExplo" multiple class="form-control">                
+                        <option value=""></option>
+                        <optgroup label="Tissues">
+                            <option value="all_tissues">All_tissues</option>
+                            <option value="Adipose_Subcutaneous">Adipose Subcutaneous</option>
+                            <option value="Adipose_Visceral_Omentum">Adipose Visceral Omentum</option>
+                            <option value="Adrenal_Gland">Adrenal Gland</option>
+                            <option value="Artery_Aorta">Artery Aorta</option>
+                            <option value="Artery_Tibial">Artery Tibial</option>
+                            <option value="Brain_Amygdala">Brain Amygdala</option>
+                            <option value="Brain_Anterior_cingulate_cortex_BA24">Brain Anterior cingulate cortex</option>
+                            <option value="Brain_Caudate_basal_ganglia">Brain Caudate basal ganglia</option>
+                            <option value="Brain_Cerebellar_Hemisphere">Brain Cerebellar Hemisphere</option>
+                            <option value="Brain_Cerebellum">Brain Cerebellum</option>
+                            <option value="Brain_Cortex">Brain Cortex</option>
+                            <option value="Brain_Frontal_Cortex_BA9">Brain Frontal Cortex</option>
+                            <option value="Brain_Hippocampus">Brain Hippocampus</option>
+                            <option value="Brain_Hypothalamus">Brain Hypothalamus</option>
+                            <option value="Brain_Nucleus_accumbens_basal_ganglia">Brain Nucleus accumbens basal ganglia</option>
+                            <option value="Brain_Spinal_cord_cervical_c-1">Brain Spinal cord cervical</option>
+                            <option value="Brain_Substantia_nigra">Brain Substantia nigra</option>
+                            <option value="Breast_Mammary_Tissue">Breast Mammary Tissue</option>
+                            <option value="Cells_Cultured_fibroblasts">Cells Cultured fibroblasts</option>
+                            <option value="Cells_EBV-transformed_lymphocytes">EBV-transformed lymphocytes</option>
+                            <option value="Colon_Sigmoid">Colon Sigmoid</option>
+                            <option value="Colon_Transverse">Colon Transverse</option>
+                            <option value="Esophagus_Gastroesophageal_Junction">Esophagus Gastroesophageal Junction</option>
+                            <option value="Esophagus_Mucosa">Esophagus Mucosa</option>
+                            <option value="Esophagus_Muscularis">Esophagus Muscularis</option>
+                            <option value="Heart_Atrial_Appendage">Heart Atrial Appendage</option>
+                            <option value="Heart_Left_Ventricle">Heart Left Ventricle</option>
+                            <option value="Kidney_Cortex">Kidney Cortex</option>
+                            <option value="Liver">Liver</option>
+                            <option value="Lung">Lung</option>
+                            <option value="Minor_Salivary_Gland">Minor Salivary Gland</option>
+                            <option value="Muscle_Skeletal">Muscle Skeletal</option>
+                            <option value="Nerve_Tibial">Nerve Tibial</option>
+                            <option value="Ovary">Ovary</option>
+                            <option value="Pancreas">Pancreas</option>
+                            <option value="Pituitary">Pituitary</option>
+                            <option value="Prostate">Prostate</option>
+                            <option value="Skin_Not_Sun_Exposed_Suprapubic">Skin Suprapubic (Not Sun Exposed)</option>
+                            <option value="Skin_Sun_Exposed_Lower_leg">Skin Lower leg (Sun Exposed)</option>
+                            <option value="Small_Intestine_Terminal_Ileum">Small Intestine Terminal Ileum</option>
+                            <option value="Spleen">Spleen</option>
+                            <option value="Stomach">Stomach</option>
+                            <option value="Testis">Testis</option>
+                            <option value="Thyroid">Thyroid</option>
+                            <option value="Uterus">Uterus</option>
+                            <option value="Vagina">Vagina</option>
+                            <option value="Skin_Not_Sun_Exposed_Suprapubic">Skin Suprapubic (Not Sun Exposed)</option>
+                            <option value="Skin_Not_Sun_Exposed_Suprapubic">Skin Suprapubic (Not Sun Exposed)</option>
+                            <option value="Whole_Blood" selected >Whole Blood</option>
+                        </optgroup>
+                    </select>
+                    <script>
+                        $(document).ready(function() {
+                            $('select').select2();
+                        });
+                    </script>
+                    <br><br> -->
+                
+                </div>
+                
+                <!-- Main Plot -->
+                <div style="display: flex; flex-direction: column;">
+                    {% if plot_url %}
+                    <div style="margin: 0px; padding: 0px;">
+                        <img src="data:image/png;base64,{{ plot_url }}"/>
+                    </div>
+                    {% endif %}
+
+                    <!-- GTEx Plot -->
+                    {% if plot_gtex %}
+                    <div style="margin: 0px; padding: 0px;">
+                        <img src="data:image/png;base64,{{ plot_gtex }}"/>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </form>
+
+        <!-- Footnote images -->
+        <div class="image-container-foot">
+            <img src="{{ url_for('static', filename='images/amstUMC.jpg') }}" alt="ams">
+            <img src="{{ url_for('static', filename='images/tudelft1.png') }}" alt="tud">
+            <img src="{{ url_for('static', filename='images/github.png') }}" alt="gith">
+        </div>
+    </body>
+{% endblock %}

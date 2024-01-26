@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1>{% block title %} Your dashboard {% endblock %}</h1>
+    
+    <ul>
+        <li><a href="#">My Jobs</a></li>
+        <li><a href="#">Edit Profile</a></li>
+        <li><a href="#">Change Password</a></li>
+        <li><a href="{{ url_for('logout') }}">Logout</a></li>
+    </ul>
+{% endblock %}

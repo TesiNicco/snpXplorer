@@ -1,0 +1,200 @@
+body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "San Francisco", Helvetica, Arial, sans-serif;
+  color: #444;
+}
+/*
+ * Formatting the header area
+ */
+header {
+  background-color: #DFB887;
+  height: 35px;
+  width: 100%;
+  opacity: .9;
+  margin-bottom: 10px;
+}
+header h1.logo {
+  margin: 0;
+  font-size: 1.7em;
+  color: #fff;
+  text-transform: uppercase;
+  float: left;
+}
+header h1.logo:hover {
+  color: #fff;
+  text-decoration: none;
+}
+/*
+ * Centering the body content
+ */
+.container {
+  width: 95%;
+  margin: auto !important;
+}
+
+div.home {
+  padding: 10px 0 30px 0;
+  background-color: #E6E6FA;
+  -webkit-border-radius: 6px;
+     -moz-border-radius: 6px;
+          border-radius: 6px;
+}
+div.about {
+  padding: 10px 0 30px 0;
+  background-color: #E6E6FA;
+  -webkit-border-radius: 6px;
+     -moz-border-radius: 6px;
+          border-radius: 6px;
+}
+h2 {
+  font-size: 3em;
+  margin-top: 40px;
+  text-align: center;
+  letter-spacing: -2px;
+}
+h3 {
+  font-size: 1.7em;
+  font-weight: 100;
+  margin-top: 30px;
+  text-align: center;
+  letter-spacing: -1px;
+  color: #999;
+}
+.menu {
+  float: right;
+  margin-top: 8px;
+}
+.menu li {
+  display: inline;
+}
+.menu li + li {
+  margin-left: 35px;
+}
+.menu li a {
+  color: #444;
+  text-decoration: none;
+}
+/*
+ * Formatting the navigation bar
+ */
+ nav {
+  display: flex;
+  justify-content: center;
+  align-items: left;
+  background-color: #333;
+  padding: 10px;
+  border-radius: 5px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+}
+
+nav a {
+  color: #fff;
+  text-decoration: none;
+  padding: 10px 20px;
+  margin: 0 10px;
+}
+
+button {
+  font-size: 20px;
+  padding: 10px 20px;
+}
+
+/* Set font size of tables */
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+th, td {
+  text-align: left;
+  padding: 8px;
+}
+th {
+  background-color: #dddddd;
+}
+#gwas_option .select2-container--default .select2-selection--multiple {
+  width: 400px;
+  height: 110px;
+}
+
+/* styles.css */
+.centered-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 15vh; /* You can adjust this to control vertical centering */
+}
+
+.centered-container-mainImage {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 80vh; /* You can adjust this to control vertical centering */
+}
+
+.centered-image {
+  max-width: 120%; /* Ensure the image fits within the container */
+}
+
+/* styles.css */
+.left-aligned-image {
+  display: flex;
+  align-items: flex-start; /* Align the image to the top */
+}
+
+.scaled-image {
+  max-width: 60%; /* Ensure the image fits within the container */
+  width: auto; /* Scale down the image while maintaining its aspect ratio */
+}
+
+/* styles.css */
+.container-main {
+  display: flex;
+}
+
+.column {
+  flex: 1;
+  padding: 20px;
+  color: white;
+  text-align: justify; /* Justify alignment */
+  min-height: 100px; /* Adjust as needed */
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between; /* Vertical separation */
+}
+
+#column1 {
+  background-color: #66C2A5; /* Green background */
+  margin-right: 10px; /* Add space to the right of column 1 */
+}
+
+#column2 {
+  background-color: #8DA0CB; /* Blue background */
+  margin-left: 10px; /* Add space to the left of column 2 */
+}
+
+.column p {
+  font-size: 18px; /* Adjust the size as needed */
+}
+
+#column3 {
+  background-color: #FC8D62; /* Green background */
+  margin-top: 10px;
+  margin-right: 10px; /* Add space to the right of column 1 */
+}
+
+#column4 {
+  background-color: #4C837A; /* Blue background */
+  margin-top: 10px;
+  margin-left: 10px; /* Add space to the left of column 2 */
+}
+
+.image-container-foot {
+  display: flex; /* Use flexbox to create a horizontal layout */
+  justify-content: space-between; /* Distribute images evenly */
+  margin-top: 80px; /* Add some top margin for spacing */
+}
+
+.image-container-foot img {
+  max-height: 90px; /* Adjust the value to control the size of the images */
+}

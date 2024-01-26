@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- Command to include jQuery (required for session registration) -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <!-- Required meta tags -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    
+    <!-- Libraries for searching -->
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/select2/4.0.8/css/select2.min.css" />
+
+    <!-- Latest compiled and minified JavaScript -->
+    <script src="//cdnjs.cloudflare.com/ajax/libs/select2/4.0.8/js/select2.min.js"></script>
+
+    <!-- Title page in navigation bar -->
+    <title>{% block title %} {% endblock %} - snpXplorer</title>
+
+    <!-- Javascript function to show slider window value and remember the previous inputed value -->
+    <script>
+		function updateValue(val) {
+			document.getElementById('slider-value').innerHTML = val;
+		}
+        var slider = document.getElementsByName('window')[0];
+        var output = document.getElementById('slider-value');
+        output.innerHTML = slider.value;
+        slider.oninput = function() {
+            output.innerHTML = this.value;
+        }
+    </script>
+
+    <!-- Javascript script to automatically check lower-levels options in hierarchical checkbox tree -->
+    <script>
+        function toggleCheckbox(checkbox) {
+            if (checkbox.checked) {
+                var childCheckboxes = checkbox.parentNode.nextElementSibling.querySelectorAll('input[type="checkbox"]');
+                childCheckboxes.forEach(function(childCheckbox) {
+                    childCheckbox.checked = true;
+                });
+            }
+        }
+    </script>
+
+    <!-- Set font size of tables -->
+    <style>
+        table {
+            border-collapse: separate;
+            border-spacing: 5px;
+            font-size: 13px;
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+        }
+        th, td {
+            font-size: 14px;
+        }
+        tr:nth-child(even) {
+            background-color: transparent;
+        }
+        tr:nth-child(odd) {
+            background-color: white;
+        }
+    </style>
+
+    <!-- Javascript code to enable scrolling of the table -->
+    <script>
+        const table = document.querySelector('.scrollable-table');
+        const topRows = 100; // Show the top 10 rows by default
+                  
+        // Hide any rows that are not within the top N rows
+        table.querySelectorAll('tbody tr:nth-child(n+' + (topRows + 1) + ')')
+            .forEach(row => row.style.display = 'none');
+                  
+        // Add an event listener to the table to show/hide rows on scroll
+        table.addEventListener('scroll', function() {
+        // Check if the user has scrolled past the top N rows
+        if (table.scrollTop > topRows * 30) { // 30 is the height of each row
+            // Show the remaining rows
+            table.querySelectorAll('tbody tr:nth-child(n+' + (topRows + 1) + ')')
+                .forEach(row => row.style.display = 'table-row');
+        } else {
+            // Hide the remaining rows
+            table.querySelectorAll('tbody tr:nth-child(n+' + (topRows + 1) + ')')
+                .forEach(row => row.style.display = 'none');
+        }
+    });
+    </script>
+
+</head>
+<body>
+    <!-- Navigation bar -->
+    <nav>
+        <a href="{{ url_for('index') }}">Homepage</a>
+        <a href="{{ url_for('exploration') }}">Exploration</a>
+        <a href="{{ url_for('annotation') }}">Annotation</a>
+        <a href="{{ url_for('download') }}">Download</a>
+        <!-- <a href="{{ url_for('user') }}">Log In</a> -->
+        <a href="{{ url_for('help') }}">Help</a>
+        <a href="{{ url_for('about') }}">About</a>
+      </nav>
+    
+    <!-- Page content -->
+    <div class="container">
+        {% block content %} {% endblock %}
+    </div>
+    
+    <!-- Optional JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/js/bootstrap.bundle.min.js" integrity="sha384-U1DAWAznBHeqEIlVSCgzq+c9gqGAJn5c/t99JyeKa9xxaYpSvHU5awsuZVVFIhvj" crossorigin="anonymous"></script>
+</body>
+</html>

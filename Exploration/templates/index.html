@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <body id="homepage">
+        <!-- DNA image at the top -->
+        <div class="centered-container">
+            <img class="centered-image" src="{{ url_for('static', filename='images/dna.png') }}" alt="Image">
+        </div>
+        <!-- logo with info -->
+        <div class="centered-container-mainImage">
+            <img class="scaled-image" src="{{ url_for('static', filename='images/graph_abstract_hq.png') }}" alt="Image">
+        </div>
+        <!-- Brief description -->
+        <h3>snpXplorer is a web-server to explore GWAS datasets (Exploration tab) and annotate set of SNPs (Annotation tab).</h3>
+        <!-- More info -->
+        <div class="container-main">
+            <div class="column" id="column1">
+                <h2>Exploration</h2>
+                <p>The <a href="{{ url_for('exploration') }}#exploration_sec">Exploration</a> tab allows you to explore association statistics from published Genome-Wide Association Studies (GWAS). You can search for your favourite SNP or gene, and overlay multiple GWAS statistics on top of each other, allowing comparison between them.</p>
+                <p>GWAS summary statistics are shown in the context of the closest genes, recombination rates, and structural variations (SV). Gene expression per-tissue from GTEx is shown for the genes in the window. A side panel reports GWAS statistics and SV statistics, and allows to download data as a table.</p>
+            </div>
+            <div class="column" id="column2">
+                <h2>Annotation</h2>
+                <p>The <a href="{{ url_for('annotation') }}#annotation_sec">Annotation</a> tab allows you to annotate a set of SNPs and/or perform gene-set enrichment analysis. Annotation is performed integrating public QTL datasets (eQTLs, sQTLs), variant pathogenicity (CADD), and genomic position, and reportsa list of likely affected genes.</p>
+                <p>If gene-set enrichment analysis is requested, the list of genes associated with the SNPs is used in a sampling-based framework to test for the pathways significantly enriched in the list of genes. This procedure allows multiple genes to be associated with each variant.</p>
+            </div>
+        </div>
+        <!-- More info -->
+        <div class="container-main">
+            <div class="column" id="column3">
+                <h2>About</h2>
+                <p>The <a href="{{ url_for('about') }}#about">About</a> tab gives you more information about snpXplorer. You can check out the publication in <a href="https://pubmed.ncbi.nlm.nih.gov/34048563/">Nucleic Acid Research</a> or download the PDF of the paper. Please do not forget to cite us if you find snpXplorer useful for your research.<br>
+                Here you can also check the references snpXplorer uses and the studies included.</p>
+            </div>
+            <div class="column" id="column4">
+                <h2>Help and contacts</h2>
+                <p>The <a href="{{ url_for('help') }}#help">Help</a> tab guides you through snpXplorer functionalities with vignettes, for both the Exploration and Annotation sections.<br>
+                snpXplorer was developed by Niccolò Tesi at Amsterdam UMC and TU Delft. <br>
+                Your feedbacks are very precious: for more information, collaborations, or feedbacks <a href="mailto:n.tesi@amsterdamumc.nl">Reach us!</a></p>
+            </div>
+        </div>
+
+        <!-- Footnote images -->
+        <div class="image-container-foot">
+            <img src="{{ url_for('static', filename='images/amstUMC.jpg') }}" alt="ams">
+            <img src="{{ url_for('static', filename='images/tudelft1.png') }}" alt="tud">
+            <img src="{{ url_for('static', filename='images/github.png') }}" alt="gith">
+        </div>
+    </body>
+{% endblock %}

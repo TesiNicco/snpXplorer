@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <body id="download">
+        <!-- DNA image at the top -->
+        <div class="centered-container">
+            <img class="centered-image" src="{{ url_for('static', filename='images/dna.png') }}" alt="Image">
+        </div>
+
+        <!-- Title -->
+        <h2>{% block title %} Download your Annotation results {% endblock %}</h2>
+        
+        <!-- Vignettes Exploration -->
+        <div class="container-main">
+            <div class="column" id="column2">
+                <h2>Please follow these steps to download your annotation results:</h2>
+                <ul>
+                    <li>Retrieve the run ID from the email that was sent to you</li>
+                    <li>Open the page to download your results at https://snpxplorer.net/download</li>
+                    <li>Add your run ID to the search box and type enter</li>
+                    <li>If the file is available, a download link will appear. Click on the link to download your results.</li>
+                </ul>
+            </div>
+        </div>
+
+        <br><br>
+
+        <div style="text-align: center">
+            <form method="post" action="/download/">
+                Your Run Identifier <br>
+                <input id="run_id" type="text" name="run_id" {% if run_id %} value="{{ run_id }}" {% else %} placeholder="Add your Run ID" {% endif %}><br>
+            </form>
+        
+            {% if run_id and not messageError %}
+                <!-- Button to results -->
+                <a href="{{ url_for('download_results', run_id=run_id) }}">Download your annotation results</a>
+                <br><br>
+            {% elif messageToUser %}
+                <p>{{ messageToUser }}</p>
+            {% endif %}
+        </div>
+        
+        <!-- Footnote images -->
+        <div class="image-container-foot">
+            <img src="{{ url_for('static', filename='images/amstUMC.jpg') }}" alt="ams">
+            <img src="{{ url_for('static', filename='images/tudelft1.png') }}" alt="tud">
+            <img src="{{ url_for('static', filename='images/github.png') }}" alt="gith">
+        </div>
+    </body>
+{% endblock %}

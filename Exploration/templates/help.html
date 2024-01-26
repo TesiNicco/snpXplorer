@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <body id="help">
+        <!-- DNA image at the top -->
+        <div class="centered-container">
+            <img class="centered-image" src="{{ url_for('static', filename='images/dna.png') }}" alt="Image">
+        </div>
+
+        <!-- Title -->
+        <h2>{% block title %} Help {% endblock %}</h2>
+        
+        <!-- Vignettes Exploration -->
+        <div class="container-main">
+            <div class="column" id="column2">
+                <h2>Exploration section</h2>
+                <p>In the Exploration section, you are required to:
+                    <ul>
+                        <li>Select one or more dataset(s) to visualize clicking on the textarea (GWAS datasets)</li>
+                        <li>Specify the reference genome version using the radio button</li>
+                        <li>Specify your target region by typing the SNP name, gene name or genomic region of interest in the textarea (Browse). Also, you can define the window around the SNP/Gene to show.</li>
+                        <li>Click on the Show region button</li>
+                    </ul>
+                    This represents the most basic visualization scheme, and will show GWAS summary statistics in the form of a regional plot. Dots are SNPs, with the x-axis showing the genomic position and the y-axis showing the p-value in negative logarithmic scale (the higher the dot, the more significant the association is). Additional plot windows show the gene(s) in the region of interest, the Structural variants (SV) in the region of interest, and the gene-expression of the genes in the region of interest as found in GTEx database, for all available tissues. The side panel allows to further characterize the plot(s):
+                    <ul>
+                        <li>Plot type: by default, each SNP is represented as a dot (Scatter). By clicking on Smooth, GWAS association statistics are smoothed with a kernel density function</li>
+                        <li>Exons: by default, exons are not shown. You can enable them by modifying this option</li>
+                        <li>Recombination: by default, recombination rates are not shown. You can enable it by modifying this option</li>
+                        <li>Structural variants: specify the dataset to use for Structural variants</li>
+                        <li>SNPs Table: will show the top associations, which can be downloaded</li>
+                        <li>Structural Variants Table: will show the SVs in the region, which can be downloaded</li>
+                        <li>GWAS Catalog Table: will show the match of the SNPs plotted with respect to the GWAS Catalog, which can be downloaded</li>
+                        <li>GTEx expression Table: will download the gene-expression from GTEx</li>
+                    </ul>
+                </p>
+            </div>
+        </div>
+
+        <!-- Vignettes Annotation -->
+        <div class="container-main">
+            <div class="column" id="column4">
+                <h2>Annotation section</h2>
+                <p>In the Annotation section, you are required to:
+                    <ul>
+                        <li>Add a list of SNPs of interest that you want to annotate in the textarea. The maximum number of SNPs for annotation analysis is 10,000, while the maximum number of SNPs for gene-set enrichment analysis is 1,000</li>
+                        <li>Specify the input type of your SNPs using the radio button: rsID is preferred, however, genomic location will also work</li>
+                        <li>Specify the reference genome version using the radio button</li>
+                        <li>Specify the type of analysis to perform: Annotation will only annotate the SNPs of interest based on CADD score, QTLs (eQTL and sQTL) and position. Gene-set enrichment will first do annotation, and then gene-set enrichment analysis in sampling-based framework to allow multiple genes to be associated with a single SNP</li>
+                        <li>Specify the tissues to be used for QTL analysis</li>
+                        <li>Add your email address</li>
+                        <li>Submit your job</li>
+                    </ul>
+                    snpXplorer will run in the background and will report the output results of your analysis by email. Plots and Tables will be generated and shared with the user. Detailed documentation about how to interpret the results will also be provided in the outputs.
+                </p>
+            </div>
+        </div>
+        
+        <!-- Footnote images -->
+        <div class="image-container-foot">
+            <img src="{{ url_for('static', filename='images/amstUMC.jpg') }}" alt="ams">
+            <img src="{{ url_for('static', filename='images/tudelft1.png') }}" alt="tud">
+            <img src="{{ url_for('static', filename='images/github.png') }}" alt="gith">
+        </div>
+    </body>
+{% endblock %}
