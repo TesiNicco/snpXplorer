@@ -1,6 +1,9 @@
-# snpXplorer `v2.0`
-`snpXplorer` is an open source web-server to explore associations from Genome-Wide Association Studies (GWAS) available at https://snpxplorer.net/.
-`snpXplorer` offers a wide range of visualization options, for example, you can superimpose multiple studies on top of each other, or on top of your study.
+# snpXplorer
+**snpXplorer** was developed to help geneticists and researchers working with genetic data to interpret association signals from Genome-Wide Association Studies (GWAS).  
+
+Practically, **snpXplorer** is an open source web-server: the core of the **snpXplorer** is written in Python as a (Flask application)[https://flask.palletsprojects.com/en/3.0.x/].  
+
+**snpXplorer** offers a wide range of visualization options, for example, you can superimpose multiple studies on top of each other, or on top of your study.
 Please see the documentation in this repository to get more information about how to best use `snpXplorer` and its options, and how to make it work on your machine.
 
 # Web-server structure
