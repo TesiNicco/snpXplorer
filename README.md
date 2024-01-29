@@ -13,12 +13,6 @@ While the original version of **snpXplorer** was written in R as a [Shiny applic
 - *Exploration*: This section allows you to browse GWAS association signals across a set of pre-defined GWAS summary statistics. The user can select multiple GWAS traits and these will be superimpose on top of each other. Additional information about Single Nucleotide Polymorphisms (SNP), Structural Variants (SV), Quantitative Trait Loci (QTL) and RNA expression are also available.
 - *Annotation*: This section allows to annotate a list of SNPs of interest. The user can use the provided textbox to insert SNP-IDs of interest. SNPs will be annotated to the most likely affected gene integrating public resources of QTL and variant effect predictor. The user can perform both a SNP-gene annotation (*SNP-gene mapping*) or a gene-set enrichment analysis (*Gene-set enrichment analysis*).
 
-## What if I you have a question/comment/feedback?
-Comments, questions and feedbacks are very very appreciated.  
-To contact us, you can send an email to one of the following address:
-- [Contact snpXplorer Team](mailto:snpxplorer@gmail.com)
-- [Contact the main author](mailto:n.tesi@amsterdamumc.nl)
-
 ## Can I download snpXplorer locally?
 **snpXplorer** was primarily developed to being used as a web-server.  
 The source code can be downloaded locally, however, for the full capacity of both the *Exploration* and the *Annotation* sections, many additional files are required, and are not provided on GitHub. The reason for not including them on GitHub is storage: GWAS summary statistics and other genome-wide annotation tracks such as expression-QTL, splicing-QTL, and 1000Genome genotypes are very large in size.  
@@ -107,5 +101,8 @@ When you run **snpXplorer** *Annotation* section, you will get a number of outpu
 5. Gene-set Enrichment Analysis (*only when Gene-set Enrichment Analysis is selected*): Table with the significantly enriched pathways.
 6. Gene-set Enrichment Figures (*only when Gene-set Enrichment Analysis is selected*): Figures showing (*i*) the semantic similarity-based matrix along with dendrograms and clusters, (*ii*) the enriched terms after semantic similarity reduction, and (*iii*) a wordcloud representation for each cluster with the most common terms.
 
-## What if you have questions?
-Please do not hesitate to [contact us](mailto:snpxplorer@gmail.com) for any comment, feedback, or question.
+## What if I you have a question/comment/feedback?
+Comments, questions and feedbacks are very very appreciated.  
+To contact us, you can send an email to one of the following address:
+- [Contact snpXplorer Team](mailto:snpxplorer@gmail.com)
+- [Contact the main author](mailto:n.tesi@amsterdamumc.nl)
