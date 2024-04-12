@@ -27,7 +27,7 @@ import os
 #from pandasgwas.get_SNPs import get_variants_by_variant_id
 #data_path = '/Users/nicco/Library/Mobile\ Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/bin/snpxplorer_v4/data'
 # server
-data_path = '/root/snpXplorer/data'
+data_path = '/data'
 from pandasgwas import get_variants_by_variant_id
 
 # Initialize the App
@@ -540,7 +540,7 @@ def get_gtex(data_path, genes, refGen):
         gtex_genes = []
         for x in genes:
             try:
-                tmp = [x.rstrip().split('\t') for x in list(os.popen('zgrep %s %s/GTEX/GTEx_Analysis_2017-06-05_v8_RNASeQCv1.1.9_gene_median_tpm.gct.gz' %(x[genename_index], data_path.replace('\\ ', '\ '))))][0]
+                tmp = [x.rstrip().split('\t') for x in list(os.popen('zgrep %s %s/databases/GTEx_Analysis_2017_06_05_v8_RNASeQCv1.1.9_gene_median_tpm.gct.gz' %(x[genename_index], data_path)))][0]
                 gtex_genes.append(tmp)
             except:
                 pass
