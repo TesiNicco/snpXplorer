@@ -27,7 +27,7 @@ import os
 #from pandasgwas.get_SNPs import get_variants_by_variant_id
 #data_path = '/Users/nicco/Library/Mobile\ Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/bin/snpxplorer_v4/data'
 # server
-data_path = '/data'
+data_path = '/Data'
 from pandasgwas import get_variants_by_variant_id
 
 # Initialize the App
