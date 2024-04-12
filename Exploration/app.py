@@ -218,7 +218,7 @@ def exploration():
         session['svs'] = svs
         session['browse_type'] = browse_type
         session['refGen'] = refGen
-        session['recomb_data'] = recomb_data
+        session['recomb_data'] = recomb_data.to_csv(index=False) if recomb == "Yes" else "None"
         session['exons'] = exons
         session['browse'] = browse
         session['plotype'] = plotype
