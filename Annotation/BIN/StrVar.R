@@ -1,8 +1,8 @@
 # basic paths
-MAIN = "/root/snpXplorer/AnnotateMe/"
-MAIN_SNP = "/root/snpXplorer/snpXplorer_v3/"
+MAIN = "/Annotation/"
+MAIN_SNP = "/Annotation/RUNS/"
 args = commandArgs(trailingOnly=TRUE)
-setwd('/root/snpXplorer/snpXplorer_v3/')
+setwd('/Annotation/RUNS/')
 
 ## function to find sv close to input snps and genes -- adjusted for faster computations (library-wise)
 function_findSVs <- function(i, annot, all_str_hg38){
@@ -51,7 +51,7 @@ random_num = args[2]
 load(snps_info_path)
 annot <- final_res[[1]]
 geneList <- final_res[[2]]
-all_str_hg38 = data.table::fread("/root/snpXplorer/AnnotateMe/INPUTS_OTHER/StrVar_hg38.txt.gz", h=T, sep = "\t", stringsAsFactors=F)
+all_str_hg38 = data.table::fread("/Annotation/INPUTS_OTHER/StrVar_hg38.txt.gz", h=T, sep = "\t", stringsAsFactors=F)
 all_sv = data.table::rbindlist(parallel::mclapply(1:nrow(annot), function_findSVs, annot = annot, all_str_hg38 = all_str_hg38, mc.cores=1))
 write.table(all_sv, paste0("RESULTS_", random_num, "/SNP_and_SV_overlap.txt"), quote=F, row.names=F, sep="\t")
 

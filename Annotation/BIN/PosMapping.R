@@ -2,8 +2,8 @@
 library(stringr)
 
 # basic paths
-MAIN = "/root/snpXplorer/AnnotateMe/"
-MAIN_SNP = "/root/snpXplorer/snpXplorer_v3/"
+MAIN = "/Annotation/"
+MAIN_SNP = "/Annotation/RUNS/"
 args = commandArgs(trailingOnly=TRUE)
 
 ## function to run positional mapping for the variants with no annotation from consequences and eqtl -- adjusted for faster computations (library-wise)

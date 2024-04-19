@@ -1,23 +1,23 @@
 # basic paths
-MAIN = "/root/snpXplorer/AnnotateMe/"
-MAIN_SNP = "/root/snpXplorer/snpXplorer_v3/"
+MAIN = "/Annotation/"
+MAIN_SNP = "/Annotation/RUNS/"
 args = commandArgs(trailingOnly=TRUE)
 
 ## function to perform alternative version of revigo -- do semantic similarity myself
 alternative_revigo_results <- function(MAIN, random_num, go_data){
   # check if revigo input is there
-  filelist = system(paste0("ls RESULTS_", random_num, "/"), intern = T)
+  filelist = system(paste0("ls /Annotation/RUNS/RESULTS_", random_num, "/"), intern = T)
   if ("revigo_inp.txt" %in% filelist){
 
     # run the python script
-    cmd = paste0("python3 ", MAIN, "BIN/Alternative_REVIGO.py RESULTS_", random_num, "/revigo_inp.txt RESULTS_", random_num, "/alternative_Lin_distance.txt ")
+    cmd = paste0("python3 ", MAIN, "BIN/Alternative_REVIGO.py /Annotation/RUNS/RESULTS_", random_num, "/revigo_inp.txt /Annotation/RUNS/RESULTS_", random_num, "/alternative_Lin_distance.txt ")
     system(cmd)
 
     # read output back
-    data = data.table::fread(paste0("RESULTS_", random_num, "/alternative_Lin_distance.txt"), h=T)
+    data = data.table::fread(paste0("/Annotation/RUNS/RESULTS_", random_num, "/alternative_Lin_distance.txt"), h=T)
 
     # Plot heatmap and save it
-    pdf(paste0("RESULTS_", random_num, "/pheatmap_lin_distance.pdf"), height=7, width=7)
+    pdf(paste0("/Annotation/RUNS/RESULTS_", random_num, "/pheatmap_lin_distance.pdf"), height=7, width=7)
     pheatmap::pheatmap(data, show_rownames = F, show_colnames = F, main="Semantic similarity matrix of GO terms")
     dev.off()
 
@@ -75,7 +75,7 @@ alternative_revigo_results <- function(MAIN, random_num, go_data){
       df_cluster_terms$col[which(df_cluster_terms$cluster_in_dendro == i)] <- palett[i]
     }
     library(dendextend)
-    png(paste0("RESULTS_", random_num, "/dendrogram_GOterms.png"), height=7, width=plt_w, res=300, units="in")
+    png(paste0("/Annotation/RUNS/RESULTS_", random_num, "/dendrogram_GOterms.png"), height=7, width=plt_w, res=300, units="in")
     d1=color_branches(dend = hr, clusters = df_cluster_terms$cluster_in_dendro, groupLabels = T, col = palett)
     d1 %>% dendextend::set("labels_col", df_cluster_terms$col) %>% dendextend::set("branches_lwd", 2) %>% dendextend::set("labels_cex", 0.80) %>% plot(main = paste0("Dynamic Cut-tree algorithm ~ Ward.D2 ~ min. size=", minModuleSize))
     dev.off()
@@ -96,7 +96,7 @@ alternative_revigo_results <- function(MAIN, random_num, go_data){
 # function to count the number of occurrences of each word given a vector of sentences
 CountFrequency_words <- function(functional_clusters, n_clust){
   # Read the description of all GO:BP -- this will be the background to remove redundant words
-  all_go_bp <- data.table::fread("/root/snpXplorer/AnnotateMe/BIN/go_terms_BP_all.txt", h=F, stringsAsFactors = F, sep="\t")
+  all_go_bp <- data.table::fread("/Annotation/BIN/go_terms_BP_all.txt", h=F, stringsAsFactors = F, sep="\t")
 
   colnames(functional_clusters) <- c("term", "cluster", "cluster_in_dendro", "term.y")
   # need to remove the (GO id) from the term name
@@ -163,7 +163,7 @@ CountFrequency_words <- function(functional_clusters, n_clust){
     # save it in html
     saveWidget(myplot, "tmp.html", selfcontained = F)
     # conert to png
-    webshot("tmp.html", paste0("RESULTS_", random_num, "/cluster_", i-1, "_wordcloud.png"), delay = 20, vwidth = 1000, vheight = 1000)
+    webshot("tmp.html", paste0("/Annotation/RUNS/RESULTS_", random_num, "/cluster_", i-1, "_wordcloud.png"), delay = 20, vwidth = 1000, vheight = 1000)
   }
 
   return(word_frequency_dset)
@@ -181,7 +181,7 @@ suppressPackageStartupMessages({
     library(tibble)
 })
 random_num = args[1]
-load(paste0("RESULTS_", random_num, "/tmp_enrichRes.RData"))
+load(paste0("/Annotation/RUNS/RESULTS_", random_num, "/tmp_enrichRes.RData"))
 go_data = sampling.res[[2]]
 alt_revigo_res <- function(MAIN, random_num, go_data) {
     out <- tryCatch({ semsim_results = alternative_revigo_results(MAIN, random_num, go_data) },
@@ -204,7 +204,7 @@ if (length(final_res) == 1){
     n_clust = final_res[[3]]
 }
 if (length(functional_clusters) == 1){
-    write.table(go_data, file = paste0("RESULTS_", random_num, "/geneSet_enrichment_results_and_clusters.txt"), quote=F, row.names=F, sep="\t")
+    write.table(go_data, file = paste0("/Annotation/RUNS/RESULTS_", random_num, "/geneSet_enrichment_results_and_clusters.txt"), quote=F, row.names=F, sep="\t")
 } else if (length(functional_clusters) > 1) {
     # save the whole gene-set enrichment analysis
     tmp = functional_clusters
@@ -213,7 +213,7 @@ if (length(functional_clusters) == 1){
     go_data = merge(go_data, tmp, by.x = "term_id", by.y = "term", all.x = T)
     go_data = go_data[order(go_data$avgP),]
     go_data$cluster = NULL
-    write.table(go_data, file = paste0("RESULTS_", random_num, "/geneSet_enrichment_results_and_clusters.txt"), quote=F, row.names=F, sep="\t")
+    write.table(go_data, file = paste0("/Annotation/RUNS/RESULTS_", random_num, "/geneSet_enrichment_results_and_clusters.txt"), quote=F, row.names=F, sep="\t")
 
     # let's try to make some wordcloud images
     if (is.data.frame(functional_clusters)){

@@ -3,8 +3,8 @@ library(LDlinkR)
 library(stringr)
 
 # basic paths
-MAIN = "/root/snpXplorer/AnnotateMe/"
-MAIN_SNP = "/root/snpXplorer/snpXplorer_v3/"
+MAIN = "/Annotation/"
+MAIN_SNP = "/Annotation/RUNS/"
 args = commandArgs(trailingOnly=TRUE)
 
 ## function to match eqtl for each chromosome

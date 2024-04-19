@@ -14,7 +14,7 @@ import sys
 
 # load go graph from downloaded file
 #G = graph.from_resource("/usr/local/lib/python3.9/site-packages/pygosemsim/_resources/go-basic")
-G = graph.from_resource("/root/snpXplorer/AnnotateMe/INPUTS_OTHER/20220510_go")
+G = graph.from_resource("/Annotation/INPUTS_OTHER/20220510_go")
 term_list = list(G)
 
 # take precalculated lower bounds

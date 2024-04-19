@@ -2,8 +2,8 @@
 library(stringr)
 
 # basic paths
-MAIN = "/root/snpXplorer/AnnotateMe/"
-MAIN_SNP = "/root/snpXplorer/snpXplorer_v3/"
+MAIN = "/Annotation/"
+MAIN_SNP = "/Annotation/RUNS/"
 args = commandArgs(trailingOnly=TRUE)
 
 ## function to create n sampling dsets
@@ -235,7 +235,7 @@ if (length(dbs) >1){
 }
 # save sampling res
 sampling.res[[(length(sampling.res)+1)]] = dbs
-save(sampling.res, file = paste0("RESULTS_", random_num, "/tmp_enrichRes.RData"))
+save(sampling.res, file = paste0("/Annotation/RUNS/RESULTS_", random_num, "/tmp_enrichRes.RData"))
 # also write text output
-write.table(sampling.res[[2]], paste0("RESULTS_", random_num, "/Enrichment_results.txt"), quote=F, row.names=F, sep = "\t")
+write.table(sampling.res[[2]], paste0("/Annotation/RUNS/RESULTS_", random_num, "/Enrichment_results.txt"), quote=F, row.names=F, sep = "\t")
 

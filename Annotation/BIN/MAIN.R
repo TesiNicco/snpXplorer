@@ -15,7 +15,7 @@
         library(LDlinkR)
         library(mailR)
     })
-    setwd('/root/snpXplorer/snpXplorer_v3/')
+    setwd('/Annotation/RUNS/')
     
 # FUNCTIONS
     ## function to wait some time -- to manage memory consumption
@@ -174,7 +174,7 @@
 ##############################
 # READ ARGUMENTS AND MAIN PATH
     ## SET MAIN PATH
-    MAIN = "/root/snpXplorer/AnnotateMe/"
+    MAIN = "/Annotation/"
     args = commandArgs(trailingOnly=TRUE)
 
     # ARGUMENTS
@@ -196,7 +196,7 @@
     # random number is the same as the input -- easier
     random_num <- as.character(args[8])
     # extract configuration file values for the emails
-    cfg <- read.table("/root/snpXplorer/config_email.txt", h=T, stringsAsFactors=F)
+    cfg <- read.table("/Annotation/config_email.txt", h=T, stringsAsFactors=F)
     sender = cfg$username
     port = cfg$port
     psw = cfg$psw
@@ -204,8 +204,8 @@
     cc_add = 'snpxplorer@gmail.com'
 
     # CREATE FOLDER FOR RESULTS -- ADD RANDOM NUMBER AND COPY INPUT FILE IN THERE
-    system(paste("mkdir /root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, sep=""))
-    system(paste("mv /root/snpXplorer/snpXplorer_v3/", fname, " /root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, "/", sep=""))
+    system(paste("mkdir /Annotation/RUNS/RESULTS_", random_num, sep=""))
+    system(paste("mv /Annotation/RUNS/", fname, " /Annotation/RUNS/RESULTS_", random_num, "/", sep=""))
 
     # SEND EMAIL TO MYSELF AS A NOTIFICATION SOMEONE REQUESTED A JOB
     message_email = paste0('Dear user, \n snpXplorer received an annotation request from you. \n You receive thie email to condif that your request is being processed. A typical job takes about 30 minutes to complete, however, due to the high number of requests, jobs may be delayed. \n\n The following settings were requested: \n input --> ', fname, '\n input_type --> ', ftype, '\n analysis_type --> ', analysis_type, '\n analysis mode --> ', analysis_mode_all, '\n interest_tissue --> ', interesting_tissues_all, '\n ref_version --> ', ref_version, '\n run_ID --> ', random_num, '\n\n Thanks for using snpXplorer! \n\n snpXplorer Team')
@@ -250,7 +250,7 @@
     if (START == TRUE){
         # FIRST STEP IS TO READ SNPS OF INTEREST AND REPORT ERRORS IN CASE OF WRONG INPUT AND/OR TOO LONG INPUT
         cat("## Reading SNPs and positions\n")
-        inpf = paste0("/root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, "/", fname)
+        inpf = paste0("/Annotation/RUNS/RESULTS_", random_num, "/", fname)
         # before starting, make a quick parse of the input file as people sometimes use wrong input like comma
         cmd1 = paste0("sed -i 's/,/\\n/g' ", inpf); system(cmd1)
         cmd2 = paste0("sed -i 's/;/\\n/g' ", inpf); system(cmd2)
@@ -265,9 +265,9 @@
             message_email = paste0('Dear user, \n\n Thanks so much for using snpXplorer and its annotation pipeline. \n\n Unfortunately, an error occurred while reading the input SNPs you provided. Possible reasons include: \n- the number of SNP(s) is >1000 for enrichment analysis; \n- the number of SNP(s) is >10000 for mapping analysis; \n- the input type is wrong; \n\n Please correct the input and try again. \n In the More/Help section of the website you can find example datasets. \n\n Please do not hesitate to contact us in case of any question. \n snpXplorer Team. \n\n')
             email2 = send.mail(from = sender, to = username, cc = cc_add, subject = 'snpXplorer input error', body = message_email, smtp = list(host.name = host, port = port, user.name = sender, passwd = psw, ssl=TRUE), authenticate = TRUE, send = TRUE, attach.files = inpf)
             # zip data
-            system(paste("tar -czf AnnotateMe_results_", random_num, ".tar.gz RESULTS_", random_num, "/", sep=""))
+            system(paste("tar -czf /Annotation/RUNS/AnnotateMe_results_", random_num, ".tar.gz /Annotation/RUNS/RESULTS_", random_num, "/", sep=""))
             # remove data
-            system(paste("rm -rf RESULTS_", random_num, "/", sep=""))
+            system(paste("rm -rf /Annotation/RUNS/RESULTS_", random_num, "/", sep=""))
         } else {
             # SAVE DATA WITH MISSING ANNOTATION AS THEY WILL BE SKIPPED, THEN OVERWRITE RDATA
             missing_data = data[is.na(data$pos),]
@@ -276,7 +276,7 @@
 
             # FIND ALL VARIANTS IN LD WITH THE INPUT VARIANTS -- this can be done with LDlink functions easily -- for now just report SNPs in LD, in the future those results will be implemented in the main results
             ld_info = data.frame(chr=NULL, pos=NULL)
-            ld_outpath = paste0("/root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, "/tmp_ldInfo.RData")
+            ld_outpath = paste0("/Annotation/RUNS/RESULTS_", random_num, "/tmp_ldInfo.RData")
             save(ld_info, file = ld_outpath)
             #LDproxy_batch(data$ID[grep("rs", data$ID)], pop = "ALL", r2d = "r2", token = "b2735a858324", append = TRUE)
 
@@ -318,11 +318,11 @@
             cat("## Saving tables, plotting and finishing\n")
             # add also missing data when saving results so that user has all data that has inputed
             annot_with_miss = plyr::rbind.fill(annot, missing_data)
-            write.table(annot_with_miss, paste("/root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, "/snp_annotation.txt", sep=""), quote=F, row.names=F, sep="\t")
-            write.table(geneList, paste("/root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, "/snp_annotation_geneList.txt", sep=""), quote=F, row.names=F, col.names=F)
+            write.table(annot_with_miss, paste("/Annotation/RUNS/RESULTS_", random_num, "/snp_annotation.txt", sep=""), quote=F, row.names=F, sep="\t")
+            write.table(geneList, paste("/Annotation/RUNS/RESULTS_", random_num, "/snp_annotation_geneList.txt", sep=""), quote=F, row.names=F, col.names=F)
 
             # PLOT MAPPING CHARACTERISTICS
-            pdf(paste("/root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, "/snp_gene_mapping.pdf", sep=""), height=12.35, width=10)
+            pdf(paste("/Annotation/RUNS/RESULTS_", random_num, "/snp_gene_mapping.pdf", sep=""), height=12.35, width=10)
             genesPerSNP <- plotMapping(annot, MAIN)
             invisible(dev.off())
 
@@ -334,7 +334,7 @@
                 if (length(unique(geneList)) >1){
                     # RUN ENRICHMENT ANALYSIS
                     system(paste0("Rscript ", MAIN, "BIN/GeneSetEnrichment.R ", snps_info_path, " ", random_num, " ", analysis_mode_all))
-                    load(paste0("RESULTS_", random_num, "/tmp_enrichRes.RData"))
+                    load(paste0("/Annotation/RUNS/RESULTS_", random_num, "/tmp_enrichRes.RData"))
                     dbs = sampling.res[[3]]
 
                     # NOW CHECK IF WE NEED TO DO THE GO ANALYSIS
@@ -348,69 +348,53 @@
                         system(paste0("Rscript ", MAIN, "BIN/GO_analysis_alternative.R ", random_num), ignore.stdout=T, ignore.stderr=F)
 
                         # CLEAN TEMPORARY DATA
-                        system(paste0("rm /root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, "/tmp_*"))
-                        #system(paste0("mv ", MAIN, "BIN/combined_query_snp_list.txt /root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, "/"))
-                        #system(paste0("mv /root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, "/combined_query_snp_list.txt /root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, "/LD_information.txt"))
-                        system(paste0("rm /root/snpXplorer/snpXplorer_v3/tmp_", random_num, ".json"))
+                        system(paste0("rm /Annotation/RUNS/RESULTS_", random_num, "/tmp_*"))
 
                         # FINISH -- SEND DATA BACK TO THE OWNER
-                        system(paste0("cp /root/snpXplorer/snpXplorer_v3/www/snpXplorer_output_description.pdf RESULTS_", random_num, "/"))
-                        system(paste("tar -czf AnnotateMe_results_", random_num, ".tar.gz RESULTS_", random_num, "/", sep=""))
-                        link = system(paste0("curl --upload-file AnnotateMe_results_", random_num, ".tar.gz https://transfer.sh/AnnotateMe_results_", random_num, ".tar.gz"), intern = T)
+                        system(paste0("cp /Annotation/snpXplorer_output_description.pdf /Annotation/RUNS/RESULTS_", random_num, "/"))
+                        system(paste("tar -czf /Annotation/RUNS/AnnotateMe_results_", random_num, ".tar.gz /Annotation/RUNS/RESULTS_", random_num, "/", sep=""))
+                        #link = system(paste0("curl --upload-file /Annotation/RUNS/AnnotateMe_results_", random_num, ".tar.gz https://transfer.sh/AnnotateMe_results_", random_num, ".tar.gz"), intern = T)
                         # finally the email
-                        message_email = paste0('Dear user, \n\n Thanks so much for using snpXplorer and its annotation pipeline. \n We hope you find the tool useful. \n\n We now implemented a new way to download your results directly from the web-server. Please open https://snpxplorer.net/download and follow the instructions to get your results. \n\nYour Run ID --> ', random_num, '\n\nBest wishes, \n snpXplorer Team.')
+                        message_email = paste0('Dear user, \n\n Thanks so much for using snpXplorer and its annotation pipeline. \n We hope you find the tool useful. \n\n We now implemented a new way to download your results directly from the web-server. Please open http://holstegela.eu:8001/download and follow the instructions to get your results. \n\nYour Run ID --> ', random_num, '\n\nBest wishes, \n snpXplorer Team.')
                         email3 = send.mail(from = sender, to = username, cc = cc_add, subject = 'snpXplorer results', body = message_email, smtp = list(host.name = host, port = port, user.name = sender, passwd = psw, ssl=TRUE), authenticate = TRUE, send = TRUE)
-                        system(paste("rm -rf RESULTS_", random_num, "/", sep=""))
+                        system(paste("rm -rf /Annotation/RUNS/RESULTS_", random_num, "/", sep=""))
                     } else {
                         # CLEAN TEMPORARY DATA
-                        system(paste0("rm /root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, "/tmp_*"))
-                        #system(paste0("mv ", MAIN, "BIN/combined_query_snp_list.txt /root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, "/"))
-                        #system(paste0("mv /root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, "/combined_query_snp_list.txt /root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, "/LD_information.txt"))
-                        system(paste0("rm /root/snpXplorer/snpXplorer_v3/tmp_", random_num, ".json"))
+                        system(paste0("rm /Annotation/RUNS/RESULTS_", random_num, "/tmp_*"))
 
                         # FINISH -- SEND DATA BACK TO THE OWNER
-                        system(paste0("cp /root/snpXplorer/snpXplorer_v3/www/snpXplorer_output_description.pdf RESULTS_", random_num, "/"))
-                        system(paste("tar -czf AnnotateMe_results_", random_num, ".tar.gz RESULTS_", random_num, "/", sep=""))
-                        link = system(paste0("curl --upload-file AnnotateMe_results_", random_num, ".tar.gz https://transfer.sh/AnnotateMe_results_", random_num, ".tar.gz"), intern = T)
+                        system(paste0("cp /Annotation/snpXplorer_output_description.pdf /Annotation/RUNS/RESULTS_", random_num, "/"))
+                        system(paste("tar -czf /Annotation/RUNS/AnnotateMe_results_", random_num, ".tar.gz /Annotation/RUNS/RESULTS_", random_num, "/", sep=""))
+                        #link = system(paste0("curl --upload-file /Annotation/RUNS/AnnotateMe_results_", random_num, ".tar.gz https://transfer.sh/AnnotateMe_results_", random_num, ".tar.gz"), intern = T)
                         # finally the email
-                        message_email = paste0('Dear user, \n\n Thanks so much for using snpXplorer and its annotation pipeline. \n We hope you find the tool useful. \n\n We now implemented a new way to download your results directly from the web-server. Please open https://snpxplorer.net/download and follow the instructions to get your results. \n\nYour Run ID --> ', random_num, '\n\nBest wishes, \n snpXplorer Team.')
+                        message_email = paste0('Dear user, \n\n Thanks so much for using snpXplorer and its annotation pipeline. \n We hope you find the tool useful. \n\n We now implemented a new way to download your results directly from the web-server. Please open http://holstegelab.eu:8001/download and follow the instructions to get your results. \n\nYour Run ID --> ', random_num, '\n\nBest wishes, \n snpXplorer Team.')
                         email4 = send.mail(from = sender, to = username, cc = cc_add, subject = 'snpXplorer results', body = message_email, smtp = list(host.name = host, port = port, user.name = sender, passwd = psw, ssl=TRUE), authenticate = TRUE, send = TRUE)
-                        system(paste("rm -rf RESULTS_", random_num, "/", sep=""))
+                        system(paste("rm -rf /Annotation/RUNS/RESULTS_", random_num, "/", sep=""))
                     }
                 } else {
                     # CLEAN TEMPORARY DATA
-                    system(paste0("rm /root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, "/tmp_*"))
-                    #system(paste0("mv ", MAIN, "BIN/combined_query_snp_list.txt /root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, "/"))
-                    #system(paste0("mv /root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, "/combined_query_snp_list.txt /root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, "/LD_information.txt"))
-                    system(paste0("rm /root/snpXplorer/snpXplorer_v3/tmp_", random_num, ".json"))
+                    system(paste0("rm /Annotation/RUNS/RESULTS_", random_num, "/tmp_*"))
 
                     # FINISH -- SEND DATA BACK TO THE OWNER
-                    system(paste0("cp /root/snpXplorer/snpXplorer_v3/www/snpXplorer_output_description.pdf RESULTS_", random_num, "/"))
-                    system(paste("tar -czf AnnotateMe_results_", random_num, ".tar.gz RESULTS_", random_num, "/", sep=""))
-                    link = system(paste0("curl --upload-file AnnotateMe_results_", random_num, ".tar.gz https://transfer.sh/AnnotateMe_results_", random_num, ".tar.gz"), intern = T)
+                    system(paste0("cp /Annotation/snpXplorer_output_description.pdf RESULTS_", random_num, "/"))
+                    system(paste("tar -czf /Annotation/RUNS/AnnotateMe_results_", random_num, ".tar.gz /Annotation/RUNS/RESULTS_", random_num, "/", sep=""))
+                    #link = system(paste0("curl --upload-file AnnotateMe_results_", random_num, ".tar.gz https://transfer.sh/AnnotateMe_results_", random_num, ".tar.gz"), intern = T)
                     # finally the email
-                    message_email = paste0('Dear user, \n\n Thanks so much for using snpXplorer and its annotation pipeline. \n We hope you find the tool useful. \n\n Unfortunately, due to a low number of genes found in your SNPs, we could not perform gene-set enrichment analysis. \n\n We now implemented a new way to download your results directly from the web-server. Please open https://snpxplorer.net/download and follow the instructions to get your results. \n\nYour Run ID --> ', random_num, '\n\nBest wishes, \n snpXplorer Team.')
+                    message_email = paste0('Dear user, \n\n Thanks so much for using snpXplorer and its annotation pipeline. \n We hope you find the tool useful. \n\n Unfortunately, due to a low number of genes found in your SNPs, we could not perform gene-set enrichment analysis. \n\n We now implemented a new way to download your results directly from the web-server. Please open http://holstegelab.eu:8001/download and follow the instructions to get your results. \n\nYour Run ID --> ', random_num, '\n\nBest wishes, \n snpXplorer Team.')
                     email5 = send.mail(from = sender, to = username, cc = cc_add, subject = 'snpXplorer results', body = message_email, smtp = list(host.name = host, port = port, user.name = sender, passwd = psw, ssl=TRUE), authenticate = TRUE, send = TRUE)
-                    system(paste("rm -rf RESULTS_", random_num, "/", sep=""))
+                    system(paste("rm -rf /Annotation/RUNS/RESULTS_", random_num, "/", sep=""))
                 }
             } else {
                 cat("## Gene-set enrichment was NOT requested. Finishing analysis now.\n")
                 # CLEAN TEMPORARY DATA
-                system(paste0("rm /root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, "/tmp_*"))
-                #system(paste0("mv ", MAIN, "BIN/combined_query_snp_list.txt /root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, "/"))
-                #system(paste0("mv /root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, "/combined_query_snp_list.txt /root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, "/LD_information.txt"))
-                system(paste0("rm /root/snpXplorer/snpXplorer_v3/tmp_", random_num, ".json"))
+                system(paste0("rm /Annotation/RUNS/RESULTS_", random_num, "/tmp_*"))
 
                 # FINISH -- SEND DATA BACK TO THE OWNER
-                system(paste0("cp /root/snpXplorer/snpXplorer_v3/www/snpXplorer_output_description.pdf RESULTS_", random_num, "/"))
-                system(paste("tar -czf AnnotateMe_results_", random_num, ".tar.gz RESULTS_", random_num, "/", sep=""))
-                # need to upload the file on wetransfer
-                #link = system(paste0("curl --upload-file AnnotateMe_results_", random_num, ".tar.gz https://transfer.sh/AnnotateMe_results_", random_num, ".tar.gz"), intern = T)
-                # then make the email
-                #system(paste0("sendEmail -f n.tesi@amsterdamumc.nl -t ", username, " -u 'snpXplorer results' -m 'Dear user, \n\n thanks so much for using snpXplorer and its annotation pipeline. \n We hope you find the tool useful. \n\n We now provide a WeTransfer link to download your results. Please find the link below: \n", link, " \n\n Best wishes, \n snpXplorer team.' -cc snpxplorer@gmail.com -S /usr/sbin/sendmail"))
-		        message_email = paste0('Dear user, \n\n Thanks so much for using snpXplorer and its annotation pipeline. \n We hope you find the tool useful. \n\n We now implemented a new way to download your results directly from the web-server. Please open https://snpxplorer.net/download and follow the instructions to get your results. \n\nYour Run ID --> ', random_num, '\n\nBest wishes, \n snpXplorer Team.')
+                system(paste0("cp /Annotation/snpXplorer_output_description.pdf /Annotation/RUNS/RESULTS_", random_num, "/"))
+                system(paste("tar -czf /Annotation/RUNS/AnnotateMe_results_", random_num, ".tar.gz /Annotation/RUNS/RESULTS_", random_num, "/", sep=""))
+		        message_email = paste0('Dear user, \n\n Thanks so much for using snpXplorer and its annotation pipeline. \n We hope you find the tool useful. \n\n We now implemented a new way to download your results directly from the web-server. Please open http://holstegelab.eu:8001/download and follow the instructions to get your results. \n\nYour Run ID --> ', random_num, '\n\nBest wishes, \n snpXplorer Team.')
                 email6 = send.mail(from = sender, to = username, cc = cc_add, subject = 'snpXplorer results', body = message_email, smtp = list(host.name = host, port = port, user.name = sender, passwd = psw, ssl=TRUE), authenticate = TRUE, send = TRUE)
-                system(paste("rm -rf RESULTS_", random_num, "/", sep=""))
+                system(paste("rm -rf /Annotation/RUNS/RESULTS_", random_num, "/", sep=""))
             }
         }
     }

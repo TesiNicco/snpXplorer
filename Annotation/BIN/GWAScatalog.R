@@ -1,8 +1,8 @@
 # basic paths
-MAIN = "/root/snpXplorer/AnnotateMe/"
-MAIN_SNP = "/root/snpXplorer/snpXplorer_v3/"
+MAIN = "/Annotation/"
+MAIN_SNP = "/Annotation/RUNS/"
 args = commandArgs(trailingOnly=TRUE)
-setwd('/root/snpXplorer/snpXplorer_v3/')
+setwd('/Annotation/RUNS/')
 
 ## function to annotate using GWAS catalog -- adjusted for faster computations (library-wise)
 GWAScat <- function(annot, geneList, MAIN, random_num, MAIN_SNP){

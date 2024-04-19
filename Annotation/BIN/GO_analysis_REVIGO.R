@@ -1,6 +1,6 @@
 # basic paths
-MAIN = "/root/snpXplorer/AnnotateMe/"
-MAIN_SNP = "/root/snpXplorer/snpXplorer_v3/"
+MAIN = "/Annotation/"
+MAIN_SNP = "/Annotation/RUNS/"
 args = commandArgs(trailingOnly=TRUE)
 
 ## function to run REVIGO
@@ -146,11 +146,11 @@ revigoPlot <- function(one.data){
 
 # READ ARGUMENTS AND RUN FUNCTION
 random_num = args[1]
-load(paste0("RESULTS_", random_num, "/tmp_enrichRes.RData"))
+load(paste0("/Annotation/RUNS/RESULTS_", random_num, "/tmp_enrichRes.RData"))
 go_data = sampling.res[[2]]
 colnames(go_data) <- c("term_name", "term_id", "avg_p", "log10p")
 # write go_data
-write.table(go_data, file = paste0("RESULTS_", random_num, "/geneSet_enrichment_results_and_clusters.txt"), quote=F, row.names = F, sep = "\t")
+write.table(go_data, file = paste0("/Annotation/RUNS/RESULTS_", random_num, "/geneSet_enrichment_results_and_clusters.txt"), quote=F, row.names = F, sep = "\t")
 # add source information to select only go
 go_data$source_gset = stringr::str_split_fixed(go_data$term_id, ":", 2)[, 1]
 go_data <- go_data[which(go_data$source_gset == "GO"),]

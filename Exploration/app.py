@@ -505,15 +505,13 @@ def run_annotation(my_list, inpType, refGeno, analType, gsea_source, qtl_tissues
     # Sample a number for randomization
     random_number = random.randint(1, 10000)
     # Take snps and save them
-    fpath_server = '/root/snpXplorer/snpXplorer_v3/annotateMe_input_%s.txt' %(random_number)
+    fpath_server = '/Annotation/RUNS/annotateMe_input_%s.txt' %(random_number)
     filename = 'annotateMe_input_%s.txt' %(random_number)
-    #fpath_local = '/Users/nicco/Downloads/annotateMe_input_%s.txt' %(random_number)
     with open(fpath_server, 'w') as finp:
         for x in my_list:
             finp.write('%s\n' %(x))
     # Define log file
-    log_filename_server = '/root/snpXplorer/snpXplorer_v3/annotateMe_run_%s.log' %(random_number)
-    #log_filename_local = '/Users/nicco/Downloads/annotateMe_run_%s.log' %(random_number)
+    log_filename_server = '/Annotation/RUNS/annotateMe_run_%s.log' %(random_number)
     # Take input type
     ftype = str(inpType)
     if ftype == 'Colon':
@@ -530,7 +528,7 @@ def run_annotation(my_list, inpType, refGeno, analType, gsea_source, qtl_tissues
     # Take gtex tissues
     gtex_tissues = ','.join(list(qtl_tissues))
     # Then run annotate me externally in background -- this depends on the analysis_type requested
-    command = "Rscript /root/snpXplorer/AnnotateMe/BIN/MAIN.R %s %s %s %s %s %s %s %s > %s" %(filename, ftype, email, analysis_type, analysis_mode, gtex_tissues, refGeno, random_number, log_filename_server)
+    command = "Rscript /Annotation/BIN/MAIN.R %s %s %s %s %s %s %s %s > %s" %(filename, ftype, email, analysis_type, analysis_mode, gtex_tissues, refGeno, random_number, log_filename_server)
     return command
 
 # function to extract GTEx information

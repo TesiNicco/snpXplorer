@@ -1,6 +1,6 @@
 # basic paths
-MAIN = "/root/snpXplorer/AnnotateMe/"
-MAIN_SNP = "/root/snpXplorer/snpXplorer_v3/"
+MAIN = "/Annotation/"
+MAIN_SNP = "/Annotation/RUNS/"
 args = commandArgs(trailingOnly=TRUE)
 library(stringr)
 
@@ -217,7 +217,7 @@ ftype = args[2]
 ref_version = args[3]
 analysis_type = args[4]
 random_num = args[5]
-outpath = paste0("/root/snpXplorer/snpXplorer_v3/RESULTS_", random_num, "/tmp_snpsInfo.RData")
+outpath = paste0("/Annotation/RUNS/RESULTS_", random_num, "/tmp_snpsInfo.RData")
 # run function to read
 data <- try(readSNPs(fname, ftype, MAIN, ref_version, analysis_type), silent = T)
 

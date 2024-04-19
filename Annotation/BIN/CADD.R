@@ -5,8 +5,8 @@ library(stringr)
 library(bedr)
 
 # basic paths
-MAIN = "/root/snpXplorer/AnnotateMe/"
-MAIN_SNP = "/root/snpXplorer/snpXplorer_v3/"
+MAIN = "/Annotation/"
+MAIN_SNP = "/Annotation/RUNS/"
 args = commandArgs(trailingOnly=TRUE)
 
 # i is the index of the snp_list vector of snps -- genome_version is either hg19 or hg38 -- input_type is locus for chr:pos -- tab for chr pos -- adjusted for faster computations (library-wise)
