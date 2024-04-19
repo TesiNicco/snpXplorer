@@ -5,7 +5,7 @@ from pygosemsim import download
 from pygosemsim import graph
 from pygosemsim import similarity
 import numpy as np
-import csv
+#import csv
 import networkx as nx
 import sys
 
@@ -56,9 +56,11 @@ fout = sys.argv[2]
 with open(fout, "w") as outf:
     header = ",".join(go_clean)
     outf.write(header)
-    outf.write("\n")
-    wr = csv.writer(outf)
-    wr.writerows(dist_mt)
+    outf.write("\n")    
+    for row in dist_mt:
+        row_str = ",".join(map(str, row))
+        outf.write(row_str)
+        outf.write("\n")
 
 # then do the same using resnik
 #dist_mt = []                        # this will be a list of lists representative of a triangular matrix with all distances inside
