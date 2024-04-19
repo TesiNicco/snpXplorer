@@ -48,7 +48,7 @@ readSNPs <- function(fname, ftype, MAIN, ref_version, analysis_type){
         d = data.frame(locus = paste(final$chr_n, final$start.y, sep = ":"), chr = final$chr_n, pos = as.numeric(final$start.y))
         write.table(d$locus, fname, quote=F, row.names=F, col.names = F)
       }
-      info <- system(paste0("grep -w -F -f ", fname, " ", MAIN, "INPUTS_OTHER/1000G_frequencies/chrAll_locus.afreq"), intern = T)
+      info <- system(paste0("zgrep -w -F -f ", fname, " ", MAIN, "INPUTS_OTHER/1000G_frequencies/chrAll_locus.afreq.gz"), intern = T)
       info = as.data.frame(stringr::str_split_fixed(info, "\t", 8))
       colnames(info) <- c("chr", "pos", "ID", "ref", "alt", "ALT_FREQS", "n", "locus")
       miss <- d$locus[which(!(d$locus %in% info$locus))]
@@ -81,7 +81,7 @@ readSNPs <- function(fname, ftype, MAIN, ref_version, analysis_type){
       } else {
         write.table(d$locus, fname, quote=F, row.names=F, col.names=F)
       }
-      info <- system(paste0("grep -w -F -f ", fname, " ", MAIN, "INPUTS_OTHER/1000G_frequencies/chrAll_locus.afreq"), intern = T)
+      info <- system(paste0("zgrep -w -F -f ", fname, " ", MAIN, "INPUTS_OTHER/1000G_frequencies/chrAll_locus.afreq.gz"), intern = T)
       info = as.data.frame(stringr::str_split_fixed(info, "\t", 8))
       colnames(info) <- c("chr", "pos", "ID", "ref", "alt", "ALT_FREQS", "n", "locus")
       miss <- d$locus[which(!(d$locus %in% info$locus))]
@@ -99,7 +99,7 @@ readSNPs <- function(fname, ftype, MAIN, ref_version, analysis_type){
       d$V1 = str_replace_all(d$V1, " ", "")
       write.table(d, fname, quote=F, row.names=F, col.names=F)
       # grep rsid
-      cmd <- paste0("grep -w -F -f ", fname, " ", MAIN, "INPUTS_OTHER/1000G_frequencies/chrAll.afreq")
+      cmd <- paste0("zgrep -w -F -f ", fname, " ", MAIN, "INPUTS_OTHER/1000G_frequencies/chrAll.afreq.gz")
       info = system(cmd, intern=T)
       info = as.data.frame(stringr::str_split_fixed(info, "\t", 7))
       colnames(info) <- c("chr", "pos", "ID", "ref", "alt", "ALT_FREQS", "n")
