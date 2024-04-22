@@ -261,7 +261,7 @@
 
         # CHECK WHETHER INPUT LIST OF SNPS WAS CORRECT
         if (is.data.frame(data) && length(unique(data$chr)) == 1 && unique(data$chr) == "NA"){ data = NA }
-        if ((is.na(data)) | (length(data) == 1) | (nrow(data) == 0)){
+        if ((all(is.na(data))) || (length(data) == 1) || (nrow(data) == 0)){
             message_email = paste0('Dear user, \n\n Thanks so much for using snpXplorer and its annotation pipeline. \n\n Unfortunately, an error occurred while reading the input SNPs you provided. Possible reasons include: \n- the number of SNP(s) is >1000 for enrichment analysis; \n- the number of SNP(s) is >10000 for mapping analysis; \n- the input type is wrong; \n\n Please correct the input and try again. \n In the More/Help section of the website you can find example datasets. \n\n Please do not hesitate to contact us in case of any question. \n snpXplorer Team. \n\n')
             email2 = send.mail(from = sender, to = username, cc = cc_add, subject = 'snpXplorer input error', body = message_email, smtp = list(host.name = host, port = port, user.name = sender, passwd = psw, ssl=TRUE), authenticate = TRUE, send = TRUE, attach.files = inpf)
             # zip data
