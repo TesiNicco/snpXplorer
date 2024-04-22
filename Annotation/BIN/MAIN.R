@@ -221,10 +221,10 @@
         meminfo = system("free -h | sed 's/  */ /g'", intern = T); values = list()
         used = str_split_fixed(meminfo[2], ' ', 7)[,3]; free = str_split_fixed(meminfo[2], ' ', 7)[,4]; cache = str_split_fixed(meminfo[2], ' ', 7)[,6]
         for (v in c(used, free, cache)){
-            if (length(grep('G', v)) > 0){
-                v = str_replace_all(v, 'G', ''); v = str_replace_all(v, ',', '\\.'); v = as.numeric(v)
-            } else if (length(grep('M', v)) > 0){
-                v = str_replace_all(v, 'M', ''); v = str_replace_all(v, ',', '\\.'); v = paste0('0.', v); v = as.numeric(v)
+            if (length(grep('Gi', v)) > 0){
+                v = str_replace_all(v, 'Gi', ''); v = str_replace_all(v, ',', '\\.'); v = as.numeric(v)
+            } else if (length(grep('Mi', v)) > 0){
+                v = str_replace_all(v, 'Mi', ''); v = str_replace_all(v, ',', '\\.'); v = paste0('0.', v); v = as.numeric(v)
             }
             values[[(length(values) + 1)]] = v
         }
@@ -261,7 +261,7 @@
 
         # CHECK WHETHER INPUT LIST OF SNPS WAS CORRECT
         if (is.data.frame(data) && length(unique(data$chr)) == 1 && unique(data$chr) == "NA"){ data = NA }
-        if ((is.na(data)) || (length(data) == 1) || (nrow(data) == 0)){
+        if ((is.na(data)) | (length(data) == 1) | (nrow(data) == 0)){
             message_email = paste0('Dear user, \n\n Thanks so much for using snpXplorer and its annotation pipeline. \n\n Unfortunately, an error occurred while reading the input SNPs you provided. Possible reasons include: \n- the number of SNP(s) is >1000 for enrichment analysis; \n- the number of SNP(s) is >10000 for mapping analysis; \n- the input type is wrong; \n\n Please correct the input and try again. \n In the More/Help section of the website you can find example datasets. \n\n Please do not hesitate to contact us in case of any question. \n snpXplorer Team. \n\n')
             email2 = send.mail(from = sender, to = username, cc = cc_add, subject = 'snpXplorer input error', body = message_email, smtp = list(host.name = host, port = port, user.name = sender, passwd = psw, ssl=TRUE), authenticate = TRUE, send = TRUE, attach.files = inpf)
             # zip data
