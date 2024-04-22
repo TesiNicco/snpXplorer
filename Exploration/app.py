@@ -456,7 +456,7 @@ def download():
 def download_results(run_id):
     # check here the run ID
     filename = f"AnnotateMe_results_{run_id}.tar.gz"
-    filepath = os.path.join("/root/snpXplorer/snpXplorer_v3", filename)
+    filepath = os.path.join("/Annotation/RUNS", filename)
     return send_file(filepath, as_attachment=True, download_name=filename)
 
 # Global functions
