@@ -147,6 +147,8 @@ mergeInfo_generic_updated <- function(info.sb){
 lookup_cadd_tabix = function(i, data, random_num){
   # restrict to chromosome of interest
   tmp = data[which(data$chr == i),]
+  # sort by position
+  tmp = tmp[order(tmp$pos),]
   tmp$roi = paste0(tmp$chr, ':', as.numeric(tmp$pos) - 1, '-', tmp$pos)
   tmp = tmp[!is.na(tmp$pos),]
   # tabix command
