@@ -16,7 +16,7 @@ readSNPs <- function(fname, ftype, MAIN, ref_version, analysis_type){
   if (nrow(d) > 1500 & analysis_type == "enrichment"){
     d = NA
     ftype = 99
-  } else if (nrow(d) > 1000000 & analysis_type != "enrichment"){
+  } else if (nrow(d) > 100000 & analysis_type != "enrichment"){
     d = NA
     ftype = 99
   }
