@@ -13,7 +13,7 @@ readSNPs <- function(fname, ftype, MAIN, ref_version, analysis_type){
   d <- d[!apply(d == "", 1, all),]
 
   ## check number of rows -- if larger than 1000 SNPs, stop
-  if (nrow(d) > 10000 & analysis_type == "enrichment"){
+  if (nrow(d) > 6000 & analysis_type == "enrichment"){
     d = NA
     ftype = 99
   } else if (nrow(d) > 100000 & analysis_type != "enrichment"){
