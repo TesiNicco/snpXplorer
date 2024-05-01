@@ -208,7 +208,7 @@
     system(paste("mv /Annotation/RUNS/", fname, " /Annotation/RUNS/RESULTS_", random_num, "/", sep=""))
 
     # SEND EMAIL TO MYSELF AS A NOTIFICATION SOMEONE REQUESTED A JOB
-    message_email = paste0('Dear user, \n snpXplorer received an annotation request from you. \n You receive thie email to condif that your request is being processed. A typical job takes about 30 minutes to complete, however, due to the high number of requests, jobs may be delayed. \n\n The following settings were requested: \n input --> ', fname, '\n input_type --> ', ftype, '\n analysis_type --> ', analysis_type, '\n analysis mode --> ', analysis_mode_all, '\n interest_tissue --> ', interesting_tissues_all, '\n ref_version --> ', ref_version, '\n run_ID --> ', random_num, '\n\n Thanks for using snpXplorer! \n\n snpXplorer Team')
+    message_email = paste0('Dear user, \n snpXplorer received an annotation request from you. \n You receive thie email to confirm that your request is being processed. A typical job takes about 30 minutes to complete, however, due to the high number of requests, jobs may be delayed. \n\n The following settings were requested: \n input --> ', fname, '\n input_type --> ', ftype, '\n analysis_type --> ', analysis_type, '\n analysis mode --> ', analysis_mode_all, '\n interest_tissue --> ', interesting_tissues_all, '\n ref_version --> ', ref_version, '\n run_ID --> ', random_num, '\n\n Thanks for using snpXplorer! \n\n snpXplorer Team')
     email = send.mail(from = sender, to = username, cc = cc_add, subject = 'snpXplorer request', body = message_email, smtp = list(host.name = host, port = port, user.name = sender, passwd = psw, ssl=TRUE), authenticate = TRUE, send = TRUE)
 
     ## START OF THE PIPELINE
