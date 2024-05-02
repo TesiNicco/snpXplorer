@@ -18,7 +18,7 @@ samplingGset <- function(i, mapping){
 ## function to perform overlap analysis over the sampling datasets
 overlapAnalysis <- function(i, gene_list, source_gset){
   g <- gene_list[[i]]
-
+  g = unique(g)
   res <- suppressMessages(gprofiler2::gost(g, organism = "hsapiens", ordered_query = FALSE, multi_query = FALSE, significant = FALSE, exclude_iea = TRUE,
                                measure_underrepresentation = FALSE, evcodes = FALSE, user_threshold = 1, correction_method = "fdr",
                                domain_scope = "annotated", custom_bg = NULL, numeric_ns = "", sources = source_gset))
