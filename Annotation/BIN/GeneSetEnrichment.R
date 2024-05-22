@@ -208,7 +208,7 @@ load(snps_info_path)
 annot <- final_res[[1]]
 geneList <- final_res[[2]]
 # number of iterations
-n.sampl <- 300
+n.sampl <- 3
 # first, sample gene-sets
 gene_sampling_dsets <- parallel::mclapply(1:n.sampl, samplingGset, mapping=annot, mc.cores=3)
 # finally gene-set analysis for all sampling dsets
