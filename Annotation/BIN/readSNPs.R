@@ -3,27 +3,24 @@ MAIN = "/Annotation/"
 MAIN_SNP = "/Annotation/RUNS/"
 args = commandArgs(trailingOnly=TRUE)
 library(stringr)
+library(parallel)
+library(data.table)
+library(bedr)
 
-# sometimes the grep function doesn't work apparently -- implemente a retry mechanism here
-retry_mechanism_grep = function(fname, MAIN){
-  max_retries = 5
-  retry_delay = 2
-  cmd = paste0("zgrep -w -F -f ", fname, " ", MAIN, "INPUTS_OTHER/1000G_frequencies/chrAll_locus.afreq.gz")
-  for (i in 1:max_retries) {
-    result <- tryCatch({
-      system(cmd, intern = TRUE, ignore.stderr = FALSE)
-    }, error = function(e) {
-      message("Attempt ", i, " failed: ", e$message)
-      NULL
-    })
-  
-    if (!is.null(result)) {
-      break
-    } else {
-      Sys.sleep(retry_delay)
-    }
-  }
-  return(result)
+## use tabix instead of grepping
+findTabix <- function(i, d, MAIN){
+  d$chrom = stringr::str_split_fixed(d$V1, ':', 2)[, 1]
+  d$pos = stringr::str_split_fixed(d$V1, ':', 2)[, 2]
+  # restrict to chromosome of interest
+  tmp = d[which(d$chrom == i),]
+  # sort by position
+  tmp$pos = as.numeric(tmp$pos)
+  tmp = tmp[order(tmp$pos),]
+  tmp$roi = paste0(tmp$chrom, ':', as.numeric(tmp$pos) - 1, '-', tmp$pos)
+  tmp = tmp[!is.na(tmp$pos),]
+  # tabix command
+  info = tabix(tmp$roi, paste0(MAIN, '/INPUTS_OTHER/1000G_frequencies/chr', i, '_locus.afreq.txt.gz'), check.chr = F, verbose = FALSE)
+  return(info)
 }
 
 ## function to read input set of snp given the name and the input type -- adjusted for faster computations (library-wise)
@@ -70,10 +67,10 @@ readSNPs <- function(fname, ftype, MAIN, ref_version, analysis_type){
         d = data.frame(locus = paste(final$chr_n, final$start.y, sep = ":"), chr = final$chr_n, pos = as.numeric(final$start.y))
         write.table(d$locus, fname, quote=F, row.names=F, col.names = F)
       }
-      info = retry_mechanism_grep(fname, MAIN)
-      info = as.data.frame(stringr::str_split_fixed(info, "\t", 8))
+      chrom_list = unique(stringr::str_split_fixed(d$V1, ':', 2)[, 1])
+      info = rbindlist(mclapply(chrom_list, findTabix, d = d, MAIN = MAIN, mc.cores = 2))
       colnames(info) <- c("chr", "pos", "ID", "ref", "alt", "ALT_FREQS", "n", "locus")
-      miss <- d$locus[which(!(d$locus %in% info$locus))]
+      miss <- d$V1[which(!(d$V1 %in% info$locus))]
       info = info[, c("chr", "pos", "ID", "ALT_FREQS")]
       info$locus <- paste(info$chr, info$pos, sep=":")
       miss_df <- data.frame(chr = rep("NA", length(miss)), pos = rep(NA, length(miss)), ID = miss, ALT_FREQS = rep(NA, length(miss)), locus = rep(NA, length(miss)))
@@ -82,6 +79,8 @@ readSNPs <- function(fname, ftype, MAIN, ref_version, analysis_type){
     } else if (ftype == 2){
       d$locus <- paste(d$V1, d$V2, sep=":")
       colnames(d) <- c("chr", "pos", "locus")
+      d = d[, 'locus']
+      colnames(d) = 'V1'
       # if requested reference was hg38, lift to hg19
       if (ref_version == "GRCh38"){
         df <- data.frame(chr=paste("chr", d$chr, sep=""), start=d$pos, end=d$pos+1)
@@ -103,10 +102,10 @@ readSNPs <- function(fname, ftype, MAIN, ref_version, analysis_type){
       } else {
         write.table(d$locus, fname, quote=F, row.names=F, col.names=F)
       }
-      info = retry_mechanism_grep(fname, MAIN)
-      info = as.data.frame(stringr::str_split_fixed(info, "\t", 8))
+      chrom_list = unique(stringr::str_split_fixed(d$V1, ':', 2)[, 1])
+      info = rbindlist(mclapply(chrom_list, findTabix, d = d, MAIN = MAIN, mc.cores = 2))
       colnames(info) <- c("chr", "pos", "ID", "ref", "alt", "ALT_FREQS", "n", "locus")
-      miss <- d$locus[which(!(d$locus %in% info$locus))]
+      miss <- d$V1[which(!(d$V1 %in% info$locus))]
       info = info[, c("chr", "pos", "ID", "ALT_FREQS")]
       info$locus <- paste(info$chr, info$pos, sep=":")
       miss_df <- data.frame(chr = rep("NA", length(miss)), pos = rep(NA, length(miss)), ID = miss, ALT_FREQS = rep(NA, length(miss)), locus = rep(NA, length(miss)))
