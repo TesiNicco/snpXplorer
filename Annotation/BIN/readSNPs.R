@@ -4,6 +4,29 @@ MAIN_SNP = "/Annotation/RUNS/"
 args = commandArgs(trailingOnly=TRUE)
 library(stringr)
 
+# sometimes the grep function doesn't work apparently -- implemente a retry mechanism here
+retry_mechanism_grep = function(fname, MAIN){
+  max_retries = 5
+  retry_delay = 2
+  cmd = paste0("zgrep -w -F -f ", fname, " ", MAIN, "INPUTS_OTHER/1000G_frequencies/chrAll_locus.afreq.gz")
+  for (i in 1:max_retries) {
+    result <- tryCatch({
+      system(cmd, intern = TRUE, ignore.stderr = FALSE)
+    }, error = function(e) {
+      message("Attempt ", i, " failed: ", e$message)
+      NULL
+    })
+  
+    if (!is.null(result)) {
+      print(result)
+      break
+    } else {
+      Sys.sleep(retry_delay)
+    }
+  }
+  return(result)
+}
+
 ## function to read input set of snp given the name and the input type -- adjusted for faster computations (library-wise)
 readSNPs <- function(fname, ftype, MAIN, ref_version, analysis_type){
   ## read input file
@@ -48,7 +71,7 @@ readSNPs <- function(fname, ftype, MAIN, ref_version, analysis_type){
         d = data.frame(locus = paste(final$chr_n, final$start.y, sep = ":"), chr = final$chr_n, pos = as.numeric(final$start.y))
         write.table(d$locus, fname, quote=F, row.names=F, col.names = F)
       }
-      info <- system(paste0("zgrep -w -F -f ", fname, " ", MAIN, "INPUTS_OTHER/1000G_frequencies/chrAll_locus.afreq.gz"), intern = T)
+      info = retry_mechanism_grep(fname, MAIN)
       info = as.data.frame(stringr::str_split_fixed(info, "\t", 8))
       colnames(info) <- c("chr", "pos", "ID", "ref", "alt", "ALT_FREQS", "n", "locus")
       miss <- d$locus[which(!(d$locus %in% info$locus))]
