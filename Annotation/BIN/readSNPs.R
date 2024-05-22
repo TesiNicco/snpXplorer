@@ -18,7 +18,6 @@ retry_mechanism_grep = function(fname, MAIN){
     })
   
     if (!is.null(result)) {
-      print(result)
       break
     } else {
       Sys.sleep(retry_delay)
