@@ -30,7 +30,7 @@ retry_mechanism_grep = function(fname, MAIN){
 ## function to read input set of snp given the name and the input type -- adjusted for faster computations (library-wise)
 readSNPs <- function(fname, ftype, MAIN, ref_version, analysis_type){
   ## read input file
-  d <- data.table::fread(fname, h=F, fill=T)
+  d <- data.table::fread(fname, h=F, fill=T, stringsAsFactors=F)
 
   ## remove empty lines
   d <- d[!apply(d == "", 1, all),]
@@ -104,7 +104,7 @@ readSNPs <- function(fname, ftype, MAIN, ref_version, analysis_type){
       } else {
         write.table(d$locus, fname, quote=F, row.names=F, col.names=F)
       }
-      info <- system(paste0("zgrep -w -F -f ", fname, " ", MAIN, "INPUTS_OTHER/1000G_frequencies/chrAll_locus.afreq.gz"), intern = T)
+      info = retry_mechanism_grep(fname, MAIN)
       info = as.data.frame(stringr::str_split_fixed(info, "\t", 8))
       colnames(info) <- c("chr", "pos", "ID", "ref", "alt", "ALT_FREQS", "n", "locus")
       miss <- d$locus[which(!(d$locus %in% info$locus))]
