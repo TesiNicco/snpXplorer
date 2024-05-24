@@ -65,7 +65,10 @@ readSNPs <- function(fname, ftype, MAIN, ref_version, analysis_type){
         rm(d)
         system(paste0('mv ', fname, ' ', str_replace_all(fname, '_input_', '_originalInput_')))
         d = data.frame(locus = paste(final$chr_n, final$start.y, sep = ":"), chr = final$chr_n, pos = as.numeric(final$start.y))
-        write.table(d$locus, fname, quote=F, row.names=F, col.names = F)
+        d$chr = NULL
+        d$pos = NULL
+        colnames(d) = 'V1'
+        write.table(d$V1, fname, quote=F, row.names=F, col.names = F)
       }
       chrom_list = unique(stringr::str_split_fixed(d$V1, ':', 2)[, 1])
       info = rbindlist(mclapply(chrom_list, findTabix, d = d, MAIN = MAIN, mc.cores = 2))
@@ -98,9 +101,12 @@ readSNPs <- function(fname, ftype, MAIN, ref_version, analysis_type){
         final$chr_n = stringr::str_split_fixed(final$chr, "chr", 2)[, 2]
         sb = data.frame(locus = paste(final$chr_n, final$start.y, sep = ":"), chr = final$chr_n, pos = as.numeric(final$start.y))
         d = sb
-        write.table(d$locus, fname, quote=F, row.names=F, col.names=F)
+        d$chr = NULL
+        d$pos = NULL
+        colnames(d) = 'V1'
+        write.table(d$V1, fname, quote=F, row.names=F, col.names = F)
       } else {
-        write.table(d$locus, fname, quote=F, row.names=F, col.names=F)
+        write.table(d$V1, fname, quote=F, row.names=F, col.names=F)
       }
       chrom_list = unique(stringr::str_split_fixed(d$V1, ':', 2)[, 1])
       info = rbindlist(mclapply(chrom_list, findTabix, d = d, MAIN = MAIN, mc.cores = 2))
