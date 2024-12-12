@@ -183,7 +183,13 @@ readSNPs_alternative <- function(fname, ftype, MAIN, ref_version, analysis_type)
     colnames(df) = c("chr", "pos", "ref", "alt")
     df$chr = str_replace_all(df$chr, 'chr', '')
     df$locus = info$V1
-    df$rsid = info$V2
+    # rsid cahnged from one dbsnp version to another, accomodate for that
+    df$rsid_1 = info$V2
+    df$rsid_2 = info$V3
+    df$rsid = ifelse(df$rsid_1 %in% d$V1, df$rsid_1, df$rsid_2)
+    df$rsid_1 = NULL
+    df$rsid_2 = NULL
+    # liftover
     df_lifted = liftOver_fun(df)
     df_lifted = df_lifted[, c('chr', 'pos_hg19', 'rsid', 'ref', 'alt')]
     df_lifted$ALT_FREQS = NA
