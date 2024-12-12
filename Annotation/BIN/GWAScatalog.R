@@ -46,6 +46,8 @@ GWAScat <- function(annot, geneList, MAIN, random_num, MAIN_SNP){
   # check overlap as a background
   overlapping.genes <- all.genes[which(all.genes$gene %in% geneList),]        # find the overlapping genes with my gene list
   overlapping.genes <- overlapping.genes[!duplicated(overlapping.genes), ]    # exclude duplicated rows
+  overlapping.genes <- overlapping.genes[!is.na(overlapping.genes$gene),]     # remove nas
+  overlapping.genes <- overlapping.genes[which(overlapping.genes$gene != ''),]  # remove empty genes
   #print(overlapping.genes)
   # also here check number of matching genes
   if (nrow(overlapping.genes) >0){
@@ -61,6 +63,9 @@ GWAScat <- function(annot, geneList, MAIN, random_num, MAIN_SNP){
     tb$MEAN = ceiling(tb$MEAN)
     tb <- tb[order(-tb$MEAN),]
     tb <- tb[!is.na(tb$Var1),]
+
+    # re-assign the genes
+    tb = reassignGenes(tb, overlapping.genes, annot)
 
     # finally lolliplot for genes
     pdf(paste(MAIN_SNP, "RESULTS_", random_num, "/gwas_cat_genes_overlap.pdf", sep=""), height=7, width=7)
@@ -86,11 +91,34 @@ GWAScat <- function(annot, geneList, MAIN, random_num, MAIN_SNP){
   return(ls)
 }
 
+## function to reassign the genes to the traits
+reassignGenes <- function(tb, overlapping.genes, annot){
+  # get all genes from annot
+  all_genes_annot = unlist(strsplit(annot$geneList, ',')) 
+  all_genes_annot = all_genes_annot[!is.na(all_genes_annot)]
+  all_genes_annot = all_genes_annot[which(all_genes_annot != "")]
+  all_genes_annot = all_genes_annot[!duplicated(all_genes_annot)]
+  # initialize variable to fill
+  tb$genes_max_overlap = NA
+  # iterate over traits
+  for (i in 1:nrow(tb)){
+    # get the genes from gwascat
+    tmp_gwascat = overlapping.genes[which(overlapping.genes$trait == tb$Var1[i]),]
+    # overlap in genes (max-overlap)
+    max_overlap = paste(all_genes_annot[which(all_genes_annot %in% tmp_gwascat$gene)], collapse=',')
+    # add to dataframe
+    tb$genes_max_overlap[i] = max_overlap
+  }
+  return(tb)
+}
+
 ## function to sample for multiple genes associated with each variant -- adjusted for faster computations (library-wise)
 sampleAnnot <- function(i, overlapping.genes, annot){
   all.genes <- strsplit(annot$geneList, ",")
   tmp_f <- function(x, all.genes){ tmp <- all.genes[[x]]; g <- sample(x=tmp, size=1); return(g)}
   gset <- unlist(lapply(1:length(all.genes), tmp_f, all.genes=all.genes))
+  gset <- gset[!is.na(gset)]
+  gset <- gset[which(gset != '')]
   overl <- overlapping.genes[which(overlapping.genes$gene %in% gset),]
   # check how many matches
   if (nrow(overl) >0){

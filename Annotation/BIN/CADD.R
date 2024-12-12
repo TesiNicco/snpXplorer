@@ -164,7 +164,7 @@ lookup_cadd_tabix = function(i, data, random_num){
     prioritized[[(length(prioritized) + 1)]] = tmp_df
   }
   prioritized = rbindlist(prioritized)
-  res = data.frame(locus = paste0(prioritized$chrom, ':', prioritized$pos), snp_conseq = prioritized$consequence, snp_conseq_gene = prioritized$genename, phred = prioritized$phred)
+  res = data.frame(locus = paste0(prioritized$chrom, ':', prioritized$pos), cadd_ref = prioritized$ref, cadd_alt = prioritized$alt, snp_conseq = prioritized$consequence, snp_conseq_gene = prioritized$genename, phred = prioritized$phred)
   return(res)
 }
 
