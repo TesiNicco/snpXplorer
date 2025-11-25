@@ -2184,6 +2184,7 @@ def extract_haplo(data_path, df, chrom, refGen):
     # take positions of interest
     cmd = 'tabix %s/databases/haplotypes/20251122_ld_clusters_low_recombination_intervals.tsv.gz chr%s:%s-%s' %(data_path.replace(' ', '\ '), str(chrom).replace('chr', ''), str(min_pos - 1000), str(max_pos + 1000))
     haplo = [x.rstrip().split('\t') for x in os.popen(cmd)]
+    print(haplo)
     # iterate over haplotypes and flag the variants in df
     df_haplo = assign_haplo_to_variants(df, haplo, refGen)
     return df_haplo
@@ -2469,6 +2470,7 @@ def extract_sv(data_path, chrom, start_pos, end_pos, refGen, svtypes):
         svs = [x for x in svs if x[0] in svtypes]
     # add y axis
     svs = [[*sublist, i] for i, sublist in enumerate(svs)]
+    print(svs)
     # convert to dataframe as well
     colnames = ['repClass', 'chrom', 'start', 'end', 'len', 'repName', 'repFamily', 'color', 'y']
     svs_df = pd.DataFrame(svs, columns=colnames)
