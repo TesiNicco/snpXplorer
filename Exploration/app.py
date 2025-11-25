@@ -2182,7 +2182,7 @@ def extract_haplo(data_path, df, chrom, refGen):
         min_pos = df['Position'].min()
         max_pos = df['Position'].max()
     # take positions of interest
-    cmd = 'tabix %s/databases/HaploBlocks/chrAll_haploblocks.txt.gz chr%s:%s-%s' %(data_path.replace(' ', '\ '), str(chrom).replace('chr', ''), str(min_pos - 1000), str(max_pos + 1000))
+    cmd = 'tabix %s/databases/haplotypes/20251122_ld_clusters_low_recombination_intervals.tsv.gz chr%s:%s-%s' %(data_path.replace(' ', '\ '), str(chrom).replace('chr', ''), str(min_pos - 1000), str(max_pos + 1000))
     haplo = [x.rstrip().split('\t') for x in os.popen(cmd)]
     # iterate over haplotypes and flag the variants in df
     df_haplo = assign_haplo_to_variants(df, haplo, refGen)
