@@ -15,6 +15,7 @@ webcolors
 Werkzeug
 watchdog
 scikit-learn
+ieugwaspy
 plotly
 networkx
 git+https://github.com/mojaie/pygosemsim
