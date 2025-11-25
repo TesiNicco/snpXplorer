@@ -1,0 +1,610 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<!-- Main wrapper -->
+<div id="haplotype_sec" style="padding-bottom:200px;">
+
+  <!-- DNA image at the top -->
+  <div class="centered-container">
+    <img class="centered-image" src="{{ url_for('static', filename='images/dna.png') }}" alt="Image">
+  </div>
+
+  <!-- Title -->
+  <h2>{% block title %} Haplotypes {% endblock %}</h2>
+  <h3>Here you can visualize haplotypes in the genome and their association with phenotypes from GWAS</h3>
+
+  <!-- Select2 (CSS/JS) -->
+  <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.full.min.js"></script>
+
+  <!-- Styling -->
+  <style>
+    /* Green card only for the browsing options */
+    .card {
+      background:#9FD8C6;
+      padding:20px;
+      margin:20px 0;
+      border-radius:12px;
+    }
+
+    #browse_option { width:100%; min-height:38px; }
+    .muted { color:#444; opacity:.8; }
+
+    /* Main white box for haplotype summaries */
+    .haplo-card-table {
+      background:#ffffff;
+      padding:20px;
+      margin:20px auto;
+      border-radius:12px;
+      border:1px solid #ddd;
+      width:100%;
+      box-sizing:border-box;
+    }
+
+    .haplo-table-wrapper {
+      width:100%;
+      max-height:400px;
+      overflow-x:auto;
+      overflow-y:auto;
+    }
+
+    #haplo-table {
+      width:100%;
+      border-collapse:collapse;
+    }
+    #haplo-table th,
+    #haplo-table td {
+      padding:4px 8px;
+      border-bottom:1px solid #eee;
+      white-space:nowrap;
+      text-overflow:ellipsis;
+      overflow:hidden;
+    }
+    #haplo-table tbody tr:nth-child(odd)  { background:#ffffff; }
+    #haplo-table tbody tr:nth-child(even) { background:#f7f7f7; }
+    #haplo-table tbody tr:hover         { background:#e4f2ee; cursor:pointer; }
+    #haplo-table tbody tr.table-active { background:#b7e3d7 !important; }
+
+    /* Detail tables (no surrounding box) */
+    .haplo-detail-table {
+      width: 100%;
+      margin: 0 auto 10px auto;
+      max-height: 400px;
+      overflow-x: auto;   /* allow horizontal scroll if many columns */
+      overflow-y: auto;
+      box-sizing: border-box;
+      display: block;
+    }
+
+    /* Inner table: really span the wrapper */
+    #haplo-detail .haplo-detail-table table,
+    .haplo-detail-table .detail-table {
+      width: 100% !important;
+      border-collapse: collapse;
+    }
+
+    /* Cell styling */
+    .haplo-detail-table table th,
+    .haplo-detail-table table td {
+      border: 1px solid #eee;
+      padding: 4px 8px;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      overflow: hidden;
+    }
+
+    .detail-table {
+      font-size: 0.9rem;
+    }
+
+    .detail-table thead {
+      background: #f4f6f8;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    .detail-table th,
+    .detail-table td {
+      border:1px solid #eee;
+      padding:4px 8px;
+      white-space:nowrap;
+    }
+
+    .detail-table thead {
+      background:#f4f6f8;
+      position:sticky;
+      top:0;
+      z-index:1;
+    }
+
+    #haplo-detail {
+      width:100%;
+      margin:30px 0 40px 0;
+    }
+
+    #haplo-detail-plot {
+      width:100%;
+      height:1500px;
+      position:relative;       /* ← ensure normal stacking context */
+      z-index:1;               /* ← below footer */
+      overflow: visible;
+    }
+
+    /* Footer: normal flow AFTER content, always on top */
+    .image-container-foot {
+      position: relative !important;
+      bottom: auto !important;
+      left: auto !important;
+      right: auto !important;
+      margin-top: 80px !important;  /* ← extra space below plot */
+      text-align: center;
+      z-index: 9999 !important;     /* ← above any plot stuff */
+      clear: both;
+    }
+
+    .btn-download {
+      background:#4C837A;
+      color:white;
+      padding:6px 10px;
+      border-radius:6px;
+      border:none;
+      font-size:0.85rem;
+      cursor:pointer;
+    }
+
+    .btn-download:hover {
+      background:#3a685f;
+    }
+
+    #haplo-detail table {
+      width: 100% !important;   /* full width of the card */
+      margin-left: auto !important;
+      margin-right: auto !important;
+      border-collapse: collapse;
+    }
+    /* Traits summary table card */
+    .traits-card {
+      width: 100%;
+      margin: 20px auto;
+    }
+
+    /* Centered card — not full width */
+    .centered-card {
+      width: auto;
+      max-width: 80%;  /* adjust as you prefer */
+      margin: 20px auto;  /* centers the card */
+    }
+
+    /* Center the traits table inside */
+    .traits-table-wrapper table {
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    /* Optional: make table itself not span full width */
+    .traits-table-wrapper table {
+      width: auto !important; 
+    }
+  </style>
+
+  <!-- Input form -->
+  <form id="exploration_form" method="post">
+    <div class="card">
+      <div style="text-align:center;"><h1>Browsing options</h1></div>
+      <span class="muted">Locus / Interval / rsID / Gene / Trait</span><br>
+
+      <select id="browse_option" name="browse"></select>
+      <input type="hidden" id="browse_type" name="browse_type">
+
+      <small style="color: blue; display:block; margin-top:6px;">
+        Examples:
+        <code>1:1000000</code> • <code>1:1000000-1200000</code> •
+        <code>APOE</code> • <code>rs7412</code> • <code>Alzheimer's disease</code>
+      </small>
+
+      <div style="text-align:center; margin-top:16px;">
+        <button type="submit" style="background:#4C837A; color:white; padding:8px 14px; border-radius:8px; border:none;">
+          Show region
+        </button>
+      </div>
+    </div>
+  </form>
+
+  <!-- (1) TABLE WITH TRAIT SUMMARY IN THE REGION -->
+  {% if table_traits %}
+    <div class="haplo-card-table traits-card centered-card">
+      <h3>Traits related to your query</h3>
+
+      <div class="haplo-detail-table traits-table-wrapper">
+        <table id="traits-summary-table" class="detail-table">
+          <thead>
+            <tr>
+              {% for col in table_traits[0].keys() %}
+              <th>{{ col }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in table_traits %}
+            <tr>
+              {% for col, val in row.items() %}
+              <td>{{ val }}</td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div style="text-align:right; margin-top:8px;">
+        <button type="button" id="download-traits-summary" class="btn-download">
+          Download table (CSV)
+        </button>
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- (1) HAPLOTYPE SUMMARY TABLE -->
+  {% if haplo_summary and haplo_summary|length > 0 %}
+  <div class="haplo-card-table">
+    <h3>Haplotypes in this region</h3>
+
+    <div class="haplo-table-wrapper">
+      <table id="haplo-table" class="table table-sm table-hover">
+        <thead>
+          <tr>
+            <th>Haplotype Index</th>
+            <th>Haplotype</th>
+            <th># SNPs</th>
+            <th>Start (bp)</th>
+            <th>End (bp)</th>
+            <th># Traits</th>
+            <th>Traits</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for h in haplo_summary %}
+          <tr class="haplo-row" data-hapid="{{ h.ID }}">
+            <td>{{ h.haplo_index }}</td>
+            <td>{{ h.ID }}</td>
+            <td>{{ h.n_snps }}</td>
+            <td>{{ h.start_bp }}</td>
+            <td>{{ h.end_bp }}</td>
+            <td>{{ h.n_traits }}</td>
+            <td>{{ h.traits }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div style="text-align:right; margin-top:8px;">
+      <button type="button" id="download-haplo-summary" class="btn-download">
+        Download table (CSV)
+      </button>
+    </div>
+
+    <small class="muted">Click a haplotype row to see a detailed plot below.</small>
+    {% if hap_id_interest is defined and hap_id_interest is not none %}
+      {% if hap_id_interest == 'Not found' %}
+        <small class="muted"><strong>No haplotype found for the SNP of interest</strong></small>
+      {% else %}
+        <small class="muted"><strong>Haplotype of the SNP of interest is reported in the first row.</strong></small>
+      {% endif %}
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- (2) PLOT WITH ALL HAPLOTYPES  -->
+  {% if plot_url %}
+    <div id="plotly-haplotypes" style="width:100%; margin:24px 0; height:auto;">
+      {{ plot_url | safe }}
+    </div>
+    <div style="margin:12px 0;">
+      <figure style="max-width:100%; text-align:left;">
+        <figcaption style="font-size:0.95rem; color:#444;">
+          <strong>Figure description:</strong>
+          {% if (chrom is not defined or chrom is none) and (start_pos is not defined or start_pos is none) and (end_pos is not defined or end_pos is none) %}
+            These interactive figures display the UMAP of all traits in the OpenGWAS catalog, highlighting the trait of interest and the 5 closest clusters based on cosine similarity (left). The right figure shows the cosine similarity between the traits in the cluster of interest and the 5 closest clusters based on cosine similarity.
+          {% else %}
+            This interactive Plotly figure displays haplotypes detected in
+            {% if chrom is defined and chrom %}
+              chromosome {{ chrom }}{% if start_pos is defined and end_pos is defined and start_pos and end_pos %} (positions {{ start_pos }}–{{ end_pos }}){% endif %}
+            {% else %}
+              the selected genomic region
+            {% endif %}.
+            It visualizes haplotype frequencies and their association signals (haplotypes shown: {{ haplo_summary|length if haplo_summary is defined else 'N/A' }}).
+            Hover over points for exact values, click legend entries to toggle traces, and use the Plotly modebar to zoom, pan, or download the plot as an image.
+          {% endif %}
+        </figcaption>
+      </figure>
+    </div>
+  {% else %}
+    <div style="display:flex; justify-content:center; margin:30px 0;">
+      <figure style="text-align:center;">
+        <img src="{{ url_for('static', filename='images/manhattan_plot_AI.png') }}"
+             alt="Descriptive caption"
+             style="max-width:80%; height:auto; border-radius:10px;">
+        <figcaption style="font-size:0.9em; color:#444; margin-top:8px;">
+            Manhattan plots showing SNP associations with various traits.
+        </figcaption>
+      </figure>
+    </div>
+  {% endif %}
+
+  <!-- (3) DETAILED HAPLOTYPE PLOT (AJAX-loaded) -->
+  <div id="haplo-detail"></div>
+
+</div> <!-- END main wrapper -->
+
+{% if gwas_assoc_table %}
+<div class="haplo-card-table">
+  <h3>GWAS Associations for Selected Traits</h3>
+
+  <div class="haplo-detail-table">
+    <table class="detail-table">
+      <thead>
+        <tr>
+          {% for col in gwas_assoc_table[0].keys() %}
+          <th>{{ col }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in gwas_assoc_table %}
+        <tr>
+          {% for col,val in row.items() %}
+          <td>{{ val }}</td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <button class="btn-download" onclick="downloadGWASTable()">
+    Download GWAS associations (CSV)
+  </button>
+</div>
+
+<script>
+function downloadGWASTable() {
+    const table = document.querySelector('#gwas_assoc_section table'); 
+    if (!table) return;
+
+    let csv = [];
+    const rows = table.querySelectorAll("tr");
+    rows.forEach(row => {
+        let cols = row.querySelectorAll("th, td");
+        let rowData = [];
+        cols.forEach(col => {
+            let text = (col.innerText || '').replace(/"/g, '""');
+            rowData.push('"' + text + '"');
+        });
+        csv.push(rowData.join(','));
+    });
+    const blob = new Blob([csv.join('\n')], {type:'text/csv;charset=utf-8;'});
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'gwas_associations.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+</script>
+{% endif %}
+
+<!-- FOOTER IMAGES (outside main wrapper, in normal flow) -->
+<div class="image-container-foot">
+  <img src="{{ url_for('static', filename='images/amstUMC.jpg') }}" alt="ams">
+  <img src="{{ url_for('static', filename='images/tudelft1.png') }}" alt="tud">
+  <img src="{{ url_for('static', filename='images/github.png') }}" alt="gith">
+</div>
+
+<!-- JavaScript -->
+<script>
+$(function () {
+  const $browse = $('#browse_option');
+
+  function isCoord(term) { return /^\d{1,2}:\d+(-\d+)?$/i.test(term); }
+  function isRS(term) { return /^rs\d+$/i.test(term); }
+  function isChrom(term) { return /^((chr)?([1-9]|1[0-9]|2[0-2]|x|y))$/i.test(term); }
+
+  $browse.select2({
+    placeholder: 'Type rsID, gene, trait, chr, or chr:start-end',
+    width: '100%',
+    minimumInputLength: 2,
+    tags: true,
+    createTag: function (params) {
+      const term = $.trim(params.term || '');
+      if (!term) return null;
+      if (isCoord(term) || isChrom(term)) return { id: term, text: term };
+      return null;
+    },
+    ajax: {
+      transport: function (params, success, failure) {
+        const term = $.trim(params.data.q || '');
+        let url = term.length > 7 ? '/api/traits' : '/api/locus';
+        params.url = url;
+        const req = $.ajax(params);
+        req.then(success);
+        req.fail(failure);
+        return req;
+      },
+      url: '/api/locus',
+      dataType: 'json',
+      delay: 200,
+      data: params => ({ q: params.term || '', page: params.page || 1 }),
+      processResults: (data, params) => ({
+        results: data.results,
+        pagination: { more: data.pagination && data.pagination.more }
+      }),
+      cache: true
+    }
+  });
+
+  $browse.on('select2:select', function (e) {
+    const val = $.trim(e.params.data.id || '');
+    let kind = 'trait';
+
+    if (isCoord(val)) kind = 'locus';
+    else if (isChrom(val)) kind = 'chromosome';
+    else if (isRS(val)) kind = 'rsid';
+    else if (val.length <= 7 && /^[A-Za-z0-9_]+$/.test(val)) kind = 'gene';
+
+    $('#browse_type').val(kind);
+  });
+
+  const prev = {{ (browse_value or '') | tojson | safe }};
+  if (prev) {
+    const opt = new Option(prev, prev, true, true);
+    $browse.append(opt).trigger('change');
+  }
+
+  const chrom = {{ chrom|tojson if chrom is defined else 'null' }};
+  const startPos = {{ start_pos|tojson if start_pos is defined else 'null' }};
+  const endPos = {{ end_pos|tojson if end_pos is defined else 'null' }};
+
+  $('#haplo-table').on('click', '.haplo-row', function () {
+    const hapId = $(this).data('hapid');
+    if (!hapId || chrom === null) return;
+
+    $('#haplo-table .haplo-row').removeClass('table-active');
+    $(this).addClass('table-active');
+
+    const url = `/haplotypes/detail?hap_id=${encodeURIComponent(hapId)}&chrom=${chrom}&start_pos=${startPos}&end_pos=${endPos}`;
+
+    fetch(url)
+      .then(r => r.json())
+      .then(d => {
+        const container = document.getElementById('haplo-detail');
+
+        container.innerHTML = `
+            <div class="haplo-card-table">
+            <h3>Haplotype of interest</h3>
+            <p class="muted" style="margin-top:6px;">
+              Description: this table shows details for the selected haplotype (index/ID, constituent SNPs, frequencies, genomic coordinates, and associated traits). Use the download button to export the table as CSV.
+            </p>
+            <div class="haplo-detail-table">
+              ${d.haplo_table}
+            </div>
+            </div>
+
+            <div class="haplo-card-table">
+            <h3 style="margin-top:20px;">SNP associations</h3>
+            <p class="muted" style="margin-top:6px;">
+              This table lists the SNPs that compose the selected haplotype, including genomic coordinates, reference/alternate alleles,
+              allele frequencies, and association statistics (e.g. effect size, p-value, and associated trait). Hover or inspect the table
+              to review which variants drive the haplotype signal. Use the download button above each table to export the data as CSV.
+            </p>
+            <div class="haplo-detail-table">
+              ${d.snps_table}
+            </div>
+            </div>
+
+            <div class="haplo-card-table">
+            <h3 style="margin-top:20px;">CADD consequences</h3>
+            <p class="muted" style="margin-top:6px;">
+              CADD annotations provide predicted functional consequences and deleteriousness scores for the haplotype's variants.
+              Higher CADD scores suggest greater likelihood of functional impact. Use these annotations to prioritize variants for follow-up.
+            </p>
+            <div class="haplo-detail-table">
+              ${d.snps_cadd_table}
+            </div>
+            </div>
+
+            <div class="haplo-card-table">
+            <h3 style="margin-top:24px;">Haplotype plots</h3>
+            <p class="muted" style="margin-top:6px;">
+              Interactive plot showing haplotype frequencies and their association signals. Hover over points for exact values, click legend
+              entries to toggle traces, and use the Plotly modebar to zoom, pan, or download the figure as an image.
+            </p>
+            <div id="haplo-detail-plot"></div>
+            </div>
+        `;
+
+        // Add download buttons for each detail table
+        const detailSections = container.querySelectorAll('.haplo-detail-table');
+        detailSections.forEach((sec, idx) => {
+          const table = sec.querySelector('table');
+          if (!table) return;
+
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'btn-download';
+          btn.textContent = 'Download table (CSV)';
+          btn.style.marginBottom = '6px';
+
+          // Determine a reasonable filename
+          let baseName = 'haplotype_table';
+          if (idx === 0) baseName = 'haplotype_summary';
+          if (idx === 1) baseName = 'haplotype_snps';
+          if (idx === 2) baseName = 'haplotype_cadd';
+
+          btn.addEventListener('click', () => {
+            downloadTableAsCSV(table, `${baseName}.csv`);
+          });
+
+          // Insert button before the table wrapper
+          sec.parentNode.insertBefore(btn, sec);
+        });
+
+        Plotly.newPlot('haplo-detail-plot', d.fig.data, d.fig.layout);
+      })
+      .catch(err => {
+        console.error(err);
+        document.getElementById('haplo-detail').innerHTML =
+          '<p style="color:red;">Error loading haplotype plot.</p>';
+      });
+  });
+
+          // Helper: convert an HTML table to CSV and trigger download
+        function downloadTableAsCSV(table, filename) {
+          let csv = [];
+          const rows = table.querySelectorAll('tr');
+
+          rows.forEach(row => {
+            const cols = row.querySelectorAll('th, td');
+            let rowData = [];
+            cols.forEach(col => {
+              let text = (col.innerText || '').replace(/"/g, '""');
+              rowData.push('"' + text + '"');
+            });
+            csv.push(rowData.join(','));
+          });
+
+          const blob = new Blob([csv.join('\n')], { type: 'text/csv;charset=utf-8;' });
+          const link = document.createElement('a');
+          link.href = URL.createObjectURL(blob);
+          link.download = filename;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
+
+  // Summary table download button
+  const summaryBtn = document.getElementById('download-haplo-summary');
+  if (summaryBtn) {
+    summaryBtn.addEventListener('click', () => {
+      const table = document.getElementById('haplo-table');
+      if (!table) return;
+      downloadTableAsCSV(table, 'haplotype_region_summary.csv');
+    });
+  }
+
+  // Traits summary table download button
+  const traitsBtn = document.getElementById('download-traits-summary');
+  if (traitsBtn) {
+    traitsBtn.addEventListener('click', () => {
+      const table = document.getElementById('traits-summary-table');
+      if (!table) return;
+      downloadTableAsCSV(table, 'traits_summary.csv');
+    });
+  }
+});
+</script>
+
+{% endblock %}

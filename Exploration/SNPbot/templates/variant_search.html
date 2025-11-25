@@ -1,0 +1,2032 @@
+{% extends 'base.html' %}
+
+{% block title %} Single Annotation {% endblock %}
+
+{% block content %}
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      background: #ffffff;
+      color: #111827;
+    }
+
+    .no-result-title {
+      margin: 4px 0 0 0;
+      font-size: 13px;
+      font-weight: 600;
+      color: #111827; /* same dark text as titles */
+    }
+
+    .main-container {
+      width: 100%;
+      max-width: 100%;
+      margin: 32px auto 40px;
+      padding: 0 24px;
+    }
+
+    .header {
+      margin-bottom: 16px;
+    }
+
+    .header-title {
+      margin: 0 0 4px 0;
+      font-size: 22px;
+      font-weight: 600;
+    }
+
+    .header-subtitle {
+      margin: 0;
+      font-size: 13px;
+      color: #6b7280;
+    }
+
+    /* TOP: search card + helper card */
+    .top-section {
+      display: flex;
+      gap: 20px;
+      align-items: stretch; /* same height for cards */
+    }
+
+    .search-card,
+    .helper-card {
+      border-radius: 16px;
+      border: 1px solid #e5e7eb;
+      background: #ffffff;
+      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .search-card {
+      flex: 1.4;
+      padding: 14px 16px 16px;
+    }
+
+    .helper-card {
+      flex: 1;
+      padding: 12px 14px;
+      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
+      font-size: 12px;
+    }
+
+    .search-card-title {
+      margin: 0 0 10px 0;
+      font-size: 14px;
+      font-weight: 600;
+      color: #111827;
+    }
+
+    .search-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    #query-input {
+      flex: 1;
+      border-radius: 999px;
+      border: 1px solid #d1d5db;
+      padding: 8px 14px;
+      font-size: 13px;
+      outline: none;
+    }
+
+    #query-input:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18);
+    }
+
+    .build-select {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: #4b5563;
+    }
+
+    .build-select select {
+      border-radius: 999px;
+      border: 1px solid #d1d5db;
+      padding: 6px 10px;
+      background: #ffffff;
+      font-size: 12px;
+      outline: none;
+    }
+
+    .search-button {
+      border: none;
+      border-radius: 999px;
+      padding: 8px 18px;
+      font-size: 13px;
+      font-weight: 500;
+      background: #2563eb;
+      color: #ffffff;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .search-button:hover {
+      background: #1d4ed8;
+    }
+
+    .search-button:active {
+      transform: translateY(1px);
+    }
+
+    .search-button:disabled {
+      opacity: 0.6;
+      cursor: default;
+      transform: none;
+    }
+
+    .search-help-text {
+      font-size: 11px;
+      color: #6b7280;
+      margin-top: 4px;
+    }
+
+    .helper-title {
+      margin: 0 0 6px 0;
+      font-size: 12px;
+      font-weight: 600;
+      color: #111827;
+    }
+
+    .helper-card p {
+      margin: 0 0 6px 0;
+      color: #4b5563;
+      font-size: 12px;
+    }
+
+    .helper-card ul {
+      margin: 4px 0 0 16px;
+      padding: 0;
+    }
+
+    .helper-card li {
+      margin: 2px 0;
+    }
+
+    .helper-card code {
+      background: #f3f4f6;
+      border-radius: 4px;
+      padding: 1px 4px;
+      font-size: 11px;
+    }
+
+    /* RESULT SECTION (no box background) */
+    .result-section {
+      margin-top: 24px;
+      display: none; /* hidden until we have something */
+    }
+
+    .result-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .result-title {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .result-subtitle {
+      margin: 16px 0 8px 0;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .download-button {
+      border: 1px solid #d1d5db;
+      border-radius: 999px;
+      padding: 6px 14px;
+      font-size: 12px;
+      background: #ffffff;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .download-button:hover {
+      background: #f3f4f6;
+    }
+
+    .result-error {
+      font-size: 12px;
+      color: #b91c1c;
+      background: #fef2f2;
+      border-radius: 8px;
+      border: 1px solid #fecaca;
+      padding: 8px 10px;
+      margin-bottom: 4px;
+    }
+
+    .result-note {
+      font-size: 12px;
+      color: #6b7280;
+      margin: 4px 0 0 0;
+    }
+
+    /* Center all standalone result tables */
+    .result-table-wrapper {
+      width: 100%;
+      max-width: none;      /* <-- was 1100px */
+      margin: 0;            /* no centering margin needed */
+      max-height: 420px;
+      overflow-y: auto;     /* vertical scroll ONLY */
+      overflow-x: hidden;   /* absolutely no horizontal scrollbars */
+    }
+
+    /* inside your snpbot template */
+    .snpbot-page table.result-table {
+      width: 100% !important;        /* fill all available width */
+      max-width: none !important;    /* no artificial caps */
+      border-collapse: collapse;
+      font-size: 12px;
+      background: #ffffff;
+      border-radius: 12px;
+      overflow: hidden;
+      table-layout: auto;
+    }
+
+    .snpbot-page .result-table th {
+      white-space: nowrap;           /* headers stay on one line */
+    }
+
+    .result-table thead {
+      background: #eff6ff;
+    }
+
+    .result-table th,
+    .result-table td {
+      border: 1px solid #e5e7eb;
+      padding: 6px 8px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .result-table th {
+      font-weight: 600;
+      color: #111827;
+    }
+
+    .result-table tbody tr:nth-child(even) {
+      background: #f9fafb;
+    }
+
+    /* LD layout + separator */
+    .section-separator {
+      margin: 24px 0 16px 0;
+      border: 0;
+      border-top: 1px solid #e5e7eb;
+    }
+
+    .ld-container {
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+      margin-top: 8px;
+    }
+
+    /* make heatmap side wider */
+    .ld-left {
+      flex: 1.1;
+    }
+
+    .ld-right {
+      flex: 1.4;
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 10px 12px;
+      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      /* NEW: scroll if heatmap is tall */
+      max-height: 420px;      /* or 100%, or whatever fits your layout */
+      overflow-y: auto;
+    }
+
+    .ld-heatmap-title {
+      margin: 0 0 8px 0;
+      font-size: 13px;
+      font-weight: 600;
+      color: #111827;
+    }
+
+    /* LD tooltip */
+    .ld-tooltip {
+      position: absolute;
+      background: #111827;
+      color: #f9fafb;
+      padding: 6px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      pointer-events: none;
+      display: none;
+      z-index: 999;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+      max-width: 260px;
+      line-height: 1.3;
+    }
+    
+    .gwas-tooltip {
+      position: absolute;
+      background: #111827;
+      color: #f9fafb;
+      padding: 6px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      pointer-events: none;
+      display: none;
+      z-index: 999;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+      max-width: 260px;
+      line-height: 1.3;
+    }
+
+    code {
+      font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 12px;
+    }
+
+    /* --- GWAS layout --- */
+    .gwas-container {
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+      margin-top: 8px;
+    }
+
+    /* Table side */
+    .gwas-left {
+      flex: 0 0 45%;      /* ~45% of row */
+      max-width: 45%;
+      min-width: 0;
+    }
+
+    .gwas-left .result-table-wrapper {
+      overflow-x: visible;   /* horizontal scroll if wide */
+    }
+
+    /* Make table *wider* than container so it can scroll */
+    .gwas-left .result-table {
+      width: 100%;      /* tweak as you like */
+    }
+
+    /* Forest side */
+    .gwas-right {
+      flex: 0 0 55%;      /* ~55% of row */
+      max-width: 55%;
+      min-width: 0;
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 10px 12px;
+      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+      max-height: 420px;
+      overflow-y: auto;
+      overflow-x: auto;   /* horizontal scroll for wide forest SVG */
+      text-align: center;
+    }
+
+    /* Forest plot container */
+    #gwas-forest svg {
+      display: block;
+      max-width: none !important;
+      max-height: none !important;
+      width: 1100px;                /* or 900, etc. */
+    }
+  </style>
+
+<div class="snpbot-page">
+<!-- Top DNA image (same as other pages) -->
+<div class="centered-container">
+  <img class="centered-image" src="{{ url_for('static', filename='images/dna.png') }}" alt="Image">
+</div>
+
+<div class="main-container">
+  <div class="header">
+    <h1 class="header-title">SNP Annotation Search</h1>
+    <p class="header-subtitle">
+      Query a single variant by rsID or coordinate. Results are shown below as compact tables.
+    </p>
+  </div>
+
+  <!-- TOP: search + helper -->
+  <div class="top-section">
+    <!-- Search card -->
+    <div class="search-card">
+      <h2 class="search-card-title">Search</h2>
+
+      <div class="search-row">
+        <input
+          id="query-input"
+          type="text"
+          placeholder="e.g. rs7412 or 19:45411941"
+        >
+
+        <div class="build-select">
+          <span>Build</span>
+          <select id="build-select">
+            <option value="hg38" selected>hg38</option>
+            <option value="hg19">hg19</option>
+          </select>
+        </div>
+
+        <button id="search-btn" class="search-button" onclick="submitQuery()">
+          <span>Search</span>
+          <span>⏎</span>
+        </button>
+      </div>
+
+      <div class="search-help-text">
+        Press <strong>Enter</strong> in the input or click <strong>Search</strong>.
+      </div>
+    </div>
+
+    <!-- Helper card -->
+    <div class="helper-card">
+      <h3 class="helper-title">Helper</h3>
+      <p>Accepted query formats (one variant at a time):</p>
+      <ul>
+        <li>By rsID: <code>rs7412</code></li>
+        <li>By coordinate (no "chr" needed): <code>19:45411941</code></li>
+        <li>With "chr": <code>chr19 45411941</code></li>
+      </ul>
+      <p style="margin-top: 6px;">
+        Choose genome build (<code>hg38</code> or <code>hg19</code>). For hg19,
+        coordinates are lifted over internally to hg38.
+      </p>
+    </div>
+  </div>
+
+  <!-- RESULT SECTION BELOW (no box) -->
+  <section class="result-section" id="result-section">
+    <!-- Variant info header + download -->
+    <div class="result-header-row">
+      <h3 class="result-subtitle">CADD annotation</h3>
+      <button class="download-button" id="download-btn" onclick="downloadVariantTable()" disabled>
+        ⬇ Download variant CSV
+      </button>
+    </div>
+    <div id="result-container"></div>
+  </section>
+</div>
+
+<!-- LD tooltip -->
+<div id="ld-tooltip" class="ld-tooltip"></div>
+<!-- GWAS tooltip -->
+<div id="gwas-tooltip" class="gwas-tooltip"></div>
+<!-- Bottom logos (same as other pages) -->
+<div class="image-container-foot">
+  <img src="{{ url_for('static', filename='images/amstUMC.jpg') }}" alt="ams">
+  <img src="{{ url_for('static', filename='images/tudelft1.png') }}" alt="tud">
+  <img src="{{ url_for('static', filename='images/github.png') }}" alt="gith">
+</div>
+
+<script>
+  let lastVariantTableData = null; // variant download
+  let lastCaddData = null;         // CADD download
+  let lastEqtlData = null;         // eQTL download
+  let lastSqtlData = null;         // sQTL download
+  let lastLdData = null;           // LD download
+  let lastLdCaddData = null;       // LD-partner CADD
+  let lastLdEqtlData = null;       // LD-partner eQTL
+  let lastLdSqtlData = null;       // LD-partner sQTL
+  const SNPBOT_API_URL = "{{ url_for('snpbot.variant_query') }}";
+
+  function setLoading(isLoading) {
+    const btn = document.getElementById("search-btn");
+    btn.disabled = isLoading;
+  }
+
+  function showResultSection() {
+    const section = document.getElementById("result-section");
+    section.style.display = "block";
+  }
+
+  function clearResult() {
+    const resultContainer = document.getElementById("result-container");
+    resultContainer.innerHTML = "";
+    lastVariantTableData = null;
+    lastCaddData = null;
+    lastEqtlData = null;
+    lastSqtlData = null;
+    lastLdData = null;
+    lastLdCaddData = null;
+    lastLdEqtlData = null;
+    lastLdSqtlData = null;
+    document.getElementById("download-btn").disabled = true;
+  }
+
+  function showError(message) {
+    showResultSection();
+    const resultContainer = document.getElementById("result-container");
+    resultContainer.innerHTML = `
+      <div class="result-error">${message}</div>
+    `;
+    lastVariantTableData = null;
+    lastCaddData = null;
+    lastEqtlData = null;
+    lastSqtlData = null;
+    lastLdData = null;
+    lastLdCaddData = null;
+    lastLdEqtlData = null;
+    lastLdSqtlData = null;
+    document.getElementById("download-btn").disabled = true;
+  }
+
+  /* ---------- CADD TABLE ---------- */
+  function buildCaddTable(caddRows) {
+    if (!caddRows || caddRows.length === 0) {
+      lastCaddData = null;
+      return `
+        <div class="result-header-row">
+        </div>
+        <p class="no-result-title">No CADD annotation found for this variant.</p>
+      `;
+    }
+
+    const caddColumns = [
+      "chrom", "pos", "ref", "alt",
+      "phred_max", "genes", "annotypes", "consequences",
+      "cpg_max", "gc_max", "h3k27ac_max", "h3k4me3_max",
+      "dnase_max", "spliceai_acc_loss_max", "spliceai_don_loss_max",
+      "siftval_max", "polyphenval_max", "gerprs_max", "priphyloP_max"
+    ];
+
+    const caddHeaders = [
+      "Chrom",
+      "Pos (hg38)",
+      "Ref",
+      "Alt",
+      "Phred Score",
+      "Genes",
+      "Type",
+      "Consequence",
+      "CpG max",
+      "GC max",
+      "H3K27ac max",
+      "H3K4me3 max",
+      "DNAse max",
+      "SpliceAI acc loss max",
+      "SpliceAI don loss max",
+      "SIFT max",
+      "PolyPhen max",
+      "GERprs max",
+      "PriPhyloP max"
+    ];
+
+    lastCaddData = {
+      rows: caddRows,
+      columns: caddColumns,
+      headers: caddHeaders
+    };
+
+    let html = `
+      <div class="result-header-row">
+        <h3 class="result-subtitle">CADD annotation</h3>
+        <button class="download-button" onclick="downloadCaddTable()">
+          ⬇ Download CADD CSV
+        </button>
+      </div>
+      <div class="result-table-wrapper">
+        <table class="result-table">
+          <thead>
+            <tr>
+    `;
+
+    caddHeaders.forEach(h => {
+      html += `<th>${h}</th>`;
+    });
+
+    html += `
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+    caddRows.forEach(row => {
+      html += `<tr>`;
+      caddColumns.forEach(col => {
+        const val = (row[col] === null || row[col] === undefined) ? "" : row[col];
+        html += `<td>${val}</td>`;
+      });
+      html += `</tr>`;
+    });
+
+    html += `
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    return html;
+  }
+
+  /* ---------- GWAS TABLE ---------- */
+  function buildGwasTable(gwasRows) {
+    if (!gwasRows || gwasRows.length === 0) {
+      return `
+        <div class="result-header-row"></div>
+        <p class="no-result-title">No GWAS associations found for this variant.</p>
+      `;
+    }
+
+    const gwasColumns = [
+      "trait","ea","nea","eaf","beta","se","p","n","gwas_id","rsid"
+    ];
+
+    const gwasHeaders = [
+      "Trait","Effect","Other",
+      "EAF","Beta","SE","P-value","N","GWAS ID","RSID"
+    ];
+
+    lastGwasData = { rows: gwasRows, columns: gwasColumns, headers: gwasHeaders };
+
+    let html = `
+      <div class="result-header-row">
+        <h3 class="result-subtitle">GWAS associations</h3>
+        <button class="download-button" onclick="downloadGwasTable()">⬇ Download GWAS CSV</button>
+        <button class="download-button" onclick="downloadGwasForestSvg()">⬇ Download Forest SVG</button>
+      </div>
+
+      <div class="gwas-container">
+        <div class="gwas-left">
+          <div class="result-table-wrapper">
+            <table class="result-table">
+              <thead><tr>
+    `;
+
+    gwasHeaders.forEach(h => html += `<th>${h}</th>`);
+
+    html += `</tr></thead><tbody>`;
+
+    gwasRows.forEach(row => {
+      html += `<tr>`;
+      gwasColumns.forEach(col => {
+        const val = row[col] ?? "";
+        html += `<td>${val}</td>`;
+      });
+      html += `</tr>`;
+    });
+
+    html += `
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="gwas-right">
+          ${buildGwasForestPlot(gwasRows)}
+        </div>
+      </div>
+    `;
+
+    return html;
+  }
+
+  /* ---------- eQTL TABLE ---------- */
+  function buildEqtlTable(eqtlRows) {
+    if (!eqtlRows || eqtlRows.length === 0) {
+      lastEqtlData = null;
+      return `
+        <div class="result-header-row">
+        </div>
+        <p class="no-result-title">No eQTLs found for this variant.</p>
+      `;
+    }
+
+    const eqtlColumns = [
+      "chrom",
+      "pos",
+      "ref",
+      "alt",
+      "ensemble",
+      "gene",
+      "tissue",
+      "tss_distance",
+      "maf",
+      "pval_nominal",
+      "slope"
+    ];
+
+    const eqtlHeaders = [
+      "Chrom",
+      "Pos (hg38)",
+      "Ref",
+      "Alt",
+      "Ensembl ID",
+      "Gene",
+      "Tissue",
+      "TSS distance",
+      "MAF",
+      "Nominal p-value",
+      "Slope"
+    ];
+
+    lastEqtlData = {
+      rows: eqtlRows,
+      columns: eqtlColumns,
+      headers: eqtlHeaders
+    };
+
+    let html = `
+      <div class="result-header-row">
+        <h3 class="result-subtitle">eQTL annotation</h3>
+        <button class="download-button" onclick="downloadEqtlTable()">
+          ⬇ Download eQTL CSV
+        </button>
+      </div>
+      <div class="result-table-wrapper">
+        <table class="result-table">
+          <thead>
+            <tr>
+    `;
+
+    eqtlHeaders.forEach(h => {
+      html += `<th>${h}</th>`;
+    });
+
+    html += `
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+    eqtlRows.forEach(row => {
+      html += `<tr>`;
+      eqtlColumns.forEach(col => {
+        const val = (row[col] === null || row[col] === undefined) ? "" : row[col];
+        html += `<td>${val}</td>`;
+      });
+      html += `</tr>`;
+    });
+
+    html += `
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    return html;
+  }
+
+  /* ---------- sQTL TABLE ---------- */
+  function buildSqtlTable(sqtlRows) {
+    if (!sqtlRows || sqtlRows.length === 0) {
+      lastSqtlData = null;
+      return `
+        <div class="result-header-row">
+        </div>
+        <p class="no-result-title">No sQTLs found for this variant.</p>
+      `;
+    }
+
+    const sqtlColumns = [
+      "chrom",
+      "pos",
+      "ref",
+      "alt",
+      "ensemble",
+      "gene",
+      "tissue",
+      "tss_distance",
+      "maf",
+      "pval_nominal",
+      "slope"
+    ];
+
+    const sqtlHeaders = [
+      "Chrom",
+      "Pos (hg38)",
+      "Ref",
+      "Alt",
+      "Ensembl ID",
+      "Gene",
+      "Tissue",
+      "TSS distance",
+      "MAF",
+      "Nominal p-value",
+      "Slope"
+    ];
+
+    lastSqtlData = {
+      rows: sqtlRows,
+      columns: sqtlColumns,
+      headers: sqtlHeaders
+    };
+
+    let html = `
+      <div class="result-header-row">
+        <h3 class="result-subtitle">sQTL annotation</h3>
+        <button class="download-button" onclick="downloadSqtlTable()">
+          ⬇ Download sQTL CSV
+        </button>
+      </div>
+      <div class="result-table-wrapper">
+        <table class="result-table">
+          <thead>
+            <tr>
+    `;
+
+    sqtlHeaders.forEach(h => {
+      html += `<th>${h}</th>`;
+    });
+
+    html += `
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+    sqtlRows.forEach(row => {
+      html += `<tr>`;
+      sqtlColumns.forEach(col => {
+        const val = (row[col] === null || row[col] === undefined) ? "" : row[col];
+        html += `<td>${val}</td>`;
+      });
+      html += `</tr>`;
+    });
+
+    html += `
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    return html;
+  }
+
+    /* ---------- LD-PARTNER CADD TABLE ---------- */
+  function buildLdCaddTable(ldCaddRows) {
+    if (!ldCaddRows || ldCaddRows.length === 0) {
+      return `
+        <div class="result-header-row">
+        </div>
+        <p class="no-result-title">No CADD annotation found for LD partners.</p>
+      `;
+    }
+
+    lastLdCaddData = ldCaddRows;
+
+    const ldCaddColumns = [
+      "ld_rsid",
+      "ld_partner_pos",
+      "ld_r2",
+      "ld_dist_bp",
+      "chrom",
+      "pos",
+      "ref",
+      "alt",
+      "phred_max",
+      "genes",
+      "annotypes",
+      "consequences"
+    ];
+
+    const ldCaddHeaders = [
+      "LD rsID",
+      "LD partner pos (hg38)",
+      "LD r²",
+      "LD distance (bp)",
+      "Chrom",
+      "Pos (hg38)",
+      "Ref",
+      "Alt",
+      "Phred Score",
+      "Genes",
+      "Type",
+      "Consequence"
+    ];
+
+    let html = `
+      <div class="result-header-row">
+        <h3 class="result-subtitle">CADD annotation for LD partners</h3>
+        <button class="download-button" onclick="downloadLdCaddTable()">
+          ⬇ Download LD-partner CADD CSV
+        </button>
+      </div>
+      <div class="result-table-wrapper">
+        <table class="result-table">
+          <thead>
+            <tr>
+    `;
+
+    ldCaddHeaders.forEach(h => {
+      html += `<th>${h}</th>`;
+    });
+
+    html += `
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+    ldCaddRows.forEach(row => {
+      html += `<tr>`;
+      ldCaddColumns.forEach(col => {
+        const val = (row[col] === null || row[col] === undefined) ? "" : row[col];
+        html += `<td>${val}</td>`;
+      });
+      html += `</tr>`;
+    });
+
+    html += `
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    return html;
+  }
+
+  /* ---------- LD-PARTNER eQTL TABLE ---------- */
+  function buildLdEqtlTable(ldEqtlRows) {
+    if (!ldEqtlRows || ldEqtlRows.length === 0) {
+      return `
+        <div class="result-header-row">
+        </div>
+        <p class="no-result-title">No eQTLs found for LD partners.</p>
+      `;
+    }
+    
+    lastLdEqtlData = ldEqtlRows;
+
+    const ldEqtlColumns = [
+      "ld_rsid",
+      "ld_partner_pos",
+      "ld_r2",
+      "ld_dist_bp",
+      "chrom",
+      "pos",
+      "ref",
+      "alt",
+      "ensemble",
+      "gene",
+      "tissue",
+      "tss_distance",
+      "maf",
+      "pval_nominal",
+      "slope"
+    ];
+
+    const ldEqtlHeaders = [
+      "LD rsID",
+      "LD partner pos (hg38)",
+      "LD r²",
+      "LD distance (bp)",
+      "Chrom",
+      "Pos (hg38)",
+      "Ref",
+      "Alt",
+      "Ensembl ID",
+      "Gene",
+      "Tissue",
+      "TSS distance",
+      "MAF",
+      "Nominal p-value",
+      "Slope"
+    ];
+
+    let html = `
+      <div class="result-header-row">
+        <h3 class="result-subtitle">eQTL annotation for LD partners</h3>
+        <button class="download-button" onclick="downloadLdEqtlTable()">
+          ⬇ Download LD-partner eQTL CSV
+        </button>
+      </div>
+      <div class="result-table-wrapper">
+        <table class="result-table">
+          <thead>
+            <tr>
+    `;
+
+    ldEqtlHeaders.forEach(h => {
+      html += `<th>${h}</th>`;
+    });
+
+    html += `
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+    ldEqtlRows.forEach(row => {
+      html += `<tr>`;
+      ldEqtlColumns.forEach(col => {
+        const val = (row[col] === null || row[col] === undefined) ? "" : row[col];
+        html += `<td>${val}</td>`;
+      });
+      html += `</tr>`;
+    });
+
+    html += `
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    return html;
+  }
+
+  /* ---------- LD-PARTNER sQTL TABLE ---------- */
+  function buildLdSqtlTable(ldSqtlRows) {
+    if (!ldSqtlRows || ldSqtlRows.length === 0) {
+      return `
+        <div class="result-header-row">
+        </div>
+        <p class="no-result-title">No sQTLs found for LD partners.</p>
+      `;
+    }
+
+    lastLdSqtlData = ldSqtlRows;
+
+    const ldSqtlColumns = [
+      "ld_rsid",
+      "ld_partner_pos",
+      "ld_r2",
+      "ld_dist_bp",
+      "chrom",
+      "pos",
+      "ref",
+      "alt",
+      "ensemble",
+      "gene",
+      "tissue",
+      "tss_distance",
+      "maf",
+      "pval_nominal",
+      "slope"
+    ];
+
+    const ldSqtlHeaders = [
+      "LD rsID",
+      "LD partner pos (hg38)",
+      "LD r²",
+      "LD distance (bp)",
+      "Chrom",
+      "Pos (hg38)",
+      "Ref",
+      "Alt",
+      "Ensembl ID",
+      "Gene",
+      "Tissue",
+      "TSS distance",
+      "MAF",
+      "Nominal p-value",
+      "Slope"
+    ];
+
+    let html = `
+      <div class="result-header-row">
+        <h3 class="result-subtitle">sQTL annotation for LD partners</h3>
+        <button class="download-button" onclick="downloadLdSqtlTable()">
+          ⬇ Download LD-partner sQTL CSV
+        </button>
+      </div>
+      <div class="result-table-wrapper">
+        <table class="result-table">
+          <thead>
+            <tr>
+    `;
+
+    ldSqtlHeaders.forEach(h => {
+      html += `<th>${h}</th>`;
+    });
+
+    html += `
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+    ldSqtlRows.forEach(row => {
+      html += `<tr>`;
+      ldSqtlColumns.forEach(col => {
+        const val = (row[col] === null || row[col] === undefined) ? "" : row[col];
+        html += `<td>${val}</td>`;
+      });
+      html += `</tr>`;
+    });
+
+    html += `
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    return html;
+  }
+
+  /* ---------- LD MINI HEATMAP ---------- */
+  function getLdColor(r2) {
+    if (r2 > 0.8) return "red";
+    if (r2 > 0.6) return "orange";
+    if (r2 > 0.4) return "green";
+    if (r2 > 0.2) return "lightblue";
+    return "#e5e7eb"; // very low / off
+  }
+
+  function buildLdHeatmap(ldRows) {
+    if (!ldRows || ldRows.length === 0) {
+    return `<p class="no-result-title">No LD found.</p>`;
+    }
+
+    const barHeight = 16;
+    const barGap = 4;
+    const topMargin = 18;
+    const bottomMargin = 40;        // keep for axis labels
+    const leftMargin = 80;
+    const rightMargin = 10;         // was 40
+    const plotWidth = Math.max(260, Math.min(900, window.innerWidth * 0.6));
+    const svgHeight = topMargin + ldRows.length * (barHeight + barGap) + bottomMargin;
+    const axisY = svgHeight - bottomMargin + 4;
+
+    let svg = `
+      <div id="ld-heatmap">
+        <svg width="${leftMargin + plotWidth + rightMargin}" height="${svgHeight}">
+          <!-- x-axis line -->
+          <line x1="${leftMargin}" y1="${axisY}" x2="${leftMargin + plotWidth}" y2="${axisY}" stroke="#4b5563" stroke-width="1" />
+    `;
+
+    // x-axis ticks: 0, 0.5, 1
+    const tickValues = [0, 0.5, 1];
+    tickValues.forEach(t => {
+      const x = leftMargin + t * plotWidth;
+      svg += `
+        <line x1="${x}" y1="${axisY}" x2="${x}" y2="${axisY + 4}" stroke="#4b5563" stroke-width="1" />
+        <text x="${x}" y="${axisY + 14}" text-anchor="middle" font-size="10" fill="#4b5563">${t}</text>
+      `;
+    });
+
+    // x-axis label
+    svg += `
+      <text x="${leftMargin + plotWidth / 2}" y="${axisY + 26}" text-anchor="middle" font-size="11" fill="#111827">r²</text>
+    `;
+
+    // Bars + labels
+    ldRows.forEach((row, i) => {
+      const r2 = Math.max(0, Math.min(1, row.r2 || 0));
+      const width = r2 * plotWidth;
+      const y = topMargin + i * (barHeight + barGap);
+
+      const rsid = row.rsid || "";
+      const partnerId = row.partner_uniq || row.partner_pos || "";
+      const dist = row.dist_bp ?? "";
+
+      const color = getLdColor(r2);
+
+      svg += `
+        <text
+          x="${leftMargin - 4}"
+          y="${y + barHeight / 2}"
+          text-anchor="end"
+          alignment-baseline="middle"
+          font-size="10"
+          fill="#111827">
+          ${rsid || partnerId}
+        </text>
+      `;
+
+      svg += `
+        <rect
+          x="${leftMargin}"
+          y="${y}"
+          width="${width}"
+          height="${barHeight}"
+          fill="${color}"
+          data-r2="${r2.toFixed(3)}"
+          data-rsid="${rsid}"
+          data-partner="${partnerId}"
+          data-dist="${dist}">
+        </rect>
+      `;
+    });
+
+    svg += `
+        </svg>
+      </div>
+    `;
+
+    return svg;
+  }
+
+  /* ---------- FOREST PLOT ---------- */
+  function buildGwasForestPlot(gwasRows) {
+    if (!gwasRows || gwasRows.length === 0) {
+      return `<p class="no-result-title">No GWAS associations found.</p>`;
+    }
+
+    const entries = gwasRows
+      .map(r => ({
+        trait: r.trait || r.gwas_id,
+        beta: parseFloat(r.beta),
+        se: parseFloat(r.se),
+        p: r.p
+      }))
+      .filter(e => !isNaN(e.beta) && !isNaN(e.se));
+
+    if (entries.length === 0) {
+      return `<p class="no-result-title">No valid beta/SE values for forest plot.</p>`;
+    }
+
+    // Sort by beta (ascending)
+    entries.sort((a, b) => a.beta - b.beta);
+
+    const traits = entries.map(e => e.trait);
+    const betas  = entries.map(e => e.beta);
+    const ses    = entries.map(e => e.se);
+
+    // --- NEW: dynamic left margin based on label length ---
+    const maxLabelLen = traits.reduce(
+      (m, t) => Math.max(m, (t || "").length),
+      0
+    );
+
+    const approxCharWidth = 7;   // was 6 – slightly wider per character
+    const extraPadding    = 40;  // extra pixels after the longest label
+    const minLeftMargin   = 180; // was 140 – shift everything a bit to the right
+    const maxLeftMargin   = 360; // allow more if labels are very long
+
+    const leftMargin = Math.min(
+      maxLeftMargin,
+      Math.max(minLeftMargin, maxLabelLen * approxCharWidth + extraPadding)
+    );
+    // ----------------------------------------------------
+
+    const rowH = 22;
+    const rightMargin = 20;
+    const topMargin = 20;
+    const bottomMargin = 40;
+
+    const plotW = Math.max(260, Math.min(600, window.innerWidth * 0.6));
+    const svgH = topMargin + traits.length * rowH + bottomMargin;
+
+    const ci_lower = betas.map((b, i) => b - 1.96 * ses[i]);
+    const ci_upper = betas.map((b, i) => b + 1.96 * ses[i]);
+
+    let minX = Math.min(...ci_lower);
+    let maxX = Math.max(...ci_upper);
+    if (minX === maxX) { minX -= 1; maxX += 1; }
+
+    const scale = x => leftMargin + ((x - minX) / (maxX - minX)) * plotW;
+
+    let svg = `
+      <div id="gwas-forest">
+        <div class="gwas-heatmap-title">Effect sizes across traits</div>
+        <svg width="${leftMargin + plotW + rightMargin}" height="${svgH}">
+    `;
+
+    // zero vertical line (if in range)
+    if (minX < 0 && maxX > 0) {
+      const zx = scale(0);
+      svg += `
+        <line x1="${zx}" y1="${topMargin}" x2="${zx}" y2="${svgH-bottomMargin}"
+              stroke="#9ca3af" stroke-width="1.2" stroke-dasharray="3,3"></line>
+      `;
+    }
+
+    traits.forEach((t, i) => {
+      const y  = topMargin + i * rowH + rowH / 2;
+      const b  = betas[i];
+      const lo = ci_lower[i];
+      const hi = ci_upper[i];
+
+      const x0 = scale(lo);
+      const x1 = scale(hi);
+      const xm = scale(b);
+
+      // trait label
+      svg += `
+        <text x="${leftMargin - 6}" y="${y}" text-anchor="end"
+              alignment-baseline="middle" font-size="11" fill="#111827">${t}</text>
+      `;
+
+      // CI line
+      svg += `
+        <line x1="${x0}" y1="${y}" x2="${x1}" y2="${y}"
+              stroke="#111827" stroke-width="1.4"></line>
+      `;
+
+      // beta point
+      svg += `
+        <circle cx="${xm}" cy="${y}" r="4"
+                fill="${b > 0 ? "#1d4ed8" : "#dc2626"}"
+                data-trait="${t}"
+                data-beta="${b.toFixed(3)}"
+                data-lo="${lo.toFixed(3)}"
+                data-hi="${hi.toFixed(3)}"
+                data-p="${entries[i].p || ''}"></circle>
+      `;
+    });
+
+    // x axis – ticks
+    const ticks = 5;
+    for (let k = 0; k <= ticks; k++) {
+      const v = minX + (k / ticks) * (maxX - minX);
+      const x = scale(v);
+      svg += `
+        <line x1="${x}" y1="${svgH-bottomMargin}" x2="${x}" y2="${svgH-bottomMargin+4}"
+              stroke="#4b5563" stroke-width="1"></line>
+        <text x="${x}" y="${svgH-bottomMargin+16}" text-anchor="middle"
+              font-size="10" fill="#4b5563">${v.toFixed(2)}</text>
+      `;
+    }
+
+    svg += `
+        <text x="${leftMargin + plotW/2}" y="${svgH - 6}"
+              text-anchor="middle" font-size="11" fill="#111827">
+          Effect size (beta)
+        </text>
+        </svg>
+      </div>
+    `;
+
+    return svg;
+  }
+
+  /* ---------- LD TABLE + HEATMAP ---------- */
+  function buildLdTable(ldRows) {
+    if (!ldRows || ldRows.length === 0) {
+      lastLdData = null;
+      return `
+        <div class="result-header-row">
+          <h3 class="result-subtitle">LD annotation</h3>
+        </div>
+        <p class="no-result-title">No LD found for this variant.</p>
+      `;
+    }
+
+    lastLdData = ldRows;
+
+    const ldColumns = [
+      "chr",
+      "partner_pos",
+      "rsid",
+      "partner_uniq",
+      "r2",
+      "dist_bp"
+    ];
+
+    const ldHeaders = [
+      "Chrom",
+      "Partner pos",
+      "rsID",
+      "Partner ID",
+      "r²",
+      "Distance (bp)"
+    ];
+
+    let html = `
+      <div class="result-header-row">
+        <h3 class="result-subtitle">LD annotation</h3>
+        <button class="download-button" onclick="downloadLdTable()">
+          ⬇ Download LD CSV
+        </button>
+        <button class="download-button" onclick="downloadLdHeatmapSvg()">
+          ⬇ Download LD heatmap SVG
+        </button>
+      </div>
+
+      <div class="ld-container">
+        <div class="ld-left">
+          <div class="result-table-wrapper ld-table-wrapper">
+            <table class="result-table">
+              <thead>
+                <tr>
+    `;
+
+    ldHeaders.forEach(h => {
+      html += `<th>${h}</th>`;
+    });
+
+    html += `
+                </tr>
+              </thead>
+              <tbody>
+    `;
+
+    ldRows.forEach(row => {
+      html += `<tr>`;
+      ldColumns.forEach(col => {
+        const val = (row[col] === null || row[col] === undefined) ? "" : row[col];
+        html += `<td>${val}</td>`;
+      });
+      html += `</tr>`;
+    });
+
+    html += `
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="ld-right">
+          ${buildLdHeatmap(ldRows)}
+        </div>
+      </div>
+    `;
+
+    return html;
+  }
+
+  /* ---------- WIRE LD HEATMAP EVENTS & SYNC HEIGHT ---------- */
+  function wireLdHeatmapEvents() {
+    const svg = document.querySelector("#ld-heatmap svg");
+    const tooltip = document.getElementById("ld-tooltip");
+    if (!svg || !tooltip) return;
+
+    svg.querySelectorAll("rect[data-r2]").forEach(rect => {
+      rect.addEventListener("mouseenter", () => {
+        const r2 = rect.getAttribute("data-r2");
+        const rsid = rect.getAttribute("data-rsid");
+        const partner = rect.getAttribute("data-partner");
+        const dist = rect.getAttribute("data-dist");
+
+        tooltip.style.display = "block";
+        tooltip.innerHTML = `
+          <strong>${rsid || partner}</strong><br>
+          Partner: ${partner}<br>
+          r²: ${r2}<br>
+          Distance: ${dist} bp
+        `;
+      });
+
+      rect.addEventListener("mousemove", (e) => {
+        tooltip.style.left = (e.pageX + 12) + "px";
+        tooltip.style.top = (e.pageY + 12) + "px";
+      });
+
+      rect.addEventListener("mouseleave", () => {
+        tooltip.style.display = "none";
+      });
+    });
+  }
+
+  /* ---------- WIRE GWAS FOREST PLOT EVENTS ---------- */
+  function wireGwasForestEvents() {
+    const svg = document.querySelector("#gwas-forest svg");
+    const tooltip = document.getElementById("gwas-tooltip");
+    if (!svg || !tooltip) return;
+
+    svg.querySelectorAll("circle[data-trait]").forEach(circle => {
+      circle.addEventListener("mouseenter", () => {
+        const trait = circle.getAttribute("data-trait");
+        const beta  = circle.getAttribute("data-beta");
+        const lo    = circle.getAttribute("data-lo");
+        const hi    = circle.getAttribute("data-hi");
+        const p     = circle.getAttribute("data-p");
+
+        tooltip.style.display = "block";
+        tooltip.innerHTML = `
+          <strong>${trait}</strong><br>
+          β = ${beta} (95% CI ${lo}, ${hi})${
+            p ? `<br>p = ${p}` : ""
+          }
+        `;
+      });
+
+      circle.addEventListener("mousemove", (e) => {
+        tooltip.style.left = (e.pageX + 12) + "px";
+        tooltip.style.top  = (e.pageY + 12) + "px";
+      });
+
+      circle.addEventListener("mouseleave", () => {
+        tooltip.style.display = "none";
+      });
+    });
+  }
+
+  /* ---------- MAIN TABLE RENDER ---------- */
+  function showTable(query, build, data) {
+    showResultSection();
+    const resultContainer = document.getElementById("result-container");
+
+    // Variant annotation table (no Liftover column)
+    const headerColumns = [
+      "Query type",
+      "rsID",
+      "Chromosome (hg38)",
+      "Position (hg38)",
+      "Position (hg19)",
+      "REF allele",
+      "ALT allele",
+      "MAF"
+    ];
+
+    const rowValues = [
+      data.query_type || "",
+      data.rsid || "",
+      data.chr_hg38 || "",
+      (data.pos_hg38 !== undefined && data.pos_hg38 !== null) ? data.pos_hg38 : "",
+      (data.pos_hg19 !== undefined && data.pos_hg19 !== null) ? data.pos_hg19 : "",
+      data.ref || "",
+      data.alt || "",
+      (data.maf !== undefined && data.maf !== null) ? data.maf : ""
+    ];
+
+    // store for variant download
+    lastVariantTableData = {
+      queryId: query,
+      headerColumns,
+      rowValues
+    };
+    document.getElementById("download-btn").disabled = false;
+
+    let html = `
+      <div class="result-table-wrapper">
+        <table class="result-table">
+          <thead>
+            <tr>
+              <th>Query</th>
+    `;
+
+    headerColumns.forEach(h => {
+      html += `<th>${h}</th>`;
+    });
+
+    html += `
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>${query}</td>
+    `;
+
+    rowValues.forEach(v => {
+      html += `<td>${v}</td>`;
+    });
+
+    html += `
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    // CADD table
+    const caddRows = data.cadd || [];
+    html += buildCaddTable(caddRows);
+
+    // eQTL table
+    const eqtlRows = data.eqtl || [];
+    html += buildEqtlTable(eqtlRows);
+
+    // sQTL table (below eQTL)
+    const sqtlRows = data.sqtl || [];
+    html += buildSqtlTable(sqtlRows);
+
+    // GWAS table
+    const gwasRows = data.gwas || [];
+    html += buildGwasTable(gwasRows);
+
+    // Separator + LD section
+    const ldRows = data.ld || [];
+    html += `<hr class="section-separator">`;
+    html += buildLdTable(ldRows);
+
+    // LD-partner annotations (CADD / eQTL / sQTL) at the very end
+    const ldCaddRows = data.ld_cadd || [];
+    const ldEqtlRows = data.ld_eqtl || [];
+    const ldSqtlRows = data.ld_sqtl || [];
+
+    html += `<hr class="section-separator">`;
+    html += buildLdCaddTable(ldCaddRows);
+    html += buildLdEqtlTable(ldEqtlRows);
+    html += buildLdSqtlTable(ldSqtlRows);
+
+    resultContainer.innerHTML = html;
+
+    // after DOM is in place, wire up LD interactivity + height sync
+    wireLdHeatmapEvents();
+    wireGwasForestEvents();
+  }
+
+  function submitQuery() {
+    const queryInput = document.getElementById("query-input");
+    const buildSelect = document.getElementById("build-select");
+    const query = queryInput.value.trim();
+    const build = buildSelect.value;
+
+    if (!query) {
+      showError("Please enter an rsID or coordinate.");
+      return;
+    }
+
+    clearResult();
+    setLoading(true);
+
+    const url = `${SNPBOT_API_URL}?query=${encodeURIComponent(query)}&build=${encodeURIComponent(build)}`;
+
+    fetch(url)
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok || data.error) {
+          showError(data.error || "An error occurred.");
+        } else {
+          showTable(query, build, data);
+        }
+      })
+      .catch((err) => {
+        console.error(err);
+        showError("Error contacting server.");
+      })
+      .finally(() => {
+        setLoading(false);
+        queryInput.focus();
+      });
+  }
+
+  function escapeCell(v) {
+    const s = String(v ?? "");
+    if (s.includes('"') || s.includes(",") || s.includes("\n")) {
+      return `"${s.replace(/"/g, '""')}"`;
+    }
+    return s;
+  }
+
+  function downloadVariantTable() {
+    if (!lastVariantTableData) return;
+
+    const { queryId, headerColumns, rowValues } = lastVariantTableData;
+
+    const header = ["Query", ...headerColumns];
+    const row = [queryId, ...rowValues];
+
+    const csv = [
+      header.map(escapeCell).join(","),
+      row.map(escapeCell).join(",")
+    ].join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `variant_${queryId.replace(/[^a-zA-Z0-9_\-]+/g, "_")}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadCaddTable() {
+    if (!lastCaddData) return;
+
+    const { rows, columns, headers } = lastCaddData;
+
+    const headerLine = headers.map(escapeCell).join(",");
+    const lines = [headerLine];
+
+    rows.forEach(row => {
+      const line = columns.map(col => {
+        const val = (row[col] === null || row[col] === undefined) ? "" : row[col];
+        return escapeCell(val);
+      }).join(",");
+      lines.push(line);
+    });
+
+    const csv = lines.join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `cadd_annotation.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadEqtlTable() {
+    if (!lastEqtlData) return;
+
+    const { rows, columns, headers } = lastEqtlData;
+
+    const headerLine = headers.map(escapeCell).join(",");
+    const lines = [headerLine];
+
+    rows.forEach(row => {
+      const line = columns.map(col => {
+        const val = (row[col] === null || row[col] === undefined) ? "" : row[col];
+        return escapeCell(val);
+      }).join(",");
+      lines.push(line);
+    });
+
+    const csv = lines.join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `eqtl_annotation.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadSqtlTable() {
+    if (!lastSqtlData) return;
+
+    const { rows, columns, headers } = lastSqtlData;
+
+    const headerLine = headers.map(escapeCell).join(",");
+    const lines = [headerLine];
+
+    rows.forEach(row => {
+      const line = columns.map(col => {
+        const val = (row[col] === null || row[col] === undefined) ? "" : row[col];
+        return escapeCell(val);
+      }).join(",");
+      lines.push(line);
+    });
+
+    const csv = lines.join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `sqtl_annotation.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadLdTable() {
+    if (!lastLdData) return;
+
+    const header = ["Chrom", "Partner pos", "rsID", "Partner ID", "r²", "Distance (bp)"];
+    const columns = ["chr", "partner_pos", "rsid", "partner_uniq", "r2", "dist_bp"];
+
+    const lines = [header.map(escapeCell).join(",")];
+
+    lastLdData.forEach(row => {
+      const line = columns.map(col => {
+        const val = (row[col] === null || row[col] === undefined) ? "" : row[col];
+        return escapeCell(val);
+      }).join(",");
+      lines.push(line);
+    });
+
+    const csv = lines.join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `ld_annotation.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadLdCaddTable() {
+    if (!lastLdCaddData || !lastLdCaddData.length) return;
+
+    const headers = [
+      "LD rsID",
+      "LD partner pos (hg38)",
+      "LD r²",
+      "LD distance (bp)",
+      "Chrom",
+      "Pos (hg38)",
+      "Ref",
+      "Alt",
+      "Phred Score",
+      "Genes",
+      "Type",
+      "Consequence"
+    ];
+
+    const columns = [
+      "ld_rsid",
+      "ld_partner_pos",
+      "ld_r2",
+      "ld_dist_bp",
+      "chrom",
+      "pos",
+      "ref",
+      "alt",
+      "phred_max",
+      "genes",
+      "annotypes",
+      "consequences"
+    ];
+
+    const lines = [headers.map(escapeCell).join(",")];
+
+    lastLdCaddData.forEach(row => {
+      const line = columns.map(col => {
+        const val = (row[col] === null || row[col] === undefined) ? "" : row[col];
+        return escapeCell(val);
+      }).join(",");
+      lines.push(line);
+    });
+
+    const csv = lines.join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `ld_partners_cadd.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadLdEqtlTable() {
+    if (!lastLdEqtlData || !lastLdEqtlData.length) return;
+
+    const headers = [
+      "LD rsID",
+      "LD partner pos (hg38)",
+      "LD r²",
+      "LD distance (bp)",
+      "Chrom",
+      "Pos (hg38)",
+      "Ref",
+      "Alt",
+      "Ensembl ID",
+      "Gene",
+      "Tissue",
+      "TSS distance",
+      "MAF",
+      "Nominal p-value",
+      "Slope"
+    ];
+
+    const columns = [
+      "ld_rsid",
+      "ld_partner_pos",
+      "ld_r2",
+      "ld_dist_bp",
+      "chrom",
+      "pos",
+      "ref",
+      "alt",
+      "ensemble",
+      "gene",
+      "tissue",
+      "tss_distance",
+      "maf",
+      "pval_nominal",
+      "slope"
+    ];
+
+    const lines = [headers.map(escapeCell).join(",")];
+
+    lastLdEqtlData.forEach(row => {
+      const line = columns.map(col => {
+        const val = (row[col] === null || row[col] === undefined) ? "" : row[col];
+        return escapeCell(val);
+      }).join(",");
+      lines.push(line);
+    });
+
+    const csv = lines.join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `ld_partners_eqtl.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadLdSqtlTable() {
+    if (!lastLdSqtlData || !lastLdSqtlData.length) return;
+
+    const headers = [
+      "LD rsID",
+      "LD partner pos (hg38)",
+      "LD r²",
+      "LD distance (bp)",
+      "Chrom",
+      "Pos (hg38)",
+      "Ref",
+      "Alt",
+      "Ensembl ID",
+      "Gene",
+      "Tissue",
+      "TSS distance",
+      "MAF",
+      "Nominal p-value",
+      "Slope"
+    ];
+
+    const columns = [
+      "ld_rsid",
+      "ld_partner_pos",
+      "ld_r2",
+      "ld_dist_bp",
+      "chrom",
+      "pos",
+      "ref",
+      "alt",
+      "ensemble",
+      "gene",
+      "tissue",
+      "tss_distance",
+      "maf",
+      "pval_nominal",
+      "slope"
+    ];
+
+    const lines = [headers.map(escapeCell).join(",")];
+
+    lastLdSqtlData.forEach(row => {
+      const line = columns.map(col => {
+        const val = (row[col] === null || row[col] === undefined) ? "" : row[col];
+        return escapeCell(val);
+      }).join(",");
+      lines.push(line);
+    });
+
+    const csv = lines.join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `ld_partners_sqtl.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadLdHeatmapSvg() {
+    const svg = document.querySelector("#ld-heatmap svg");
+    if (!svg) return;
+
+    let svgData = svg.outerHTML;
+    // XML header is nice to have for some viewers
+    svgData = '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n' + svgData;
+
+    const blob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "ld_heatmap.svg";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadGwasForestSvg() {
+    const svg = document.querySelector("#gwas-forest svg");
+    if (!svg) return;
+
+    let svgData = '<?xml version="1.0" encoding="UTF-8"?>\n' + svg.outerHTML;
+
+    const blob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "gwas_forestplot.svg";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  // Submit on Enter inside the input
+  document.getElementById("query-input").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      submitQuery();
+    }
+  });
+</script>
+
+</div>
+{% endblock %}

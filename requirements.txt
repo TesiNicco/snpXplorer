@@ -14,5 +14,8 @@ statsmodels
 webcolors
 Werkzeug
 watchdog
+scikit-learn
+sqlite3
+plotly
 networkx
 git+https://github.com/mojaie/pygosemsim
