@@ -183,6 +183,8 @@ def query_eqtls(chrom, pos38):
         chrom_clean = str(chrom).upper().replace("CHR", "")
         EQTL_DB_FILE = DATA_PATH / f"databases/eQTLs/chr{chrom_clean}_eQTL.txt.gz"
         region = f"{chrom_clean}:{pos38}-{pos38}"
+        print(str(EQTL_DB_FILE))
+        print(region)
         result = subprocess.run(
             ["tabix", str(EQTL_DB_FILE), region],
             capture_output=True,
