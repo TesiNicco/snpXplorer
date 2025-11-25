@@ -24,33 +24,33 @@ RUN pip3 install -r requirements.txt
 RUN ln -s /Exploration/phantomjs /usr/local/bin
 
 # Install other system packages for R
-RUN apt-get update \
-    && apt-get install -y \
-	gnupg2 \
-	software-properties-common \
-	libcurl4-openssl-dev \
-	libxml2-dev \
-	openjdk-11-jdk \
-	libssl-dev \
-	libfontconfig1-dev \
-	libfreetype6-dev \
-	libpng-dev \
-	libtiff5-dev \
-	libjpeg-dev \
-	libfribidi-dev \
-	libharfbuzz-dev \
-	&& apt-get clean \
-	&& rm -rf /var/lib/apt/lists/*
+#RUN apt-get update \
+#    && apt-get install -y \
+#	gnupg2 \
+#	software-properties-common \
+#	libcurl4-openssl-dev \
+#	libxml2-dev \
+#	openjdk-11-jdk \
+#	libssl-dev \
+#	libfontconfig1-dev \
+#	libfreetype6-dev \
+#	libpng-dev \
+#	libtiff5-dev \
+#	libjpeg-dev \
+#	libfribidi-dev \
+#	libharfbuzz-dev \
+#	&& apt-get clean \
+#	&& rm -rf /var/lib/apt/lists/*
 
 # Add CRAN GPG key
-RUN apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys B8F25A8A73EACF41
+#RUN apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys B8F25A8A73EACF41
 
 # Add CRAN repository
-RUN echo "deb https://cloud.r-project.org/bin/linux/debian buster-cran40/" >> /etc/apt/sources.list
+#RUN echo "deb https://cloud.r-project.org/bin/linux/debian buster-cran40/" >> /etc/apt/sources.list
 
 # Install R
-RUN apt-get update \
-    && apt-get install -y r-base
+#RUN apt-get update \
+#    && apt-get install -y r-base
 
 # Set JAVA_HOME environment variable -- uncomment
 #RUN R CMD javareconf && Rscript -e "install.packages('rJava', repos='http://cran.rstudio.com/')"
