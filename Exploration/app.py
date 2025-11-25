@@ -1219,7 +1219,7 @@ def get_traits_info(data_path, traits_interest, representative):
         # check if this is the representative gwas
         if row['id'] == representative['Final Representative file'].values[0]:
             # in that case, get associations for manhattan plot
-            gwas_associations = [x.split('\t') for x in subprocess.run(["tabix", data_path + "/databases/haplotypes/All_indep_gwas_sumstats_AI_hg38_bytrait.txt.gz", row['id'].replace('_hits_p5e-5.txt.gz', '')], capture_output=True,check=True, text=True).stdout.strip().split('\n')]
+            gwas_associations = [x.split('\t') for x in subprocess.run(["tabix", data_path + "/databases/haplotypes/All_indep_gwas_sumstats_AI_hg38_byTrait.txt.gz", row['id'].replace('_hits_p5e-5.txt.gz', '')], capture_output=True,check=True, text=True).stdout.strip().split('\n')]
             # convert to dataframe
             gwas_assoc_df = pd.DataFrame(gwas_associations, columns=["id", "trait", "chr", "position", "rsid", "ea", "nea", "eaf", "beta", "se", "p", "n", "study_id", "position_hg38"])
     # convert all_gw_info to dataframe
