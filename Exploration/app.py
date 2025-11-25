@@ -356,10 +356,12 @@ def run_pipeline(console_id, formdata):
         df, df_info = get_data_plot(data_path=data_path, gwas=gwas, chrom=chrom, start_pos=start_pos, end_pos=end_pos, refGen=refGen)
         genes = extract_genes(data_path, chrom, start_pos, end_pos, refGen)
         svs, svs_df = extract_sv(data_path, chrom, start_pos, end_pos, refGen, svtypes)
+        print(svs_df)
         recomb_data = extract_recomb(data_path, chrom, start_pos, end_pos, refGen) if recomb == 'Yes' else "None"
         gtex_df = get_gtex(data_path, genes, refGen)
         ld_df = extract_ld(data_path, chrom, df, refGen, browse_type, browse) if ld == "Yes" else "None"
         haplo_df = extract_haplo(data_path, df, chrom, refGen) if plotHaplo == "Yes" else "None"
+        print(haplo_df)
 
         publish("Rendering plots...", console_id)
         fig = scatterplot_plotly(df=df, chrom=chrom, start_pos=start_pos, end_pos=end_pos, gwas=gwas, genes=genes, svs=svs, browse_type=browse_type, refGen=refGen, recomb_data=recomb_data, exons=exons, browse=browse, plotype=plotype, ld=ld, ld_df=ld_df, yrange=yrange, haplo_df=haplo_df, plotHaplo=plotHaplo)
