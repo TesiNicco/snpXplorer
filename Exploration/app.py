@@ -49,9 +49,9 @@ from SNPbot.routes import snpbot_bp
 # differences between local and server
 # local
 #from pandasgwas.get_SNPs import get_variants_by_variant_id
-data_path = '/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Data'
+#data_path = '/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Data'
 # server
-#data_path = '/Data'
+data_path = '/Data'
 from pandasgwas import get_variants_by_variant_id
 
 # Initialize the App
