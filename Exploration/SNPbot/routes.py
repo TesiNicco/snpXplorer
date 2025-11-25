@@ -15,7 +15,8 @@ snpbot_bp = Blueprint('snpbot', __name__, template_folder='templates')
 # ---------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------
-DATA_PATH = Path("/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Data")
+#DATA_PATH = Path("/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Data")
+DATA_PATH = '/Data'
 DB_FILE = DATA_PATH / "databases/Genes/variants_info.sqlite"
 
 # Liftover object (hg19 → hg38)
