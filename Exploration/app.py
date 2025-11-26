@@ -8,6 +8,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import redis
 import matplotlib
 matplotlib.use('Agg')
+import logging
+import traceback
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap, to_hex
 import io
