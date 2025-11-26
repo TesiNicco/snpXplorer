@@ -785,7 +785,7 @@ def haplotypes():
             # get table of traits info
             traits_info_table, gwas_assoc_df, all_haplo_df = get_traits_info(data_path, traits_interest, cluster_representatives)
             # get plot
-            plot_url, gwas_assoc_df = plot_haplotype_traits(clusters_of_interest, all_indices, trait_list, cluster_index_map, umap, cluster_representatives, browse, sim_mat, names_sub, cluster_labels_for_index, cluster_traits, idx_trait, all_cluster_representatives, gwas_assoc_df)
+            plot_url, gwas_assoc_df = plot_haplotype_traits(clusters_of_interest, all_indices, trait_list, cluster_index_map, umap, cluster_representatives, browse, sim_mat, names_sub, cluster_labels_for_index, cluster_traits, idx_trait, all_cluster_representatives, gwas_assoc_df, all_haplo_df)
             return render_template("haplotypes.html", browse_value=browse, traits=trait_list, plot_url=plot_url, haplo_summary=[], chrom=None, start_pos=None, end_pos=None, hap_id_interest=None, table_traits=traits_info_table.to_dict(orient="records"), gwas_assoc_table=gwas_assoc_df.to_dict(orient="records"), all_haplo_table=all_haplo_df.to_dict(orient="records"))
         elif browse_type == 'chromosome':
             return render_template("haplotypes.html", browse_value=browse, traits=trait_list, plot_url=None, haplo_summary=[])
@@ -1269,7 +1269,7 @@ def extract_numeric_id(fname):
         return None
 
 # function to plot haplotype traits
-def plot_haplotype_traits(clusters_of_interest, all_indices, trait_list, cluster_index_map, umap, cluster_representatives, browse, sim_mat, names_sub, cluster_labels_for_index, cluster_trait, idx_trait, all_cluster_representatives, gwas_assoc_df):
+def plot_haplotype_traits(clusters_of_interest, all_indices, trait_list, cluster_index_map, umap, cluster_representatives, browse, sim_mat, names_sub, cluster_labels_for_index, cluster_trait, idx_trait, all_cluster_representatives, gwas_assoc_df, all_haplo_df):
     # ------------------------------------------------
     # Shared color map for clusters (UMAP + annotation)
     # ------------------------------------------------
