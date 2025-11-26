@@ -16,6 +16,7 @@ Werkzeug
 watchdog
 scikit-learn
 ieugwaspy
+polars
 plotly
 networkx
 git+https://github.com/mojaie/pygosemsim
