@@ -350,6 +350,7 @@ def run_pipeline(console_id, formdata):
         # --- your original steps, with logs ---
         publish("Finding genomic location...", console_id)
         chrom, start_pos, end_pos, browse_type = readBrowseOption(data_path, browse, window, refGen)
+        logging.info("All good with readBrowseOption")
 
         publish("Gathering data of interest...", console_id)
         df, df_info = get_data_plot(data_path=data_path, gwas=gwas, chrom=chrom, start_pos=start_pos, end_pos=end_pos, refGen=refGen)
@@ -359,15 +360,16 @@ def run_pipeline(console_id, formdata):
         gtex_df = get_gtex(data_path, genes, refGen)
         ld_df = extract_ld(data_path, chrom, df, refGen, browse_type, browse) if ld == "Yes" else "None"
         haplo_df = extract_haplo(data_path, df, chrom, refGen) if plotHaplo == "Yes" else "None"
+        logging.info("All good with data extraction")
 
         publish("Rendering plots...", console_id)
         fig = scatterplot_plotly(df=df, chrom=chrom, start_pos=start_pos, end_pos=end_pos, gwas=gwas, genes=genes, svs=svs, browse_type=browse_type, refGen=refGen, recomb_data=recomb_data, exons=exons, browse=browse, plotype=plotype, ld=ld, ld_df=ld_df, yrange=yrange, haplo_df=haplo_df, plotHaplo=plotHaplo)
         fig.update_layout(autosize=True, margin=dict(l=40, r=20, t=90, b=40))
         plot_url = pio.to_html(fig, include_plotlyjs='cdn', full_html=False, default_width='100%', default_height='100%', config={'responsive': True})
-
+        logging.info("All good with scatterplot")
         img_gtex = gtex_heatmap(gtex_df)
         plot_gtex = pio.to_html(img_gtex, include_plotlyjs='cdn', full_html=False, default_width='100%', default_height='100%', config={'responsive': True})
-
+        logging.info("All good with gtex heatmap")
         publish("Preparing tables...", console_id)
 
         # SNPs table
@@ -380,17 +382,21 @@ def run_pipeline(console_id, formdata):
         df_sorted = df_sorted[['Locus', 'Rsid', 'Gwas', 'Alleles', 'EAF', 'Beta_SE', 'Pvalue']]
         df_sorted['Pvalue'] = df_sorted['Pvalue'].round(2)
         snps_table = df_sorted.to_dict(orient='records')
+        logging.info("All good with SNPs table")
         # GWAS table
         df_info_sub = df_info[['trait', 'id', 'pmid', 'author', 'year', 'sample_size', 'build']].drop_duplicates()
         df_info_sub = df_info_sub.rename(columns={'trait':'Trait', 'id':'ID', 'pmid':'PMID', 'author':'Author', 'year':'Year', 'sample_size':'Sample Size', 'build':'Build'})
         df_info_table = df_info_sub.to_dict(orient='records')
+        logging.info("All good with GWAS table")
         # SVs table
         svs_df = svs_df.copy()
         svs_df['Region'] = svs_df.apply(lambda x: f"{x['chrom']}:{x['start']}-{x['end']}", axis=1)
         svs_df = svs_df[['Region', 'len', 'repName', 'repClass', 'repFamily']]
         svs_table = svs_df.to_dict(orient='records')
+        logging.info("All good with SVs table")
         # GWAS Catalog
         gwas_table, gwascat_df = extract_gwascatalog(data_path, chrom, start_pos, end_pos, refGen)
+        logging.info("All good with GWAS Catalog table")
         # Persist for download routes if you still want them after reload
         # (we can’t touch flask.session in a thread, so stash CSVs here too)
         ctx = {
@@ -437,7 +443,12 @@ def run_pipeline(console_id, formdata):
         publish("[done]", console_id)
 
     except Exception as e:
-        publish(f"[error] {type(e).__name__}: {e}", console_id)
+        # Log the error
+        logging.exception("Error in run_pipeline")
+        try:
+            publish(f"[error] {type(e).__name__}: {e}", console_id)
+        except:
+            logging.exception("publish() failed while reporting an error")
 
 @app.post('/exploration/run')
 def exploration_run():
@@ -1650,7 +1661,7 @@ def guide_haplotypes_snps_genes(data_path, browse, window, refGen):
     # get data of the region of interest
     haplo_df, haplo_dict = extract_haplo_data(data_path, chrom, start_pos, end_pos)
     # identify the haplotype when an individual SNP is searched
-    hap_id_interest = None
+    hap_id_interest = []
     if browse_type == 'RsID' or browse_type == 'Single position':
         if browse_type == 'RsID':
             # grep rsid in haplo_df rsids column and take the ID; treat NA as False and ignore case
