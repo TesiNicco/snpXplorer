@@ -352,16 +352,13 @@ def run_pipeline(console_id, formdata):
         chrom, start_pos, end_pos, browse_type = readBrowseOption(data_path, browse, window, refGen)
 
         publish("Gathering data of interest...", console_id)
-        print(gwas)
         df, df_info = get_data_plot(data_path=data_path, gwas=gwas, chrom=chrom, start_pos=start_pos, end_pos=end_pos, refGen=refGen)
         genes = extract_genes(data_path, chrom, start_pos, end_pos, refGen)
         svs, svs_df = extract_sv(data_path, chrom, start_pos, end_pos, refGen, svtypes)
-        print(svs_df)
         recomb_data = extract_recomb(data_path, chrom, start_pos, end_pos, refGen) if recomb == 'Yes' else "None"
         gtex_df = get_gtex(data_path, genes, refGen)
         ld_df = extract_ld(data_path, chrom, df, refGen, browse_type, browse) if ld == "Yes" else "None"
         haplo_df = extract_haplo(data_path, df, chrom, refGen) if plotHaplo == "Yes" else "None"
-        print(haplo_df)
 
         publish("Rendering plots...", console_id)
         fig = scatterplot_plotly(df=df, chrom=chrom, start_pos=start_pos, end_pos=end_pos, gwas=gwas, genes=genes, svs=svs, browse_type=browse_type, refGen=refGen, recomb_data=recomb_data, exons=exons, browse=browse, plotype=plotype, ld=ld, ld_df=ld_df, yrange=yrange, haplo_df=haplo_df, plotHaplo=plotHaplo)
@@ -2184,7 +2181,7 @@ def extract_haplo(data_path, df, chrom, refGen):
         min_pos = df['Position'].min()
         max_pos = df['Position'].max()
     # take positions of interest
-    cmd = 'tabix %s/databases/haplotypes/20251122_ld_clusters_low_recombination_intervals.tsv.gz chr%s:%s-%s' %(data_path.replace(' ', '\ '), str(chrom).replace('chr', ''), str(min_pos - 1000), str(max_pos + 1000))
+    cmd = 'tabix %s/databases/haplotypes/20251122_ld_clusters_low_recombination_intervals.tsv.gz %s:%s-%s' %(data_path.replace(' ', '\ '), str(chrom).replace('chr', ''), str(min_pos - 1000), str(max_pos + 1000))
     haplo = [x.rstrip().split('\t') for x in os.popen(cmd)]
     print(haplo)
     # iterate over haplotypes and flag the variants in df
@@ -2454,6 +2451,8 @@ def fix_svs_names(svtypes):
             svtypes_fixed.append('LINE')
         elif sv == 'ltr':
             svtypes_fixed.append('LTR')
+        else:
+            svtypes_fixed.append(sv)
     return svtypes_fixed            
 
 # function to extract genes to plot
