@@ -340,6 +340,36 @@
 
 </div> <!-- END main wrapper -->
 
+{% if all_haplo_table %}
+<div class="haplo-card-table">
+  <h3>Haplotype Associations for Selected Traits</h3>
+
+  <div class="haplo-detail-table">
+    <table class="detail-table">
+      <thead>
+        <tr>
+          {% for col in all_haplo_table[0].keys() %}
+          <th>{{ col }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in all_haplo_table %}
+        <tr>
+          {% for col,val in row.items() %}
+          <td>{{ val }}</td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <button class="btn-download" onclick="downloadHaploTable()">
+    Download Haplotype associations (CSV)
+  </button>
+</div>
+
 {% if gwas_assoc_table %}
 <div class="haplo-card-table">
   <h3>GWAS Associations for Selected Traits</h3>
@@ -390,6 +420,30 @@ function downloadGWASTable() {
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
     link.download = 'gwas_associations.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+function downloadHaploTable() {
+    const table = document.querySelector('#haplo_assoc_section table'); 
+    if (!table) return;
+
+    let csv = [];
+    const rows = table.querySelectorAll("tr");
+    rows.forEach(row => {
+        let cols = row.querySelectorAll("th, td");
+        let rowData = [];
+        cols.forEach(col => {
+            let text = (col.innerText || '').replace(/"/g, '""');
+            rowData.push('"' + text + '"');
+        });
+        csv.push(rowData.join(','));
+    });
+    const blob = new Blob([csv.join('\n')], {type:'text/csv;charset=utf-8;'});
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'haplotype_associations.csv';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

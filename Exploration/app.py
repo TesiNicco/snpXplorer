@@ -10,6 +10,8 @@ import matplotlib
 matplotlib.use('Agg')
 import logging
 import traceback
+import polars as pl
+import pyarrow
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap, to_hex
 import io
@@ -782,17 +784,17 @@ def haplotypes():
             # get info to plot umap and heatmap
             clusters_of_interest, all_indices, trait_list, cluster_index_map, umap, cluster_representatives, browse, sim_mat, names_sub, cluster_labels_for_index, cluster_traits, traits_interest, idx_trait, all_cluster_representatives = guide_haplotypes_traits(data_path, browse, window, refGen, trait_names)
             # get table of traits info
-            traits_info_table, gwas_assoc_df = get_traits_info(data_path, traits_interest, cluster_representatives)
+            traits_info_table, gwas_assoc_df, all_haplo_df = get_traits_info(data_path, traits_interest, cluster_representatives)
             # get plot
             plot_url, gwas_assoc_df = plot_haplotype_traits(clusters_of_interest, all_indices, trait_list, cluster_index_map, umap, cluster_representatives, browse, sim_mat, names_sub, cluster_labels_for_index, cluster_traits, idx_trait, all_cluster_representatives, gwas_assoc_df)
-            return render_template("haplotypes.html", browse_value=browse, traits=trait_list, plot_url=plot_url, haplo_summary=[], chrom=None, start_pos=None, end_pos=None, hap_id_interest=None, table_traits=traits_info_table.to_dict(orient="records"), gwas_assoc_table=gwas_assoc_df.to_dict(orient="records"))
+            return render_template("haplotypes.html", browse_value=browse, traits=trait_list, plot_url=plot_url, haplo_summary=[], chrom=None, start_pos=None, end_pos=None, hap_id_interest=None, table_traits=traits_info_table.to_dict(orient="records"), gwas_assoc_table=gwas_assoc_df.to_dict(orient="records"), all_haplo_table=all_haplo_df.to_dict(orient="records"))
         elif browse_type == 'chromosome':
             return render_template("haplotypes.html", browse_value=browse, traits=trait_list, plot_url=None, haplo_summary=[])
         else:
             # get data and plots
             browse, plot_url, haplo_summary, chrom, start_pos, end_pos, hap_id_interest = guide_haplotypes_snps_genes(data_path, browse, window, refGen)
             # return render
-            return render_template("haplotypes.html", browse_value=browse, traits=trait_list, plot_url=plot_url, haplo_summary=haplo_summary.to_dict(orient="records"), chrom=chrom, start_pos=start_pos, end_pos=end_pos, hap_id_interest=hap_id_interest, table_traits=None, gwas_assoc_table=None)
+            return render_template("haplotypes.html", browse_value=browse, traits=trait_list, plot_url=plot_url, haplo_summary=haplo_summary.to_dict(orient="records"), chrom=chrom, start_pos=start_pos, end_pos=end_pos, hap_id_interest=hap_id_interest, table_traits=None, gwas_assoc_table=None, all_haplo_table=None)
     # GET
     return render_template("haplotypes.html",
                            traits=trait_list,
@@ -1215,9 +1217,19 @@ def haplotype_detail():
     return jsonify(fig=fig.to_dict(), haplo_table=haplo_table_html, snps_table=snps_table_html, snps_cadd_table=snps_cadd_table_html)
 
 # Global functions
+# function to get all haplotypes associated with a trait
+def get_haplotypes_by_trait(row):
+    # read file of interest with polars
+    df = (pl.scan_csv(f"{data_path}/databases/haplotypes/ld_clusters_with_gwas_AI_latest.tsv.gz", separator="\t").filter(pl.col("traits").str.contains(row['name'], literal=True)).collect())
+    # convert to dataframe
+    df_dic = df.to_dicts()
+    df_df = pd.DataFrame(df_dic)
+    return df_df
+
 # function to get trait info
 def get_traits_info(data_path, traits_interest, representative):
     all_gw_info = []
+    all_haplo_df = pd.DataFrame()
     gwas_assoc_df = pd.DataFrame()
     # iterate over df rows
     for index, row in traits_interest.iterrows():
@@ -1234,6 +1246,8 @@ def get_traits_info(data_path, traits_interest, representative):
             gwas_associations = [x.split('\t') for x in subprocess.run(["tabix", data_path + "/databases/haplotypes/All_indep_gwas_sumstats_AI_hg38_byTrait.txt.gz", row['id'].replace('_hits_p5e-5.txt.gz', '')], capture_output=True,check=True, text=True).stdout.strip().split('\n')]
             # convert to dataframe
             gwas_assoc_df = pd.DataFrame(gwas_associations, columns=["id", "trait", "chr", "position", "rsid", "ea", "nea", "eaf", "beta", "se", "p", "n", "study_id", "position_hg38"])
+            # get haplotype info for this gwas
+            all_haplo_df = get_haplotypes_by_trait(row)
     # convert all_gw_info to dataframe
     all_gw_info = pd.DataFrame(all_gw_info)
     # subset of columns to keep
@@ -1242,7 +1256,8 @@ def get_traits_info(data_path, traits_interest, representative):
     all_gw_info['pmid'] = all_gw_info['pmid'].fillna(0).astype(int)
     # rename columns
     all_gw_info.rename(columns={"id":"GWAS ID", "trait":"Trait", "pmid":"PubMed ID", "author":"First Author", "year":"Year", "sample_size":"Sample Size", "population":"Population"}, inplace=True)
-    return all_gw_info, gwas_assoc_df
+    all_haplo_df.rename(columns={'CHR': 'Chromosome', 'BP1':'Start (hg38)', 'BP2':'End (hg38)', 'KB':'Size (kb)', 'NSNPS':'# SNPs', 'SNPS':'SNPs', 'assoc_count':'# Associations', 'rsids':'SNPs (RsIDs)', 'traits':'Traits'}, inplace=True)
+    return all_gw_info, gwas_assoc_df, all_haplo_df
 
 # function to extract number from gwas id
 def extract_numeric_id(fname):
@@ -1300,19 +1315,19 @@ def plot_haplotype_traits(clusters_of_interest, all_indices, trait_list, cluster
     all_points = np.arange(len(trait_list))
     background_idxs = np.setdiff1d(all_points, all_cluster_idxs)
     # Grey background points (everything NOT in the clusters of interest subset)
-    if background_idxs.size > 0:
-        fig.add_trace(
-            go.Scatter(
-                x=umap[background_idxs, 0],
-                y=umap[background_idxs, 1],
-                mode="markers",
-                marker=dict(size=6, color="lightgrey", opacity=0.3),
-                showlegend=False,
-                hoverinfo="skip",
-            ),
-            row=1,
-            col=1
-        )
+    #if background_idxs.size > 0:
+    #    fig.add_trace(
+    #        go.Scatter(
+    #            x=umap[background_idxs, 0],
+    #            y=umap[background_idxs, 1],
+    #            mode="markers",
+    #            marker=dict(size=6, color="lightgrey", opacity=0.3),
+    #            showlegend=False,
+    #            hoverinfo="skip",
+    #        ),
+    #        row=1,
+    #        col=1
+    #    )
     # Colored clusters (but capped to the same subset as the heatmap)
     for j, cid in enumerate(clusters_of_interest):
         # Intersect to keep at most the terms we actually used (max_terms_per_cluster)
@@ -1446,11 +1461,19 @@ def plot_haplotype_traits(clusters_of_interest, all_indices, trait_list, cluster
     if not gwas_assoc_df.empty:
         # Prepare data
         gwas_assoc_df['position_hg38'] = gwas_assoc_df['position_hg38'].astype(int)
+        # Replace zero p-values with the smallest non-zero p in the dataframe (fallback to 1e-300)
+        p_floats = gwas_assoc_df['p'].astype(float)
+        zeros_mask = p_floats == 0
+        if zeros_mask.any():
+            nonzero_vals = p_floats[~zeros_mask]
+            min_nonzero = nonzero_vals.min() if not nonzero_vals.empty else 1e-300
+            gwas_assoc_df.loc[zeros_mask, 'p'] = min_nonzero
         gwas_assoc_df['neg_log10_p'] = -np.log10(gwas_assoc_df['p'].astype(float))
         # Sort by pvalue
         gwas_assoc_df['p'] = gwas_assoc_df['p'].astype(float)
         gwas_assoc_df = gwas_assoc_df.sort_values(by='p').reset_index(drop=True)
-        # Take top 10000 associations if more than that
+        # Take only p<5e-08
+        gwas_assoc_df = gwas_assoc_df[gwas_assoc_df['p'] < 5e-08].copy().reset_index(drop=True)
         if gwas_assoc_df.shape[0] > 10000:
             gwas_assoc_df = gwas_assoc_df.iloc[:10000, :].copy().reset_index(drop=True)
         # Sort by chromosome and position
@@ -1470,7 +1493,64 @@ def plot_haplotype_traits(clusters_of_interest, all_indices, trait_list, cluster
         colors = ["#1f77b4", "#ff7f0e"]
         gwas_assoc_df["color"] = gwas_assoc_df["chr"] % 2
         gwas_assoc_df["color"] = gwas_assoc_df["color"].map({0: colors[0], 1: colors[1]})
-        # Scatter plot
+        # Now prepare the haplotype associations
+        all_haplo_df['midpoint'] = (all_haplo_df['Start (hg38)'].astype(int) + all_haplo_df['End (hg38)'].astype(int)) // 2
+        # Calculate cumulative positions for haplotypes
+        cum_length = 0
+        haplo_cum_positions = []
+        for chrom in range(1, 23):
+            chrom_haplo = all_haplo_df[all_haplo_df['Chromosome'] == chrom]
+            for pos in chrom_haplo['midpoint']:
+                haplo_cum_positions.append(pos + cum_length)
+            cum_length += chrom_lengths[chrom]
+        # sort haplotypes by chromosome and Start (hg38)
+        all_haplo_df = all_haplo_df.sort_values(by=['Chromosome', 'Start (hg38)']).reset_index(drop=True)
+        all_haplo_df['cum_position'] = haplo_cum_positions
+        # calculate distribution -- choose bin
+        bin_size = 10_000_000  # 10 Mb bins
+        all_haplo_df['bin'] = (all_haplo_df['cum_position'] // bin_size).astype(int)
+        # Add haplo ID
+        all_haplo_df['haplo_id'] = all_haplo_df['Chromosome'].astype(str) + ':' + all_haplo_df['Start (hg38)'].astype(str) + '-' + all_haplo_df['End (hg38)'].astype(str)
+        # Count haplotypes per bin
+        haplo_bin_counts = (
+            all_haplo_df
+            .groupby(["bin", "Chromosome"])
+            .agg(
+                haplo_count = ("haplo_id", "count"),
+                haplo_ids   = ("haplo_id", list)
+            )
+            .reset_index()
+        )
+        haplo_bin_counts['genomic_pos'] = haplo_bin_counts['bin'] * bin_size
+        # Add number of haplo_ids per bin
+        haplo_bin_counts['n_haplo_ids'] = haplo_bin_counts['haplo_ids'].apply(len)
+        # Add colors
+        haplo_bin_counts['color'] = haplo_bin_counts['Chromosome'] % 2
+        haplo_bin_counts['color'] = haplo_bin_counts['color'].map({0: colors[0], 1: colors[1]})
+        # Scale the y otherwise nothing is visible
+        max_haplo_count = haplo_bin_counts['haplo_count'].max()
+        # scale -negative log10 pvalues to max haplo count
+        gwas_assoc_df['neg_log10_p'] = gwas_assoc_df['neg_log10_p'] * (max_haplo_count / gwas_assoc_df['neg_log10_p'].abs().max())
+        # Negate the -log10 pvalues for better visualization
+        gwas_assoc_df['neg_log10_p'] = -gwas_assoc_df['neg_log10_p']
+        gwas_assoc_df['orig_neg_log10_p'] = -np.log10(gwas_assoc_df['p'].astype(float))  # keep original for hovertext
+        # Bar plot
+        fig.add_trace(
+            go.Bar(
+                x=haplo_bin_counts['genomic_pos'],
+                y=haplo_bin_counts['haplo_count'],
+                marker_color=haplo_bin_counts['color'],
+                marker_line=dict(width=1, color=haplo_bin_counts['color']),
+                hovertext=[
+                    f'Number of Haplotypes: {row["haplo_count"]}'
+                    for _, row in haplo_bin_counts.iterrows()
+                ],
+                hoverinfo='text'
+            ), row=2, col=1
+        )
+        # thin line at y=0
+        fig.add_hline(y=0, line=dict(color="black", width=1), row=2, col=1)
+        # Add GWAS associations
         fig.add_trace(
             go.Scatter(
                 x=gwas_assoc_df['cum_position'],
@@ -1496,14 +1576,48 @@ def plot_haplotype_traits(clusters_of_interest, all_indices, trait_list, cluster
             row=2,
             col=1
         )
-        # Genome-wide significance line
-        fig.add_hline(y=-np.log10(5e-08), line=dict(color="red", width=2, dash="dash"), annotation_text="Genome-wide significant", annotation_position="top right", row=2, col=1)
-        fig.add_hline(y=-np.log10(5e-05), line=dict(color="navy", width=2, dash="dash"), annotation_text="Suggestive significant", annotation_position="top right", row=2, col=1)
         # X-axis ticks at chromosome centers
         ticks = gwas_assoc_df.groupby("chr")["cum_position"].mean()
         tick_labels = gwas_assoc_df.groupby("chr")["chr"].first()
         fig.update_xaxes(title_text="Chromosomes (hg38)", row=2, col=1, title_font=dict(size=20, family="Arial", color="black", weight="bold"), tickmode="array", tickvals=ticks, ticktext=tick_labels)
-        fig.update_yaxes(title_text="-log10(P-value)", row=2, col=1, title_font=dict(size=20, family="Arial", color="black", weight="bold"))
+        # vertical lines between chromosomes
+        cum_length = 0
+        for chrom in range(1, 23):
+            cum_length += chrom_lengths[chrom]
+            fig.add_vline(x=cum_length, line=dict(color="lightgrey", width=1, dash="dash"), row=2, col=1)
+        # custom title for top y-axis at y=max_haplo_count/2
+        fig.add_annotation(
+            xref="x3", yref="y3",
+            x=0,                      # left of plot
+            y=max_haplo_count/2,            # halfway up positive space
+            text="<b>Haplotype count</b>",
+            textangle=90,
+            showarrow=False,
+            font=dict(size=14),
+            align="left"
+        )
+        fig.add_annotation(
+            xref="x3", yref="y3",
+            x=0,
+            y=-max_haplo_count/2,            # halfway down negative space
+            text="<b>-log10(pvalue)</b>",
+            showarrow=False,
+            textangle=90,
+            font=dict(size=14),
+            align="left"
+        )
+        # y axis
+        p_ticks = np.linspace(-max_haplo_count, max_haplo_count, 6).tolist()
+        scale = (-gwas_assoc_df["neg_log10_p"] / gwas_assoc_df["orig_neg_log10_p"]).mean()
+        p_names = [(-val / scale) if val < 0 else val for val in p_ticks]
+        fig.update_yaxes(
+            showline=True,
+            ticks="outside",
+            side="right",
+            tickvals = p_ticks,
+            ticktext = [f"{val:.0f}" for val in p_names],
+            row=2, col=1,    # your bottom plot
+        )
     else:
         fig.add_annotation(
             x=0.5,
@@ -1518,7 +1632,7 @@ def plot_haplotype_traits(clusters_of_interest, all_indices, trait_list, cluster
     # Overall layout
     fig.update_layout(
         template="plotly_white",
-        height=1100,
+        height=1300,
         title={
             "text": f"<b>Semantic Neighborhood of '{browse}'</b>",
             "font": {"size": 32},
@@ -1553,13 +1667,11 @@ def guide_haplotypes_traits(data_path, browse, window, refGen, trait_names):
     # Also read cluster representatives
     cluster_representatives = pd.read_csv(f"{data_path}/databases/haplotypes/trait_clusters_summary_AI_thresholds.csv", sep=",")
     cluster_representatives = cluster_representatives[cluster_representatives['Threshold'] == 0.5].copy().reset_index(drop=True)
-
     # Derive umap, embeddings, labels, cluster_map
     umap = embeddings_obj["umap"]
     embeddings = embeddings_obj["embeddings"]
     labels = embeddings_obj["labels"]
     cluster_map = embeddings_obj["cluster_map"]
-    
     # Find trait index
     idx_trait = find_trait_index(browse, trait_list)
     # Find cluster id
@@ -1572,7 +1684,6 @@ def guide_haplotypes_traits(data_path, browse, window, refGen, trait_names):
         c = embeddings[idxs].mean(axis=0)
         c /= np.linalg.norm(c) + 1e-9
         centroids[cid] = c
-
     # Compute similarity of all clusters to trait's cluster
     c0 = centroids[cluster_trait].reshape(1, -1)
     other_clusters = [cid for cid in centroids if cid != cluster_trait]
@@ -1582,7 +1693,6 @@ def guide_haplotypes_traits(data_path, browse, window, refGen, trait_names):
     k = min(5, len(other_clusters))
     neighbor_clusters = [other_clusters[i] for i in order[:k]]
     clusters_of_interest = [cluster_trait] + neighbor_clusters
-
     # ------------------------------------------------
     # Build similarity heatmap between traits in clusters
     # ------------------------------------------------
@@ -1614,7 +1724,6 @@ def guide_haplotypes_traits(data_path, browse, window, refGen, trait_names):
     names_sub = [names_sub[i] for i in order]
     cluster_labels_for_index = cluster_labels_for_index[order]
     sim_mat = cosine_similarity(emb_sub)
-
     # Also get the list of trait in the cluster of interest
     traits_in_same_cluster = [trait_list[i] for i in cluster_index_map[cluster_trait]]
     traits_sub = trait_names[trait_names['name'].isin(traits_in_same_cluster)].copy().reset_index(drop=True)
