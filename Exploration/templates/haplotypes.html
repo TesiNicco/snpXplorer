@@ -369,6 +369,32 @@
     Download Haplotype associations (CSV)
   </button>
 </div>
+<script>
+function downloadHaploTable() {
+    const table = document.querySelector('#haplo_assoc_section table'); 
+    if (!table) return;
+
+    let csv = [];
+    const rows = table.querySelectorAll("tr");
+    rows.forEach(row => {
+        let cols = row.querySelectorAll("th, td");
+        let rowData = [];
+        cols.forEach(col => {
+            let text = (col.innerText || '').replace(/"/g, '""');
+            rowData.push('"' + text + '"');
+        });
+        csv.push(rowData.join(','));
+    });
+    const blob = new Blob([csv.join('\n')], {type:'text/csv;charset=utf-8;'});
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'haplotype_associations.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+</script>
+{% endif %}
 
 {% if gwas_assoc_table %}
 <div class="haplo-card-table">
@@ -420,30 +446,6 @@ function downloadGWASTable() {
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
     link.download = 'gwas_associations.csv';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-}
-
-function downloadHaploTable() {
-    const table = document.querySelector('#haplo_assoc_section table'); 
-    if (!table) return;
-
-    let csv = [];
-    const rows = table.querySelectorAll("tr");
-    rows.forEach(row => {
-        let cols = row.querySelectorAll("th, td");
-        let rowData = [];
-        cols.forEach(col => {
-            let text = (col.innerText || '').replace(/"/g, '""');
-            rowData.push('"' + text + '"');
-        });
-        csv.push(rowData.join(','));
-    });
-    const blob = new Blob([csv.join('\n')], {type:'text/csv;charset=utf-8;'});
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = 'haplotype_associations.csv';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
