@@ -11,7 +11,6 @@ matplotlib.use('Agg')
 import logging
 import traceback
 import polars as pl
-import pyarrow
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap, to_hex
 import io
