@@ -802,7 +802,6 @@ def haplotypes():
 
 @app.route("/haplotypes/detail")
 def haplotype_detail():
-    print('ciaoooo')
     hap_id = request.args.get("hap_id")
     # Derive chromosome and position
     chrom = request.args.get("chrom")
@@ -813,7 +812,7 @@ def haplotype_detail():
     haplo_df, haplo_dict = extract_haplo_data(data_path, chrom, start_pos, end_pos)
     haplo_df = haplo_df[haplo_df['ID'] == hap_id]   
     # get snps
-    snps = ' '.join([str(chrom) + ':' + x.split(':')[1] + '-' + x.split(':')[1] for x in haplo_dict[hap_id]])
+    snps = ' '.join([str(chrom).upper().replace('CHR', '') + ':' + x.split(':')[1] + '-' + x.split(':')[1] for x in haplo_dict[hap_id]])
     # get ld between snps
     ld_df = get_ld_between_snps(snps, data_path, chrom)
     
@@ -1102,6 +1101,7 @@ def haplotype_detail():
     # (4) TRAIT-TRAIT CORRELATION HEATMAP (RIGHT PANEL, rows 2-3, col 2)
     # ------------------------------------------------------------------
     # correlation of the beta values between traits
+    snps_df['beta'] = snps_df['beta'].astype(float)
     beta_matrix = snps_df.pivot(index='rsid', columns='trait', values='beta').fillna(0)
     beta_corr = beta_matrix.corr().round(2)
     if isinstance(beta_corr, pd.DataFrame):
