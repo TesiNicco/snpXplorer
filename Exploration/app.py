@@ -815,7 +815,7 @@ def haplotype_detail():
     # get snps
     snps = ' '.join([str(chrom) + ':' + x.split(':')[1] + '-' + x.split(':')[1] for x in haplo_dict[hap_id]])
     # get ld between snps
-    ld_df = get_ld_between_snps(snps, data_path)
+    ld_df = get_ld_between_snps(snps, data_path, chrom)
     
     # get genes
     genes = extract_genes(data_path, chrom, start_pos, end_pos, refGen)
@@ -1870,10 +1870,11 @@ def lookup_by_coord_hg38(chrom, pos38):
     }
 
 # function to get LD between SNPs
-def get_ld_between_snps(snps, data_path):
+def get_ld_between_snps(snps, data_path, chrom):
     snp_list = snps.split(' ')
     snp_positions = [int(snp.split(':')[1].split('-')[0]) for snp in snp_list]
     chr = snp_list[0].split(':')[0].upper().replace("CHR", "")
+    chrom = chrom.upper().replace("CHR", "")
     # get rsids for the SNPs
     rsids_list = {}
     for snp in snp_positions:
@@ -1885,7 +1886,7 @@ def get_ld_between_snps(snps, data_path):
     min_pos = min(snp_positions)
     max_pos = max(snp_positions)
     # run function to get LD by interval
-    db_path = f"{data_path}/databases/LD_db/ld_chr{chr}.sqlite"
+    db_path = f"{data_path}/databases/LD_db/ld_chr{chrom}.sqlite"
     ld_results = partners_by_interval(db_path, min_pos, max_pos, r2_min=0.2)
     # create a dataframe
     if ld_results:
