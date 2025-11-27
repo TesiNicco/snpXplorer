@@ -802,6 +802,7 @@ def haplotypes():
 
 @app.route("/haplotypes/detail")
 def haplotype_detail():
+    print('ciaoooo')
     hap_id = request.args.get("hap_id")
     # Derive chromosome and position
     chrom = request.args.get("chrom")
@@ -815,7 +816,7 @@ def haplotype_detail():
     snps = ' '.join([str(chrom) + ':' + x.split(':')[1] + '-' + x.split(':')[1] for x in haplo_dict[hap_id]])
     # get ld between snps
     ld_df = get_ld_between_snps(snps, data_path)
-    print(ld_df)
+    print('ciaoooo')
     # get genes
     genes = extract_genes(data_path, chrom, start_pos, end_pos, refGen)
     # gather snp association
