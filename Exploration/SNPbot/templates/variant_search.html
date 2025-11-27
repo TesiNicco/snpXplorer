@@ -511,7 +511,16 @@
 
   function setLoading(isLoading) {
     const btn = document.getElementById("search-btn");
-    btn.disabled = isLoading;
+    if (btn) {
+      btn.disabled = isLoading;
+    }
+
+    // Toggle the global loader on the <body> (defined in base.html)
+    if (isLoading) {
+      document.body.classList.add("loading");
+    } else {
+      document.body.classList.remove("loading");
+    }
   }
 
   function showResultSection() {
