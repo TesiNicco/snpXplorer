@@ -809,7 +809,7 @@ def haplotype_detail():
     end_pos = int(request.args.get("end_pos"))
     refGen = 'GRCh38'
     # get data of the region of interest
-    haplo_df, haplo_dict = extract_haplo_data(data_path, chrom, start_pos, end_pos)
+    haplo_df, haplo_dict = extract_haplo_data(data_path, chrom, start_pos-1_000_000, end_pos+1_000_000)
     haplo_df = haplo_df[haplo_df['ID'] == hap_id]   
     # get snps
     snps = ' '.join([str(chrom).upper().replace('CHR', '') + ':' + x.split(':')[1] + '-' + x.split(':')[1] for x in haplo_dict[hap_id]])
