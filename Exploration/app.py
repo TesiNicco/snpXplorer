@@ -1871,7 +1871,7 @@ def lookup_by_coord_hg38(chrom, pos38):
 def get_ld_between_snps(snps, data_path):
     snp_list = snps.split(' ')
     snp_positions = [int(snp.split(':')[1].split('-')[0]) for snp in snp_list]
-    chr = snp_list[0].split(':')[0]
+    chr = snp_list[0].split(':')[0].upper().replace("CHR", "")
     # get rsids for the SNPs
     rsids_list = {}
     for snp in snp_positions:
