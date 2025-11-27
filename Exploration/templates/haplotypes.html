@@ -499,7 +499,17 @@ function downloadGWASTable() {
       ajax: {
         transport: function (params, success, failure) {
           const term = $.trim(params.data.q || '');
-          let url = term.length > 7 ? '/api/traits' : '/api/locus';
+          let url;
+          // if it's an rsID → always use locus endpoint
+          if (isRS(term)) {
+            url = '/api/locus';
+          } else if (term.length > 7) {
+            // long free-text → trait search
+            url = '/api/traits';
+          } else {
+            // short locus / gene / chr → locus endpoint
+            url = '/api/locus';
+          }
           params.url = url;
           const req = $.ajax(params);
           req.then(success);

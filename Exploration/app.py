@@ -1102,6 +1102,7 @@ def haplotype_detail():
     # ------------------------------------------------------------------
     # correlation of the beta values between traits
     snps_df['beta'] = snps_df['beta'].astype(float)
+    snps_df['p'] = snps_df['p'].astype(float)
     snps_df = (snps_df.loc[snps_df.groupby(["rsid", "trait"])["p"].idxmin()].reset_index(drop=True)).copy()
     beta_matrix = snps_df.pivot(index='rsid', columns='trait', values='beta').fillna(0)
     beta_corr = beta_matrix.corr().round(2)
