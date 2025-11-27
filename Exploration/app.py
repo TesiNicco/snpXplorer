@@ -816,8 +816,6 @@ def haplotype_detail():
     snps = ' '.join([str(chrom) + ':' + x.split(':')[1] + '-' + x.split(':')[1] for x in haplo_dict[hap_id]])
     # get ld between snps
     ld_df = get_ld_between_snps(snps, data_path)
-    print('ciaoooo')
-    ld_df.to_csv('ld_df.csv', index=False)
     
     # get genes
     genes = extract_genes(data_path, chrom, start_pos, end_pos, refGen)
@@ -831,7 +829,7 @@ def haplotype_detail():
     cadd_df['pos'] = cadd_df['pos'].astype(int)
     snps_df['position_hg38'] = snps_df['position_hg38'].astype(int)
     cadd_df = cadd_df.merge(snps_df[['rsid', 'position_hg38']], left_on='pos', right_on='position_hg38', how='outer')
-    message('coapp')
+
     # create plotly figure
     fig = fig = make_subplots(
         rows=3,
