@@ -803,7 +803,6 @@ def haplotypes():
 @app.route("/haplotypes/detail")
 def haplotype_detail():
     print('ciaoooo')
-    message('ciaoooo')
     hap_id = request.args.get("hap_id")
     # Derive chromosome and position
     chrom = request.args.get("chrom")
@@ -818,7 +817,8 @@ def haplotype_detail():
     # get ld between snps
     ld_df = get_ld_between_snps(snps, data_path)
     print('ciaoooo')
-    message('ciaoooo')
+    ld_df.to_csv('ld_df.csv', index=False)
+    
     # get genes
     genes = extract_genes(data_path, chrom, start_pos, end_pos, refGen)
     # gather snp association
@@ -831,7 +831,7 @@ def haplotype_detail():
     cadd_df['pos'] = cadd_df['pos'].astype(int)
     snps_df['position_hg38'] = snps_df['position_hg38'].astype(int)
     cadd_df = cadd_df.merge(snps_df[['rsid', 'position_hg38']], left_on='pos', right_on='position_hg38', how='outer')
-    
+    message('coapp')
     # create plotly figure
     fig = fig = make_subplots(
         rows=3,
