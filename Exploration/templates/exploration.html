@@ -53,6 +53,8 @@
                     .option-box { font-size:.8rem; padding:6px; }
                     .option-box h1 { font-size:1rem; }
                 }
+
+
             </style>
             <!-- Set divs for the three options -->
             <div class="card">
@@ -180,16 +182,43 @@
 
                 <!-- Submit button row -->
                 <div style="padding:10px; background:#9FD8C6; margin:20px; text-align:center; border-radius:12px;">
-                <button id="submit_button" style="background:#4C837A; color:white">Show region!</button>
+                <style>
+                    .spinner {
+                        width: 14px;
+                        height: 14px;
+                        border: 2px solid rgba(255,255,255,0.4);
+                        border-top-color: white;
+                        border-radius: 50%;
+                        display: inline-block;
+                        animation: spinBtn 0.6s linear infinite;
+                    }
+                    @keyframes spinBtn { to { transform: rotate(360deg); } }
+                </style>
+                <button id="submit_button" style="background:#4C837A; color:white">
+                    Show region!
+                    <span id="btn_spinner" 
+                        style="display:none; margin-left:8px;"
+                        class="spinner"></span>
+                </button>
                 </div>
 
                 <script>
                     document.getElementById('exploration_form').addEventListener('submit', async (e) => {
                         e.preventDefault();
+
+                        const btn = document.getElementById('submit_button');
+                        const spin = document.getElementById('btn_spinner');
+
+                        // disable + show spinner
+                        btn.disabled = true;
+                        spin.style.display = "inline-block";
+
                         const fd = new FormData(e.target);
-                        // (no consoleAppend here)
                         const resp = await fetch('/exploration/run', { method: 'POST', body: fd });
+
                         if (!resp.ok) consoleAppend('[error] failed to start job');
+
+                        // DO NOT hide the spinner here — let console/SSE handle it
                     });
 
                     // After your existing EventSource setup:
@@ -392,6 +421,9 @@
                         markActive(phase);
                         } else if (/^\[done\]/i.test(msg)) {
                         markAllDone();
+                        // hide button spinner + re-enable
+                        document.getElementById('submit_button').disabled = false;
+                        document.getElementById('btn_spinner').style.display = "none";
                         window.location.href = `/exploration/?cid=${encodeURIComponent(CONSOLE_ID)}`;
                         return;
                         } else if (/^\[error\]/i.test(msg)) {
