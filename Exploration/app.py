@@ -62,8 +62,6 @@ from pandasgwas import get_variants_by_variant_id
 
 # Initialize the App
 app = Flask(__name__)
-# Register Blueprint
-app.register_blueprint(snpbot_bp, url_prefix='/snpbot')
 # Add configuration for the SQLAlchemy database (for usernames and passwords)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///db.sqlite'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -76,6 +74,9 @@ app.config['SECRET_KEY'] = 'secret'
 Session(app)
 # Initialize Queues
 CONSOLE_QUEUES = {}
+# Register Blueprint
+app.register_blueprint(snpbot_bp, url_prefix='/snpbot')
+
 # Function to manage the publishing of messages
 def publish(msg, console_id="default"):
     q = CONSOLE_QUEUES.get(console_id)
@@ -842,7 +843,7 @@ def haplotype_detail():
     ld_df = get_ld_between_snps(snps, data_path, chrom)
     
     # get genes
-    genes = extract_genes(data_path, chrom, start_pos, end_pos, refGen)
+    genes = extract_genes(data_path, chrom, start_pos-250_000, end_pos+250_000, refGen)
     # gather snp association
     cmd = "tabix %s/databases/haplotypes/All_indep_gwas_sumstats_AI_hg38.txt.gz %s" %(data_path.replace(' ', '\ '), snps)
     snps_data = [x.rstrip().split('\t') for x in os.popen(cmd)]
@@ -871,7 +872,7 @@ def haplotype_detail():
     )
 
     # Overall figure height
-    fig.update_layout(height=1500)
+    fig.update_layout(height=1700)
 
     # Grid only for the SNP/gene panels (rows 2 and 3, col 1)
     for r in [2, 3]:
