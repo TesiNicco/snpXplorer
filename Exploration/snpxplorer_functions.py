@@ -45,6 +45,14 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cluster import AgglomerativeClustering
 from sklearn.metrics.pairwise import cosine_similarity
 from scipy.cluster.hierarchy import dendrogram, linkage
+from pandasgwas import get_variants_by_variant_id
+
+# differences between local and server
+# local
+#from pandasgwas.get_SNPs import get_variants_by_variant_id
+#data_path = '/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Data'
+# server
+data_path = '/Data'
 
 # Global functions
 # function to get all haplotypes associated with a trait
@@ -2234,7 +2242,7 @@ def beta_maf_plot(df, xcol, ycol, title=""):
         x=df[xcol],
         y=df[ycol],
         mode="markers",
-        marker=dict(size=8, opacity=0.8, color=df['Pvalue'], symbol=df['marker'], colorscale='Viridis', colorbar=dict(title='-log10(p)'), showscale=True),
+        marker=dict(size=11, opacity=0.8, color=df['Pvalue'], symbol=df['marker'], colorscale='Viridis', colorbar=dict(title='-log10(p)'), showscale=True),
         hovertemplate=("<b>%{customdata[0]}</b><br>"
                     "Gwas: %{customdata[1]}<br>"
                     "Pos: %{customdata[2]}<br>"
