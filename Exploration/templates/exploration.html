@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 
 {% block content %}
-    <body id="exploration_sec">
+    <div id="exploration_sec">
         <!-- DNA image at the top -->
         <div class="centered-container">
             <img class="centered-image" src="{{ url_for('static', filename='images/dna.png') }}" alt="Image">
@@ -737,5 +737,5 @@
             <img src="{{ url_for('static', filename='images/tudelft1.png') }}" alt="tud">
             <img src="{{ url_for('static', filename='images/github.png') }}" alt="gith">
         </div>
-    </body>
+    </div>
 {% endblock %}
