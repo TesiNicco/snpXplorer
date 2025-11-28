@@ -55,9 +55,9 @@ from snpxplorer_functions import *
 # differences between local and server
 # local
 #from pandasgwas.get_SNPs import get_variants_by_variant_id
-#data_path = '/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Data'
+data_path = '/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Data'
 # server
-data_path = '/Data'
+#data_path = '/Data'
 from pandasgwas import get_variants_by_variant_id
 
 # Initialize the App
@@ -801,30 +801,48 @@ def haplotypes():
     trait_names = pd.read_csv(f"{data_path}/databases/haplotypes/trait_names_and_ids.txt", sep="\t")
     trait_list = trait_names['name'].values.tolist()
     if request.method == "POST":
+        # whenever the user submits the form, clear previous session data
+        session.pop('haplo_last_detail', None)
+        # get query
         browse = (request.form.get("browse") or "").strip()
         browse_type = request.form.get("browse_type")
         window = 50000 if browse_type == 'gene' else 100000
         refGen = 'GRCh38'
         if browse_type == 'trait':
             # get info to plot umap and heatmap
-            clusters_of_interest, all_indices, trait_list, cluster_index_map, umap, cluster_representatives, browse, sim_mat, names_sub, cluster_labels_for_index, cluster_traits, traits_interest, idx_trait, all_cluster_representatives = guide_haplotypes_traits(data_path, browse, window, refGen, trait_names)
+            clusters_of_interest, all_indices, trait_list, cluster_index_map, umap, cluster_representatives, browse_resolved, sim_mat, names_sub, cluster_labels_for_index, cluster_traits, traits_interest, idx_trait, all_cluster_representatives = guide_haplotypes_traits(data_path, browse, window, refGen, trait_names)
             # get table of traits info
-            traits_info_table, gwas_assoc_df, all_haplo_df = get_traits_info(data_path, traits_interest, cluster_representatives)
+            traits_info_table, gwas_assoc_df, all_haplo_df = get_traits_info(data_path, traits_interest, cluster_representatives, meta)
             # get plot
             plot_url, gwas_assoc_df = plot_haplotype_traits(clusters_of_interest, all_indices, trait_list, cluster_index_map, umap, cluster_representatives, browse, sim_mat, names_sub, cluster_labels_for_index, cluster_traits, idx_trait, all_cluster_representatives, gwas_assoc_df, all_haplo_df)
-            return render_template("haplotypes.html", browse_value=browse, traits=trait_list, plot_url=plot_url, haplo_summary=[], chrom=None, start_pos=None, end_pos=None, hap_id_interest=None, table_traits=traits_info_table.to_dict(orient="records"), gwas_assoc_table=gwas_assoc_df.to_dict(orient="records"), all_haplo_table=all_haplo_df.to_dict(orient="records"))
+            
+            # persist in session for download details later
+            session['haplo_last'] = {"mode": "trait", "browse": browse_resolved, "browse_type": browse_type, "refGen": refGen, "window": window, "plot_url": plot_url, "haplo_summary": [], "chrom": None, "start_pos": None, "end_pos": None, "hap_id_interest": None, "table_traits": traits_info_table.to_dict(orient="records"), "gwas_assoc_table": gwas_assoc_df.to_dict(orient="records"), "all_haplo_table": all_haplo_df.to_dict(orient="records")}
+                        
+            return render_template("haplotypes.html", browse_value=browse_resolved, traits=trait_list, plot_url=plot_url, haplo_summary=[], chrom=None, start_pos=None, end_pos=None, hap_id_interest=None, table_traits=traits_info_table.to_dict(orient="records"), gwas_assoc_table=gwas_assoc_df.to_dict(orient="records"), all_haplo_table=all_haplo_df.to_dict(orient="records"))
         elif browse_type == 'chromosome':
+            # nothing heavy but do remember the browse for later
+            session['haplo_last'] = {"mode": "chromosome", "browse": browse, "browse_type": browse_type, "refGen": refGen, "window": window, "plot_url": None, "haplo_summary": [], "chrom": None, "start_pos": None, "end_pos": None, "hap_id_interest": None, "table_traits": None, "gwas_assoc_table": None, "all_haplo_table": None}
+            
             return render_template("haplotypes.html", browse_value=browse, traits=trait_list, plot_url=None, haplo_summary=[])
         else:
             # get data and plots
-            browse, plot_url, haplo_summary, chrom, start_pos, end_pos, hap_id_interest = guide_haplotypes_snps_genes(data_path, browse, window, refGen)
+            browse_resolved, plot_url, haplo_summary, chrom, start_pos, end_pos, hap_id_interest = guide_haplotypes_snps_genes(data_path, browse, window, refGen)
+            haplo_summary_records=haplo_summary.to_dict(orient="records")
+            
+            # persist in session for download details later
+            session['haplo_last'] = {"mode": "region", "browse": browse_resolved, "browse_type": browse_type, "refGen": refGen, "window": window, "plot_url": plot_url, "haplo_summary": haplo_summary_records,"chrom": chrom, "start_pos": start_pos, "end_pos": end_pos, "hap_id_interest": hap_id_interest, "table_traits": None, "gwas_assoc_table": None, "all_haplo_table": None}
+            
             # return render
-            return render_template("haplotypes.html", browse_value=browse, traits=trait_list, plot_url=plot_url, haplo_summary=haplo_summary.to_dict(orient="records"), chrom=chrom, start_pos=start_pos, end_pos=end_pos, hap_id_interest=hap_id_interest, table_traits=None, gwas_assoc_table=None, all_haplo_table=None)
-    # GET
-    return render_template("haplotypes.html",
-                           traits=trait_list,
-                           plot_url=None,
-                           haplo_summary=[])
+            return render_template("haplotypes.html", browse_value=browse_resolved, traits=trait_list, plot_url=plot_url, haplo_summary=haplo_summary_records, chrom=chrom, start_pos=start_pos, end_pos=end_pos, hap_id_interest=hap_id_interest, table_traits=None, gwas_assoc_table=None, all_haplo_table=None)
+    
+    # Get restored from session if available
+    last = session.get('haplo_last')
+    if last:
+        return render_template("haplotypes.html", traits=trait_list, browse_value=last.get("browse"), plot_url=last.get("plot_url"), haplo_summary=last.get("haplo_summary") or [], chrom=last.get("chrom"), start_pos=last.get("start_pos"), end_pos=last.get("end_pos"), hap_id_interest=last.get("hap_id_interest"), table_traits=last.get("table_traits"), gwas_assoc_table=last.get("gwas_assoc_table"), all_haplo_table=last.get("all_haplo_table"))
+
+    # First load
+    return render_template("haplotypes.html", traits=trait_list, plot_url=None, haplo_summary=[], chrom=None, start_pos=None, end_pos=None, hap_id_interest=None, table_traits=None, gwas_assoc_table=None, all_haplo_table=None)
 
 @app.route("/haplotypes/detail")
 def haplotype_detail():
@@ -1241,6 +1259,9 @@ def haplotype_detail():
         border=0,
         escape=False
     )
+    
+    # Remember which detail was last opened
+    session['haplo_last_detail'] = {"hap_id": hap_id, "chrom": chrom, "start_pos": start_pos, "end_pos": end_pos}
 
     # Return as Plotly JSON dict
     return jsonify(fig=fig.to_dict(), haplo_table=haplo_table_html, snps_table=snps_table_html, snps_cadd_table=snps_cadd_table_html)

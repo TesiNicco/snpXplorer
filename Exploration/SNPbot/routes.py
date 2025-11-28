@@ -15,8 +15,8 @@ snpbot_bp = Blueprint('snpbot', __name__, template_folder='templates')
 # ---------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------
-#DATA_PATH = Path("/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Data")
-DATA_PATH = Path('/Data')
+DATA_PATH = Path("/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Data")
+#DATA_PATH = Path('/Data')
 DB_FILE = DATA_PATH / "databases/Genes/variants_info.sqlite"
 
 # Liftover object (hg19 → hg38)
@@ -436,156 +436,158 @@ def annotate_ld_partners(chrom, ld_rows):
 # Core logic for querying a variant
 # ---------------------------------------------------------
 def run_variant_query(q, build="hg38"):
-    if 'single_variant_query' in session:
-        info = session['single_variant_query']
+    print(f"Running variant query for: {q} (build={build})", flush=True)
+    parsed = parse_variant_query(q)
+
+    if parsed["type"] == "invalid":
+        return {"error": "Query not recognized. Use rsID (rs123) or chr:pos."}, 400
+
+    # rsID path
+    if parsed["type"] == "rsid":
+        info = lookup_by_rsid(parsed["rsid"])
+        if info is None:
+            return {"error": f"{parsed['rsid']} not found"}, 404
+
+        try:
+            chr38 = info["chr_hg38"]
+            pos38 = info["pos_hg38"]
+            # Add CADD annotation
+            info["cadd"] = query_cadd_score(chr38, pos38)
+            # Add eQTL annotation
+            info["eqtl"] = query_eqtls(chr38, pos38)
+            # Add sQTL annotation
+            info["sqtl"] = query_sqtls(chr38, pos38)
+            # Add LD annotation
+            info["ld"], all_vars = query_ld(chr38, pos38)
+            # Add GWAS associations
+            info["gwas"] = query_gwas_associations(chr38, pos38)
+
+            # CADD / eQTL / sQTL for all LD partners
+            if info["ld"]:
+                ld_cadd, ld_eqtl, ld_sqtl = annotate_ld_partners(chr38, info["ld"])
+                info["ld_cadd"] = ld_cadd
+                info["ld_eqtl"] = ld_eqtl
+                info["ld_sqtl"] = ld_sqtl
+            else:
+                info["ld_cadd"] = []
+                info["ld_eqtl"] = []
+                info["ld_sqtl"] = []
+        except Exception:
+            info.setdefault("cadd", [])
+            info.setdefault("eqtl", [])
+            info.setdefault("sqtl", [])
+            info.setdefault("ld", [])
+            info.setdefault("ld_cadd", [])
+            info.setdefault("ld_eqtl", [])
+            info.setdefault("ld_sqtl", [])
+            info.setdefault("gwas", [])
+
+        # record in session
+        info["query"] = q
+        info["build"] = build
+        session['single_variant_query'] = info
         return info, 200
-    else:
-        print(f"Running variant query for: {q} (build={build})", flush=True)
-        parsed = parse_variant_query(q)
 
-        if parsed["type"] == "invalid":
-            return {"error": "Query not recognized. Use rsID (rs123) or chr:pos."}, 400
+    # coordinate path
+    chrom = parsed["chrom"]
+    pos = parsed["pos"]
 
-        # rsID path
-        if parsed["type"] == "rsid":
-            info = lookup_by_rsid(parsed["rsid"])
-            if info is None:
-                return {"error": f"{parsed['rsid']} not found"}, 404
+    if build == "hg38":
+        info = lookup_by_coord_hg38(chrom, pos)
+        if info is None:
+            return {"error": f"{chrom}:{pos} not found in hg38"}, 404
 
-            try:
-                chr38 = info["chr_hg38"]
-                pos38 = info["pos_hg38"]
-                # Add CADD annotation
-                info["cadd"] = query_cadd_score(chr38, pos38)
-                # Add eQTL annotation
-                info["eqtl"] = query_eqtls(chr38, pos38)
-                # Add sQTL annotation
-                info["sqtl"] = query_sqtls(chr38, pos38)
-                # Add LD annotation
-                info["ld"], all_vars = query_ld(chr38, pos38)
-                # Add GWAS associations
-                info["gwas"] = query_gwas_associations(chr38, pos38)
+        try:
+            chr38 = info["chr_hg38"]
+            pos38 = info["pos_hg38"]
+            # Add CADD annotation
+            info["cadd"] = query_cadd_score(chr38, pos38)
+            # Add eQTL annotation
+            info["eqtl"] = query_eqtls(chr38, pos38)
+            # Add sQTL annotation
+            info["sqtl"] = query_sqtls(chr38, pos38)
+            # Add LD annotation
+            info["ld"], all_vars = query_ld(chr38, pos38)
+            # Add GWAS associations
+            info["gwas"] = query_gwas_associations(chr38, pos38)
+            # CADD / eQTL / sQTL for all LD partners
+            if info["ld"]:
+                ld_cadd, ld_eqtl, ld_sqtl = annotate_ld_partners(chr38, info["ld"])
+                info["ld_cadd"] = ld_cadd
+                info["ld_eqtl"] = ld_eqtl
+                info["ld_sqtl"] = ld_sqtl
+            else:
+                info["ld_cadd"] = []
+                info["ld_eqtl"] = []
+                info["ld_sqtl"] = []
 
-                # CADD / eQTL / sQTL for all LD partners
-                if info["ld"]:
-                    ld_cadd, ld_eqtl, ld_sqtl = annotate_ld_partners(chr38, info["ld"])
-                    info["ld_cadd"] = ld_cadd
-                    info["ld_eqtl"] = ld_eqtl
-                    info["ld_sqtl"] = ld_sqtl
-                else:
-                    info["ld_cadd"] = []
-                    info["ld_eqtl"] = []
-                    info["ld_sqtl"] = []
-            except Exception:
-                info.setdefault("cadd", [])
-                info.setdefault("eqtl", [])
-                info.setdefault("sqtl", [])
-                info.setdefault("ld", [])
-                info.setdefault("ld_cadd", [])
-                info.setdefault("ld_eqtl", [])
-                info.setdefault("ld_sqtl", [])
-                info.setdefault("gwas", [])
+        except Exception:
+            info.setdefault("cadd", [])
+            info.setdefault("eqtl", [])
+            info.setdefault("sqtl", [])
+            info.setdefault("ld", [])
+            info.setdefault("ld_cadd", [])
+            info.setdefault("ld_eqtl", [])
+            info.setdefault("ld_sqtl", [])
+            info.setdefault("gwas", [])
 
-            # record in session
-            session['single_variant_query'] = info
-            return info, 200
+        # record in session
+        info["query"] = q
+        info["build"] = build
+        session['single_variant_query'] = info
+        return info, 200
 
-        # coordinate path
-        chrom = parsed["chrom"]
-        pos = parsed["pos"]
+    if build == "hg19":
+        lifted = liftover_hg19_to_hg38(chrom, pos)
+        if lifted is None:
+            return {"error": f"Cannot liftover {chrom}:{pos} (hg19→hg38)"}, 400
 
-        if build == "hg38":
-            info = lookup_by_coord_hg38(chrom, pos)
-            if info is None:
-                return {"error": f"{chrom}:{pos} not found in hg38"}, 404
+        chr38, pos38 = lifted
+        info = lookup_by_coord_hg38(chr38, pos38)
+        if info is None:
+            return {"error": f"{chrom}:{pos}→{chr38}:{pos38} not in DB"}, 404
 
-            try:
-                chr38 = info["chr_hg38"]
-                pos38 = info["pos_hg38"]
-                # Add CADD annotation
-                info["cadd"] = query_cadd_score(chr38, pos38)
-                # Add eQTL annotation
-                info["eqtl"] = query_eqtls(chr38, pos38)
-                # Add sQTL annotation
-                info["sqtl"] = query_sqtls(chr38, pos38)
-                # Add LD annotation
-                info["ld"], all_vars = query_ld(chr38, pos38)
-                # Add GWAS associations
-                info["gwas"] = query_gwas_associations(chr38, pos38)
-                # CADD / eQTL / sQTL for all LD partners
-                if info["ld"]:
-                    ld_cadd, ld_eqtl, ld_sqtl = annotate_ld_partners(chr38, info["ld"])
-                    info["ld_cadd"] = ld_cadd
-                    info["ld_eqtl"] = ld_eqtl
-                    info["ld_sqtl"] = ld_sqtl
-                else:
-                    info["ld_cadd"] = []
-                    info["ld_eqtl"] = []
-                    info["ld_sqtl"] = []
-
-            except Exception:
-                info.setdefault("cadd", [])
-                info.setdefault("eqtl", [])
-                info.setdefault("sqtl", [])
-                info.setdefault("ld", [])
-                info.setdefault("ld_cadd", [])
-                info.setdefault("ld_eqtl", [])
-                info.setdefault("ld_sqtl", [])
-                info.setdefault("gwas", [])
-
-            # record in session
-            session['single_variant_query'] = info
-            return info, 200
-
-        if build == "hg19":
-            lifted = liftover_hg19_to_hg38(chrom, pos)
-            if lifted is None:
-                return {"error": f"Cannot liftover {chrom}:{pos} (hg19→hg38)"}, 400
-
-            chr38, pos38 = lifted
-            info = lookup_by_coord_hg38(chr38, pos38)
-            if info is None:
-                return {"error": f"{chrom}:{pos}→{chr38}:{pos38} not in DB"}, 404
-
-            info["liftover"] = {
-                "from_hg19": f"{chrom}:{pos}",
-                "to_hg38": f"{chr38}:{pos38}",
-            }
-            try:
-                # Add CADD annotation based on hg38 location
-                info["cadd"] = query_cadd_score(chr38, pos38)
-                # Add eQTL annotation based on hg38 location
-                info["eqtl"] = query_eqtls(chr38, pos38)
-                # Add sQTL annotation based on hg38 location
-                info["sqtl"] = query_sqtls(chr38, pos38)
-                # Add LD annotation based on hg38 location
-                info["ld"], all_vars = query_ld(chr38, pos38)
-                # Add GWAS associations
-                info["gwas"] = query_gwas_associations(chr38, pos38)
-                # CADD / eQTL / sQTL for all LD partners
-                if info["ld"]:
-                    ld_cadd, ld_eqtl, ld_sqtl = annotate_ld_partners(chr38, info["ld"])
-                    info["ld_cadd"] = ld_cadd
-                    info["ld_eqtl"] = ld_eqtl
-                    info["ld_sqtl"] = ld_sqtl
-                else:
-                    info["ld_cadd"] = []
-                    info["ld_eqtl"] = []
-                    info["ld_sqtl"] = []
-            except Exception:
-                info.setdefault("cadd", [])
-                info.setdefault("eqtl", [])
-                info.setdefault("sqtl", [])
-                info.setdefault("ld", [])
-                info.setdefault("ld_cadd", [])
-                info.setdefault("ld_eqtl", [])
-                info.setdefault("ld_sqtl", [])
-                info.setdefault("gwas", [])
+        info["liftover"] = {
+            "from_hg19": f"{chrom}:{pos}",
+            "to_hg38": f"{chr38}:{pos38}",
+        }
+        try:
+            # Add CADD annotation based on hg38 location
+            info["cadd"] = query_cadd_score(chr38, pos38)
+            # Add eQTL annotation based on hg38 location
+            info["eqtl"] = query_eqtls(chr38, pos38)
+            # Add sQTL annotation based on hg38 location
+            info["sqtl"] = query_sqtls(chr38, pos38)
+            # Add LD annotation based on hg38 location
+            info["ld"], all_vars = query_ld(chr38, pos38)
+            # Add GWAS associations
+            info["gwas"] = query_gwas_associations(chr38, pos38)
+            # CADD / eQTL / sQTL for all LD partners
+            if info["ld"]:
+                ld_cadd, ld_eqtl, ld_sqtl = annotate_ld_partners(chr38, info["ld"])
+                info["ld_cadd"] = ld_cadd
+                info["ld_eqtl"] = ld_eqtl
+                info["ld_sqtl"] = ld_sqtl
+            else:
+                info["ld_cadd"] = []
+                info["ld_eqtl"] = []
+                info["ld_sqtl"] = []
+        except Exception:
+            info.setdefault("cadd", [])
+            info.setdefault("eqtl", [])
+            info.setdefault("sqtl", [])
+            info.setdefault("ld", [])
+            info.setdefault("ld_cadd", [])
+            info.setdefault("ld_eqtl", [])
+            info.setdefault("ld_sqtl", [])
+            info.setdefault("gwas", [])
             
-            # record in session
-            session['single_variant_query'] = info
-            return info, 200
-        return {"error": "build must be hg19 or hg38"}, 400
+        # record in session
+        info["query"] = q
+        info["build"] = build
+        session['single_variant_query'] = info
+        return info, 200
+    return {"error": "build must be hg19 or hg38"}, 400
 
 # ---------------------------------------------------------
 # API endpoint (JSON)
@@ -601,6 +603,16 @@ def variant_query():
     info, status = run_variant_query(q, build)
     info = sanitize_for_json(info)
     return jsonify(info), status
+
+# ---------------------------------------------------------
+# Session endpoint to retrieve last query
+# ---------------------------------------------------------
+@snpbot_bp.route("/api/variant/last")
+def last_variant():
+    info = session.get("single_variant_query")
+    if not info:
+        return jsonify({"error": "no previous query"}), 404
+    return jsonify(sanitize_for_json(info)), 200
 
 # ---------------------------------------------------------
 # Main page (search UI)

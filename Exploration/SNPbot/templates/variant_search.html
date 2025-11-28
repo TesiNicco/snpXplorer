@@ -499,6 +499,34 @@
 </div>
 
 <script>
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    const resp = await fetch('/snpbot/api/variant/last');
+    if (!resp.ok) return;  // no previous query -> do nothing
+
+    const data = await resp.json();
+    if (data.error) return;
+
+    // Restore form fields
+    const queryInput = document.getElementById("query-input");
+    const buildSelect = document.getElementById("build-select");
+
+    if (data.query) {
+      queryInput.value = data.query;
+    }
+    if (data.build) {
+      buildSelect.value = data.build;
+    }
+
+    // Render tables using the same function as for fresh queries
+    showTable(data.query || "", data.build || "hg38", data);
+  } catch (err) {
+    console.error('Could not load last variant', err);
+  }
+});
+</script>
+
+<script>
   let lastVariantTableData = null; // variant download
   let lastCaddData = null;         // CADD download
   let lastEqtlData = null;         // eQTL download

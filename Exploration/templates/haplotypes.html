@@ -191,7 +191,7 @@
   </style>
 
   <!-- Input form -->
-  <form id="exploration_form" method="post">
+  <form id="exploration_form" method="post" onsubmit="setLoading(true)">
     <div class="card">
       <div style="text-align:center;"><h1>Browsing options</h1></div>
       <span class="muted">Locus / Interval / rsID / Gene / Trait</span><br>
@@ -461,6 +461,7 @@ function downloadGWASTable() {
 </div>
 
 <!-- JavaScript -->
+<!-- JavaScript -->
 <script>
   function setLoading(isLoading) {
     if (isLoading) {
@@ -468,23 +469,19 @@ function downloadGWASTable() {
     } else {
       document.body.classList.remove("loading");
     }
-  };
+  }
+
+  // Inject last detail info from session (or null)
+  const lastHaploDetail = {{ session.get('haplo_last_detail') | tojson if session.get('haplo_last_detail') else 'null' }};
 
   $(function () {
     const $browse = $('#browse_option');
-
-    // Show loader when submitting main form
-    const form = document.getElementById('exploration_form');
-    if (form) {
-      form.addEventListener('submit', function () {
-        setLoading(true);  // page will reload, loader will be visible until new page arrives
-      });
-    }
 
     function isCoord(term) { return /^\d{1,2}:\d+(-\d+)?$/i.test(term); }
     function isRS(term) { return /^rs\d+$/i.test(term); }
     function isChrom(term) { return /^((chr)?([1-9]|1[0-9]|2[0-2]|x|y))$/i.test(term); }
 
+    // --- Select2 setup for the browse input ---
     $browse.select2({
       placeholder: 'Type rsID, gene, trait, chr, or chr:start-end',
       width: '100%',
@@ -546,20 +543,40 @@ function downloadGWASTable() {
       $browse.append(opt).trigger('change');
     }
 
-    const chrom = {{ chrom|tojson if chrom is defined else 'null' }};
+    const chrom    = {{ chrom|tojson if chrom is defined else 'null' }};
     const startPos = {{ start_pos|tojson if start_pos is defined else 'null' }};
-    const endPos = {{ end_pos|tojson if end_pos is defined else 'null' }};
+    const endPos   = {{ end_pos|tojson if end_pos is defined else 'null' }};
 
-    $('#haplo-table').on('click', '.haplo-row', function () {
-      const hapId = $(this).data('hapid');
-      if (!hapId || chrom === null) return;
+    // Helper: convert an HTML table to CSV and trigger download
+    function downloadTableAsCSV(table, filename) {
+      let csv = [];
+      const rows = table.querySelectorAll('tr');
 
-      $('#haplo-table .haplo-row').removeClass('table-active');
-      $(this).addClass('table-active');
+      rows.forEach(row => {
+        const cols = row.querySelectorAll('th, td');
+        let rowData = [];
+        cols.forEach(col => {
+          let text = (col.innerText || '').replace(/"/g, '""');
+          rowData.push('"' + text + '"');
+        });
+        csv.push(rowData.join(','));
+      });
+
+      const blob = new Blob([csv.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    // Helper: load / reload haplotype detail (used for click + auto-restore)
+    function loadHaplotypeDetail(hapId) {
+      if (!hapId || chrom === null || startPos === null || endPos === null) return;
 
       const url = `/haplotypes/detail?hap_id=${encodeURIComponent(hapId)}&chrom=${chrom}&start_pos=${startPos}&end_pos=${endPos}`;
 
-      // Start loader
       setLoading(true);
 
       fetch(url)
@@ -569,45 +586,45 @@ function downloadGWASTable() {
 
           container.innerHTML = `
               <div class="haplo-card-table">
-              <h3>Haplotype of interest</h3>
-              <p class="muted" style="margin-top:6px;">
-                Description: this table shows details for the selected haplotype (index/ID, constituent SNPs, frequencies, genomic coordinates, and associated traits). Use the download button to export the table as CSV.
-              </p>
-              <div class="haplo-detail-table">
-                ${d.haplo_table}
-              </div>
-              </div>
-
-              <div class="haplo-card-table">
-              <h3 style="margin-top:20px;">SNP associations</h3>
-              <p class="muted" style="margin-top:6px;">
-                This table lists the SNPs that compose the selected haplotype, including genomic coordinates, reference/alternate alleles,
-                allele frequencies, and association statistics (e.g. effect size, p-value, and associated trait). Hover or inspect the table
-                to review which variants drive the haplotype signal. Use the download button above each table to export the data as CSV.
-              </p>
-              <div class="haplo-detail-table">
-                ${d.snps_table}
-              </div>
+                <h3>Haplotype of interest</h3>
+                <p class="muted" style="margin-top:6px;">
+                  Description: this table shows details for the selected haplotype (index/ID, constituent SNPs, frequencies, genomic coordinates, and associated traits). Use the download button to export the table as CSV.
+                </p>
+                <div class="haplo-detail-table">
+                  ${d.haplo_table}
+                </div>
               </div>
 
               <div class="haplo-card-table">
-              <h3 style="margin-top:20px;">CADD consequences</h3>
-              <p class="muted" style="margin-top:6px;">
-                CADD annotations provide predicted functional consequences and deleteriousness scores for the haplotype's variants.
-                Higher CADD scores suggest greater likelihood of functional impact. Use these annotations to prioritize variants for follow-up.
-              </p>
-              <div class="haplo-detail-table">
-                ${d.snps_cadd_table}
-              </div>
+                <h3 style="margin-top:20px;">SNP associations</h3>
+                <p class="muted" style="margin-top:6px;">
+                  This table lists the SNPs that compose the selected haplotype, including genomic coordinates, reference/alternate alleles,
+                  allele frequencies, and association statistics (e.g. effect size, p-value, and associated trait). Hover or inspect the table
+                  to review which variants drive the haplotype signal. Use the download button above each table to export the data as CSV.
+                </p>
+                <div class="haplo-detail-table">
+                  ${d.snps_table}
+                </div>
               </div>
 
               <div class="haplo-card-table">
-              <h3 style="margin-top:24px;">Haplotype plots</h3>
-              <p class="muted" style="margin-top:6px;">
-                Interactive plot showing haplotype frequencies and their association signals. Hover over points for exact values, click legend
-                entries to toggle traces, and use the Plotly modebar to zoom, pan, or download the figure as an image.
-              </p>
-              <div id="haplo-detail-plot"></div>
+                <h3 style="margin-top:20px;">CADD consequences</h3>
+                <p class="muted" style="margin-top:6px;">
+                  CADD annotations provide predicted functional consequences and deleteriousness scores for the haplotype's variants.
+                  Higher CADD scores suggest greater likelihood of functional impact. Use these annotations to prioritize variants for follow-up.
+                </p>
+                <div class="haplo-detail-table">
+                  ${d.snps_cadd_table}
+                </div>
+              </div>
+
+              <div class="haplo-card-table">
+                <h3 style="margin-top:24px;">Haplotype plots</h3>
+                <p class="muted" style="margin-top:6px;">
+                  Interactive plot showing haplotype frequencies and their association signals. Hover over points for exact values, click legend
+                  entries to toggle traces, and use the Plotly modebar to zoom, pan, or download the figure as an image.
+                </p>
+                <div id="haplo-detail-plot"></div>
               </div>
           `;
 
@@ -623,7 +640,6 @@ function downloadGWASTable() {
             btn.textContent = 'Download table (CSV)';
             btn.style.marginBottom = '6px';
 
-            // Determine a reasonable filename
             let baseName = 'haplotype_table';
             if (idx === 0) baseName = 'haplotype_summary';
             if (idx === 1) baseName = 'haplotype_snps';
@@ -633,7 +649,6 @@ function downloadGWASTable() {
               downloadTableAsCSV(table, `${baseName}.csv`);
             });
 
-            // Insert button before the table wrapper
             sec.parentNode.insertBefore(btn, sec);
           });
 
@@ -643,34 +658,40 @@ function downloadGWASTable() {
           console.error(err);
           document.getElementById('haplo-detail').innerHTML =
             '<p style="color:red;">Error loading haplotype plot.</p>';
-        }).finally(() => {
+        })
+        .finally(() => {
           setLoading(false);
         });
+    }
+
+    // Auto-restore last selected haplotype detail if present and same region
+    if (lastHaploDetail && chrom !== null && startPos !== null && endPos !== null) {
+      if (String(lastHaploDetail.chrom) === String(chrom) &&
+          Number(lastHaploDetail.start_pos) === Number(startPos) &&
+          Number(lastHaploDetail.end_pos) === Number(endPos)) {
+
+        const hapId = lastHaploDetail.hap_id;
+
+        const $row = $('#haplo-table .haplo-row[data-hapid="' + hapId + '"]');
+        if ($row.length) {
+          $('#haplo-table .haplo-row').removeClass('table-active');
+          $row.addClass('table-active');
+        }
+
+        loadHaplotypeDetail(hapId);
+      }
+    }
+
+    // Click handler for haplotype rows
+    $('#haplo-table').on('click', '.haplo-row', function () {
+      const hapId = $(this).data('hapid');
+      if (!hapId || chrom === null) return;
+
+      $('#haplo-table .haplo-row').removeClass('table-active');
+      $(this).addClass('table-active');
+
+      loadHaplotypeDetail(hapId);
     });
-
-            // Helper: convert an HTML table to CSV and trigger download
-          function downloadTableAsCSV(table, filename) {
-            let csv = [];
-            const rows = table.querySelectorAll('tr');
-
-            rows.forEach(row => {
-              const cols = row.querySelectorAll('th, td');
-              let rowData = [];
-              cols.forEach(col => {
-                let text = (col.innerText || '').replace(/"/g, '""');
-                rowData.push('"' + text + '"');
-              });
-              csv.push(rowData.join(','));
-            });
-
-            const blob = new Blob([csv.join('\n')], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = filename;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-          }
 
     // Summary table download button
     const summaryBtn = document.getElementById('download-haplo-summary');

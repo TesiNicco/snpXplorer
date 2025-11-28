@@ -50,9 +50,9 @@ from pandasgwas import get_variants_by_variant_id
 # differences between local and server
 # local
 #from pandasgwas.get_SNPs import get_variants_by_variant_id
-#data_path = '/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Data'
+data_path = '/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Data'
 # server
-data_path = '/Data'
+#data_path = '/Data'
 
 # Global functions
 # function to get all haplotypes associated with a trait
@@ -65,7 +65,7 @@ def get_haplotypes_by_trait(row):
     return df_df
 
 # function to get trait info
-def get_traits_info(data_path, traits_interest, representative):
+def get_traits_info(data_path, traits_interest, representative, meta):
     all_gw_info = []
     all_haplo_df = pd.DataFrame()
     gwas_assoc_df = pd.DataFrame()
