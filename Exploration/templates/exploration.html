@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 
 {% block content %}
-    <div id="exploration_sec">
+    <body id="exploration_sec">
         <!-- DNA image at the top -->
         <div class="centered-container">
             <img class="centered-image" src="{{ url_for('static', filename='images/dna.png') }}" alt="Image">
@@ -53,8 +53,6 @@
                     .option-box { font-size:.8rem; padding:6px; }
                     .option-box h1 { font-size:1rem; }
                 }
-
-
             </style>
             <!-- Set divs for the three options -->
             <div class="card">
@@ -182,63 +180,30 @@
 
                 <!-- Submit button row -->
                 <div style="padding:10px; background:#9FD8C6; margin:20px; text-align:center; border-radius:12px;">
-                <style>
-                    .spinner {
-                        width: 14px;
-                        height: 14px;
-                        border: 2px solid rgba(255,255,255,0.4);
-                        border-top-color: white;
-                        border-radius: 50%;
-                        display: inline-block;
-                        animation: spinBtn 0.6s linear infinite;
-                    }
-                    @keyframes spinBtn { to { transform: rotate(360deg); } }
-                </style>
-                <button id="submit_button"
-                        style="background:#4C837A; color:white"
-                        onclick="this.disabled=true;
-                                document.getElementById('btn_spinner').style.display='inline-block';">
-                    Show region!
-                    <span id="btn_spinner"
-                        style="display:none; margin-left:8px;"
-                        class="spinner"></span>
-                </button>
+                <button id="submit_button" style="background:#4C837A; color:white">Show region!</button>
                 </div>
 
                 <script>
-                    document.addEventListener('DOMContentLoaded', () => {
-                        const form = document.getElementById('exploration_form');
-                        const btn  = document.getElementById('submit_button');
-                        const spin = document.getElementById('btn_spinner');
-
-                        if (!form || !btn || !spin) return;  // safety
-
-                        form.addEventListener('submit', async (e) => {
+                    document.getElementById('exploration_form').addEventListener('submit', async (e) => {
                         e.preventDefault();
-
-                        // disable + show spinner
-                        btn.disabled = true;
-                        spin.style.display = 'inline-block';
-
-                        const fd = new FormData(form);
-                        let resp;
-                        try {
-                            resp = await fetch('/exploration/run', { method: 'POST', body: fd });
-                        } catch (err) {
-                            consoleAppend('[error] failed to start job');
-                            btn.disabled = false;
-                            spin.style.display = 'none';
-                            return;
-                        }
-
-                        if (!resp.ok) {
-                            consoleAppend('[error] failed to start job');
-                            btn.disabled = false;
-                            spin.style.display = 'none';
-                        }
-                        // spinner stays on; SSE will hide it on [done]
-                        });
+                        const fd = new FormData(e.target);
+                        // (no consoleAppend here)
+                        const resp = await fetch('/exploration/run', { method: 'POST', body: fd });
+                        if (!resp.ok) consoleAppend('[error] failed to start job');
                     });
+
+                    // After your existing EventSource setup:
+                    // reload when the background job signals completion
+                    // (only if you want the page to render results automatically)
+                    evt.onmessage = (e) => {
+                        try {
+                        const payload = JSON.parse(e.data);
+                        if (payload.message) consoleAppend(payload.message);
+                        if (payload.message === '[done]') {
+                            location.href = `/exploration/?cid=${encodeURIComponent('{{ console_id }}')}`;
+                        }
+                        } catch { consoleAppend(e.data || '[event]'); }
+                    };
                 </script>
             </div> 
 
@@ -427,9 +392,6 @@
                         markActive(phase);
                         } else if (/^\[done\]/i.test(msg)) {
                         markAllDone();
-                        // hide button spinner + re-enable
-                        document.getElementById('submit_button').disabled = false;
-                        document.getElementById('btn_spinner').style.display = "none";
                         window.location.href = `/exploration/?cid=${encodeURIComponent(CONSOLE_ID)}`;
                         return;
                         } else if (/^\[error\]/i.test(msg)) {
@@ -737,5 +699,5 @@
             <img src="{{ url_for('static', filename='images/tudelft1.png') }}" alt="tud">
             <img src="{{ url_for('static', filename='images/github.png') }}" alt="gith">
         </div>
-    </div>
+    </body>
 {% endblock %}
