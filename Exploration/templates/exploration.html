@@ -182,6 +182,10 @@
                 <div style="padding:10px; background:#9FD8C6; margin:20px; text-align:center; border-radius:12px;">
                 <button id="submit_button" style="background:#4C837A; color:white">Show region!</button>
                 </div>
+                <!-- Small text explaining the console -->
+                <div style="text-align:center; font-size:12px; color:gray;">
+                    <em>Note: once you click "Show region!", the exploration will start in the background and you can monitor its progress in the console on the left. When the job is done, the page will reload automatically to show the results.</em>
+                </div>
 
                 <script>
                     document.getElementById('exploration_form').addEventListener('submit', async (e) => {
@@ -189,7 +193,12 @@
                         const fd = new FormData(e.target);
                         // (no consoleAppend here)
                         const resp = await fetch('/exploration/run', { method: 'POST', body: fd });
-                        if (!resp.ok) consoleAppend('[error] failed to start job');
+                        if (!resp.ok) {
+                            consoleAppend('[error] failed to start job'); 
+                            return;
+                        }
+
+                        startStatusPolling();
                     });
 
                     // After your existing EventSource setup:
@@ -376,33 +385,63 @@
                     // SSE hookup
                     const CONSOLE_ID = '{{ console_id }}';
                     const evt = new EventSource(`/events?cid=${encodeURIComponent(CONSOLE_ID)}`);
+
                     function matchPhase(msg) {
-                    const lower = msg.toLowerCase();
-                    for (const p of PHASES) { if (lower.startsWith(p.toLowerCase())) return p; }
-                    return null;
-                    }
-                    evt.onmessage = (e) => {
-                    try {
-                        const payload = JSON.parse(e.data || '{}');
-                        const msg = payload.message || '';
-                        if (!msg || msg === '__hello__') return;
-                        if (msg === 'Starting…') return;
-                        const phase = matchPhase(msg);
-                        if (phase) {
-                        markActive(phase);
-                        } else if (/^\[done\]/i.test(msg)) {
-                        markAllDone();
-                        window.location.href = `/exploration/?cid=${encodeURIComponent(CONSOLE_ID)}`;
-                        return;
-                        } else if (/^\[error\]/i.test(msg)) {
-                        consoleAppend(msg);
-                        return;
-                        } else {
-                        consoleAppend(msg);
+                        const lower = msg.toLowerCase();
+                        for (const p of PHASES) {
+                            if (lower.startsWith(p.toLowerCase())) return p;
                         }
-                    } catch { consoleAppend(e.data || '[event]'); }
+                        return null;
+                    }
+
+                    evt.onmessage = (e) => {
+                        try {
+                            const payload = JSON.parse(e.data || '{}');
+                            const msg = payload.message || '';
+                            if (!msg || msg === '__hello__') return;
+                            if (msg === 'Starting…') return;
+
+                            const phase = matchPhase(msg);
+                            if (phase) {
+                                markActive(phase);
+                            } else if (/^\[error\]/i.test(msg)) {
+                                consoleAppend(msg);
+                            } else {
+                                consoleAppend(msg);
+                            }
+                        } catch {
+                            consoleAppend(e.data || '[event]');
+                        }
                     };
-                    evt.onerror = () => { consoleAppend('[connection lost, retrying…]'); };
+
+                    evt.onerror = () => {
+                        consoleAppend('[connection lost, retrying…]');
+                    };
+
+                    let statusTimer = null;
+
+                    function startStatusPolling() {
+                        // avoid multiple timers if user spam-clicks
+                        if (statusTimer) return;
+
+                        const cid = '{{ console_id }}';  // same ID used by backend for this job
+
+                        statusTimer = setInterval(async () => {
+                            try {
+                                const res = await fetch(`/exploration/status?cid=${encodeURIComponent(cid)}`);
+                                if (!res.ok) return;
+
+                                const data = await res.json();
+                                if (data.done) {
+                                    clearInterval(statusTimer);
+                                    statusTimer = null;
+                                    window.location.href = `/exploration/?cid=${encodeURIComponent(cid)}`;
+                                }
+                            } catch (err) {
+                                // ignore network hiccups, try again on next tick
+                            }
+                        }, 5000); // every 5 seconds, adjust as you like
+                    }
                 </script>
 
                 <!-- GWAS info -->
@@ -441,43 +480,70 @@
                 <style>
                     .visualization-options { margin-bottom: 1px; margin-top: 1px; }
                     .radio-title { font-size: 16px; margin-bottom: 5px; margin-top: 5px; }
+                    .vis-options-row {
+                        display: flex;
+                        flex-wrap: wrap;
+                        justify-content: center;   /* horizontally center each row */
+                        gap: 5px 20px;            /* row/column gaps */
+                        margin-bottom: 20px;
+                    }
+
+                    /* each box ~20–25% of the sidebar, wrapping will give you 3 + 2 */
+                    .vis-box {
+                        flex: 0 1 20%;
+                        min-width: 140px;
+                        box-sizing: border-box;
+                    }
+
+                    /* kill any old floats if still present */
+                    .vis-box {
+                        float: none !important;
+                    }
                 </style>
                 <h3 class="visualization-options">Visualization options</h3>
-                <div style="width: 20%; float: left; margin-right: 20px;">
-                    <h6 class="radio-title">Plot type</h6>
-                    <input type="radio" name="plotype" id="Scatter" value="Scatter" checked> Scatter <br>
-                    <input type="radio" name="plotype" id="Smooth" value="Smooth" {% if plotype == 'Smooth' %} checked {% endif %}> Smooth
-                </div>
-
-                <div style="width: 20%; float: left; margin-left: 10px; margin-right: 20px;">
-                    <h6 class="radio-title">Exons</h6>
-                    <input type="radio" name="exons" id="No" value="No" checked> No <br>
-                    <input type="radio" name="exons" id="Yes" value="Yes" {% if exons == 'Yes' %} checked {% endif %}> Yes
-                </div>
-
-                <div style="width: 25%; float: left; margin-left: 10px; margin-bottom: 50px;">
-                    <h6 class="radio-title">Recombination</h6>
-                    <input type="radio" name="recomb" id="No" value="No" checked> No <br>
-                    <input type="radio" name="recomb" id="Yes" value="Yes" {% if recomb == 'Yes' %} checked {% endif %}> Yes
-                </div>
-
-                <div style="width:20%; float:left; margin-left:10px; margin-bottom:50px;">
-                    <h6 class="radio-title">Y-range</h6>
-
-                    <label><input type="radio" name="y_range" value="Auto"  checked> Auto</label><br>
-                    <label><input type="radio" name="y_range" value="Manual" {% if y_range=='Manual' %}checked{% endif %}> Manual</label>
-
-                    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.1/nouislider.min.css">
-                    <script src="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.1/nouislider.min.js"></script>
-
-                    <div id="y-manual-wrap" style="margin-top:10px; display:none;">
-                        <div id="y-slider"></div>
-                        <div style="margin-top:5px; font-size:12px;">Min: <span id="min-val"></span>, Max: <span id="max-val"></span></div>
+                <div class="vis-options-row">
+                    <div class="vis-box">
+                        <h6 class="radio-title">Y-axis</h6>
+                        <input type="radio" name="axestype" id="manh" value="manh" checked> Pvalue <br>
+                        <input type="radio" name="axestype" id="beta" value="beta" {% if axestype == 'beta' %} checked {% endif %}> Beta
                     </div>
 
-                    <!-- values to submit with the form -->
-                    <input type="hidden" name="y_min" id="y_min">
-                    <input type="hidden" name="y_max" id="y_max">
+                    <div class="vis-box">
+                        <h6 class="radio-title">Appearance</h6>
+                        <input type="radio" name="plotype" id="Scatter" value="Scatter" checked> Scatter <br>
+                        <input type="radio" name="plotype" id="Smooth" value="Smooth" {% if plotype == 'Smooth' %} checked {% endif %}> Smooth
+                    </div>
+
+                    <div class="vis-box">
+                        <h6 class="radio-title">Exons</h6>
+                        <input type="radio" name="exons" id="No" value="No" checked> No <br>
+                        <input type="radio" name="exons" id="Yes" value="Yes" {% if exons == 'Yes' %} checked {% endif %}> Yes
+                    </div>
+
+                    <div class="vis-box">
+                        <h6 class="radio-title">Recombination</h6>
+                        <input type="radio" name="recomb" id="No" value="No" checked> No <br>
+                        <input type="radio" name="recomb" id="Yes" value="Yes" {% if recomb == 'Yes' %} checked {% endif %}> Yes
+                    </div>
+
+                    <div class="vis-box">
+                        <h6 class="radio-title">Y-range</h6>
+
+                        <label><input type="radio" name="y_range" value="Auto"  checked> Auto</label><br>
+                        <label><input type="radio" name="y_range" value="Manual" {% if y_range=='Manual' %}checked{% endif %}> Manual</label>
+
+                        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.1/nouislider.min.css">
+                        <script src="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.1/nouislider.min.js"></script>
+
+                        <div id="y-manual-wrap" style="margin-top:10px; display:none;">
+                            <div id="y-slider"></div>
+                            <div style="margin-top:5px; font-size:12px;">Min: <span id="min-val"></span>, Max: <span id="max-val"></span></div>
+                        </div>
+
+                        <!-- values to submit with the form -->
+                        <input type="hidden" name="y_min" id="y_min">
+                        <input type="hidden" name="y_max" id="y_max">
+                    </div>
                 </div>
                 <script>
                     (function () {
@@ -680,6 +746,12 @@
                     window.addEventListener('resize', resize);
                     })();
                 </script>
+                {% endif %}
+
+                {% if plot_beta %}
+                <div style="width:100%; margin-top:24px; height:500px; overflow-y:auto;">
+                    {{ plot_beta|safe }}
+                </div>
                 {% endif %}
 
                 {% if plot_gtex %}
