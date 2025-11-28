@@ -203,36 +203,39 @@
                 </div>
 
                 <script>
-                    document.getElementById('exploration_form').addEventListener('submit', async (e) => {
-                        e.preventDefault();
-
-                        const btn = document.getElementById('submit_button');
+                    document.addEventListener('DOMContentLoaded', () => {
+                        const form = document.getElementById('exploration_form');
+                        const btn  = document.getElementById('submit_button');
                         const spin = document.getElementById('btn_spinner');
+
+                        if (!form || !btn || !spin) return;  // safety
+
+                        form.addEventListener('submit', async (e) => {
+                        e.preventDefault();
 
                         // disable + show spinner
                         btn.disabled = true;
-                        spin.style.display = "inline-block";
+                        spin.style.display = 'inline-block';
 
-                        const fd = new FormData(e.target);
-                        const resp = await fetch('/exploration/run', { method: 'POST', body: fd });
+                        const fd = new FormData(form);
+                        let resp;
+                        try {
+                            resp = await fetch('/exploration/run', { method: 'POST', body: fd });
+                        } catch (err) {
+                            consoleAppend('[error] failed to start job');
+                            btn.disabled = false;
+                            spin.style.display = 'none';
+                            return;
+                        }
 
-                        if (!resp.ok) consoleAppend('[error] failed to start job');
-
-                        // DO NOT hide the spinner here — let console/SSE handle it
+                        if (!resp.ok) {
+                            consoleAppend('[error] failed to start job');
+                            btn.disabled = false;
+                            spin.style.display = 'none';
+                        }
+                        // spinner stays on; SSE will hide it on [done]
+                        });
                     });
-
-                    // After your existing EventSource setup:
-                    // reload when the background job signals completion
-                    // (only if you want the page to render results automatically)
-                    //evt.onmessage = (e) => {
-                    //    try {
-                    //    const payload = JSON.parse(e.data);
-                    //    if (payload.message) consoleAppend(payload.message);
-                    //    if (payload.message === '[done]') {
-                    //        location.href = `/exploration/?cid=${encodeURIComponent('{{ console_id }}')}`;
-                    //    }
-                    //    } catch { consoleAppend(e.data || '[event]'); }
-                    //};
                 </script>
             </div> 
 
