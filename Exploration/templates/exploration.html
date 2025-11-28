@@ -194,9 +194,12 @@
                     }
                     @keyframes spinBtn { to { transform: rotate(360deg); } }
                 </style>
-                <button id="submit_button" style="background:#4C837A; color:white">
+                <button id="submit_button"
+                        style="background:#4C837A; color:white"
+                        onclick="this.disabled=true;
+                                document.getElementById('btn_spinner').style.display='inline-block';">
                     Show region!
-                    <span id="btn_spinner" 
+                    <span id="btn_spinner"
                         style="display:none; margin-left:8px;"
                         class="spinner"></span>
                 </button>
