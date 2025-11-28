@@ -50,9 +50,9 @@ from pandasgwas import get_variants_by_variant_id
 # differences between local and server
 # local
 #from pandasgwas.get_SNPs import get_variants_by_variant_id
-data_path = '/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Data'
+#data_path = '/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Data'
 # server
-#data_path = '/Data'
+data_path = '/Data'
 
 # Global functions
 # function to get all haplotypes associated with a trait
