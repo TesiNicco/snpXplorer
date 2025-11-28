@@ -224,15 +224,15 @@
                     // After your existing EventSource setup:
                     // reload when the background job signals completion
                     // (only if you want the page to render results automatically)
-                    evt.onmessage = (e) => {
-                        try {
-                        const payload = JSON.parse(e.data);
-                        if (payload.message) consoleAppend(payload.message);
-                        if (payload.message === '[done]') {
-                            location.href = `/exploration/?cid=${encodeURIComponent('{{ console_id }}')}`;
-                        }
-                        } catch { consoleAppend(e.data || '[event]'); }
-                    };
+                    //evt.onmessage = (e) => {
+                    //    try {
+                    //    const payload = JSON.parse(e.data);
+                    //    if (payload.message) consoleAppend(payload.message);
+                    //    if (payload.message === '[done]') {
+                    //        location.href = `/exploration/?cid=${encodeURIComponent('{{ console_id }}')}`;
+                    //    }
+                    //    } catch { consoleAppend(e.data || '[event]'); }
+                    //};
                 </script>
             </div> 
 
