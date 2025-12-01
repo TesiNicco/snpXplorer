@@ -131,18 +131,15 @@ def liftover_hg19_to_hg38(chrom, pos19):
 # ---------------------------------------------------------
 def parse_variant_query(q):
     q = q.strip()
-
     # rsID
     if q.lower().startswith("rs") and q[2:].isdigit():
         return {"type": "rsid", "rsid": q}
-
     # chr:pos or chr pos (with optional "chr")
     m = re.match(r"^(chr)?(\w+)[\:\s]+(\d+)$", q, flags=re.IGNORECASE)
     if m:
         chrom = m.group(2).upper()
         pos = int(m.group(3))
         return {"type": "coord", "chrom": chrom, "pos": pos}
-
     return {"type": "invalid"}
 
 # ---------------------------------------------------------
@@ -489,7 +486,7 @@ def run_variant_query(q, build="hg38"):
         return info, 200
 
     # coordinate path
-    chrom = parsed["chrom"]
+    chrom = 'chr' + parsed["chrom"].upper().replace("CHR", "")
     pos = parsed["pos"]
 
     if build == "hg38":
