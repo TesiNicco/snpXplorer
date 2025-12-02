@@ -72,7 +72,7 @@ app.config['SESSION_REDIS'] = redis.from_url('redis://localhost:6379')
 app.config['SESSION_USE_SIGNER'] = True
 app.config['SECRET_KEY'] = 'secret'
 # ✔ Set session timeout: 1 hour
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=1)
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=10)
 app.config['SESSION_PERMANENT'] = True
 Session(app)
 
