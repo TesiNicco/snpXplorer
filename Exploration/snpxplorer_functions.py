@@ -7,6 +7,7 @@ from flask_session import Session
 from werkzeug.security import generate_password_hash, check_password_hash
 import redis
 import matplotlib
+from datetime import timedelta
 matplotlib.use('Agg')
 import logging
 import traceback
@@ -1317,6 +1318,7 @@ def get_data_plot(data_path, gwas, chrom, start_pos, end_pos, refGen, meta):
         liftover_info = get_lifter('hg38', 'hg19')
         region_hg38 = '%s:%s-%s' %(str(chrom), str(start_pos), str(end_pos))
         region = '%s:%s-%s' %(str(chrom), str(liftover_info[chrom][start_pos][0][1]), str(liftover_info[chrom][end_pos][0][1]))
+        region = region.upper().replace('CHR', '')
     # get gwas info
     data_list = pd.DataFrame()
     data_list_info = []

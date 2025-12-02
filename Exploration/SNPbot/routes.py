@@ -6,6 +6,7 @@ from flask import Flask, request, jsonify, render_template, Blueprint, redirect,
 from liftover import get_lifter
 import io
 import subprocess
+from datetime import timedelta
 import math
 from typing import Optional
 
@@ -205,6 +206,8 @@ def query_eqtls(chrom, pos38):
             "pval_nominal",
             "slope",
         ]
+        # sort by pval_nominal
+        df = df.sort_values(by="pval_nominal", ascending=True)
         return df.to_dict(orient="records")
     except Exception:
         return []
@@ -450,10 +453,16 @@ def run_variant_query(q, build="hg38"):
             pos38 = info["pos_hg38"]
             # Add CADD annotation
             info["cadd"] = query_cadd_score(chr38, pos38)
+            # Only top 100 for the UI
+            info["cadd_top"] = sorted(info["cadd"], key=lambda x: x.get("phred_max", 0), reverse=True)[:100]
             # Add eQTL annotation
             info["eqtl"] = query_eqtls(chr38, pos38)
+            # Only top 100 for the UI
+            info["eqtl_top"] = sorted(info["eqtl"], key=lambda x: x.get("pval_nominal", 1))[:100]
             # Add sQTL annotation
             info["sqtl"] = query_sqtls(chr38, pos38)
+            # Only top 100 for the UI
+            info["sqtl_top"] = sorted(info["sqtl"], key=lambda x: x.get("pval_nominal", 1))[:100]
             # Add LD annotation
             info["ld"], all_vars = query_ld(chr38, pos38)
             # Add GWAS associations
@@ -465,10 +474,17 @@ def run_variant_query(q, build="hg38"):
                 info["ld_cadd"] = ld_cadd
                 info["ld_eqtl"] = ld_eqtl
                 info["ld_sqtl"] = ld_sqtl
+                # Only top 100 for the UI
+                info["ld_cadd_top"] = sorted(info["ld_cadd"], key=lambda x: x.get("phred_max", 0), reverse=True)[:100]
+                info["ld_eqtl_top"] = sorted(info["ld_eqtl"], key=lambda x: x.get("pval_nominal", 1))[:100]
+                info["ld_sqtl_top"] = sorted(info["ld_sqtl"], key=lambda x: x.get("pval_nominal", 1))[:100]
             else:
                 info["ld_cadd"] = []
                 info["ld_eqtl"] = []
                 info["ld_sqtl"] = []
+                info["ld_cadd_top"] = []
+                info["ld_eqtl_top"] = []
+                info["ld_sqtl_top"] = []
         except Exception:
             info.setdefault("cadd", [])
             info.setdefault("eqtl", [])
@@ -499,10 +515,16 @@ def run_variant_query(q, build="hg38"):
             pos38 = info["pos_hg38"]
             # Add CADD annotation
             info["cadd"] = query_cadd_score(chr38, pos38)
+            # Only top 100 for the UI
+            info["cadd_top"] = sorted(info["cadd"], key=lambda x: x.get("phred_max", 0), reverse=True)[:100]
             # Add eQTL annotation
             info["eqtl"] = query_eqtls(chr38, pos38)
+            # Only top 100 for the UI
+            info["eqtl_top"] = sorted(info["eqtl"], key=lambda x: x.get("pval_nominal", 1))[:100]
             # Add sQTL annotation
             info["sqtl"] = query_sqtls(chr38, pos38)
+            # Only top 100 for the UI
+            info["sqtl_top"] = sorted(info["sqtl"], key=lambda x: x.get("pval_nominal", 1))[:100]
             # Add LD annotation
             info["ld"], all_vars = query_ld(chr38, pos38)
             # Add GWAS associations
@@ -513,10 +535,17 @@ def run_variant_query(q, build="hg38"):
                 info["ld_cadd"] = ld_cadd
                 info["ld_eqtl"] = ld_eqtl
                 info["ld_sqtl"] = ld_sqtl
+                # Only top 100 for the UI
+                info["ld_cadd_top"] = sorted(info["ld_cadd"], key=lambda x: x.get("phred_max", 0), reverse=True)[:100]
+                info["ld_eqtl_top"] = sorted(info["ld_eqtl"], key=lambda x: x.get("pval_nominal", 1))[:100]
+                info["ld_sqtl_top"] = sorted(info["ld_sqtl"], key=lambda x: x.get("pval_nominal", 1))[:100]
             else:
                 info["ld_cadd"] = []
                 info["ld_eqtl"] = []
                 info["ld_sqtl"] = []
+                info["ld_cadd_top"] = []
+                info["ld_eqtl_top"] = []
+                info["ld_sqtl_top"] = []
 
         except Exception:
             info.setdefault("cadd", [])
@@ -551,10 +580,16 @@ def run_variant_query(q, build="hg38"):
         try:
             # Add CADD annotation based on hg38 location
             info["cadd"] = query_cadd_score(chr38, pos38)
+            # Only top 100 for the UI
+            info["cadd_top"] = sorted(info["cadd"], key=lambda x: x.get("phred_max", 0), reverse=True)[:100]
             # Add eQTL annotation based on hg38 location
             info["eqtl"] = query_eqtls(chr38, pos38)
+            # Only top 100 for the UI
+            info["eqtl_top"] = sorted(info["eqtl"], key=lambda x: x.get("pval_nominal", 1))[:100]
             # Add sQTL annotation based on hg38 location
             info["sqtl"] = query_sqtls(chr38, pos38)
+            # Only top 100 for the UI
+            info["sqtl_top"] = sorted(info["sqtl"], key=lambda x: x.get("pval_nominal", 1))[:100]
             # Add LD annotation based on hg38 location
             info["ld"], all_vars = query_ld(chr38, pos38)
             # Add GWAS associations
@@ -565,10 +600,17 @@ def run_variant_query(q, build="hg38"):
                 info["ld_cadd"] = ld_cadd
                 info["ld_eqtl"] = ld_eqtl
                 info["ld_sqtl"] = ld_sqtl
+                # Only top 100 for the UI
+                info["ld_cadd_top"] = sorted(info["ld_cadd"], key=lambda x: x.get("phred_max", 0), reverse=True)[:100]
+                info["ld_eqtl_top"] = sorted(info["ld_eqtl"], key=lambda x: x.get("pval_nominal", 1))[:100]
+                info["ld_sqtl_top"] = sorted(info["ld_sqtl"], key=lambda x: x.get("pval_nominal", 1))[:100]
             else:
                 info["ld_cadd"] = []
                 info["ld_eqtl"] = []
                 info["ld_sqtl"] = []
+                info["ld_cadd_top"] = []
+                info["ld_eqtl_top"] = []
+                info["ld_sqtl_top"] = []
         except Exception:
             info.setdefault("cadd", [])
             info.setdefault("eqtl", [])

@@ -588,7 +588,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   /* ---------- CADD TABLE ---------- */
-  function buildCaddTable(caddRows) {
+  function buildCaddTable(caddRows, caddRowsFull) {
     if (!caddRows || caddRows.length === 0) {
       lastCaddData = null;
       return `
@@ -628,15 +628,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       "PriPhyloP max"
     ];
 
+    // store FULL data for download
     lastCaddData = {
-      rows: caddRows,
+      rows: caddRowsFull || caddRows,
       columns: caddColumns,
       headers: caddHeaders
     };
 
+    // use (possibly truncated) caddRows for display
     let html = `
       <div class="result-header-row">
-        <h3 class="result-subtitle">CADD annotation</h3>
+        <h3 class="result-subtitle">CADD annotation (top 100)</h3>
         <button class="download-button" onclick="downloadCaddTable()">
           ⬇ Download CADD CSV
         </button>
@@ -646,7 +648,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           <thead>
             <tr>
     `;
-
+    
     caddHeaders.forEach(h => {
       html += `<th>${h}</th>`;
     });
@@ -738,7 +740,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   /* ---------- eQTL TABLE ---------- */
-  function buildEqtlTable(eqtlRows) {
+  function buildEqtlTable(eqtlRows, eqtlRowsFull) {
     if (!eqtlRows || eqtlRows.length === 0) {
       lastEqtlData = null;
       return `
@@ -777,7 +779,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     ];
 
     lastEqtlData = {
-      rows: eqtlRows,
+      rows: eqtlRowsFull || eqtlRows,   // full set
       columns: eqtlColumns,
       headers: eqtlHeaders
     };
@@ -824,7 +826,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   /* ---------- sQTL TABLE ---------- */
-  function buildSqtlTable(sqtlRows) {
+  function buildSqtlTable(sqtlRows, sqtlRowsFull) {
     if (!sqtlRows || sqtlRows.length === 0) {
       lastSqtlData = null;
       return `
@@ -863,7 +865,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     ];
 
     lastSqtlData = {
-      rows: sqtlRows,
+      rows: sqtlRowsFull || sqtlRows,
       columns: sqtlColumns,
       headers: sqtlHeaders
     };
@@ -910,7 +912,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
     /* ---------- LD-PARTNER CADD TABLE ---------- */
-  function buildLdCaddTable(ldCaddRows) {
+  function buildLdCaddTable(ldCaddRows, ldCaddRowsFull) {
     if (!ldCaddRows || ldCaddRows.length === 0) {
       return `
         <div class="result-header-row">
@@ -919,7 +921,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       `;
     }
 
-    lastLdCaddData = ldCaddRows;
+    lastLdCaddData = ldCaddRowsFull || ldCaddRows;
 
     const ldCaddColumns = [
       "ld_rsid",
@@ -993,7 +995,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   /* ---------- LD-PARTNER eQTL TABLE ---------- */
-  function buildLdEqtlTable(ldEqtlRows) {
+  function buildLdEqtlTable(ldEqtlRows, ldEqtlRowsFull) {
     if (!ldEqtlRows || ldEqtlRows.length === 0) {
       return `
         <div class="result-header-row">
@@ -1002,7 +1004,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       `;
     }
     
-    lastLdEqtlData = ldEqtlRows;
+    lastLdEqtlData = ldEqtlRowsFull || ldEqtlRows;
 
     const ldEqtlColumns = [
       "ld_rsid",
@@ -1082,7 +1084,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   /* ---------- LD-PARTNER sQTL TABLE ---------- */
-  function buildLdSqtlTable(ldSqtlRows) {
+  function buildLdSqtlTable(ldSqtlRows, ldSqtlRowsFull) {
     if (!ldSqtlRows || ldSqtlRows.length === 0) {
       return `
         <div class="result-header-row">
@@ -1091,7 +1093,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       `;
     }
 
-    lastLdSqtlData = ldSqtlRows;
+    lastLdSqtlData = ldSqtlRowsFull || ldSqtlRows;
 
     const ldSqtlColumns = [
       "ld_rsid",
@@ -1617,16 +1619,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     `;
 
     // CADD table
-    const caddRows = data.cadd || [];
-    html += buildCaddTable(caddRows);
+    const caddRowsFull   = data.cadd || [];
+    const caddRowsDisplay = (data.cadd_top && data.cadd_top.length)
+      ? data.cadd_top
+      : caddRowsFull;
+    html += buildCaddTable(caddRowsDisplay, caddRowsFull);
 
     // eQTL table
-    const eqtlRows = data.eqtl || [];
-    html += buildEqtlTable(eqtlRows);
+    const eqtlRowsFull   = data.eqtl || [];
+    const eqtlRowsDisplay = (data.eqtl_top && data.eqtl_top.length)
+      ? data.eqtl_top
+      : eqtlRowsFull;
+    html += buildEqtlTable(eqtlRowsDisplay, eqtlRowsFull);
 
-    // sQTL table (below eQTL)
-    const sqtlRows = data.sqtl || [];
-    html += buildSqtlTable(sqtlRows);
+    // sQTL table
+    const sqtlRowsFull   = data.sqtl || [];
+    const sqtlRowsDisplay = (data.sqtl_top && data.sqtl_top.length)
+      ? data.sqtl_top
+      : sqtlRowsFull;
+    html += buildSqtlTable(sqtlRowsDisplay, sqtlRowsFull);
 
     // GWAS table
     const gwasRows = data.gwas || [];
@@ -1636,16 +1647,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     const ldRows = data.ld || [];
     html += `<hr class="section-separator">`;
     html += buildLdTable(ldRows);
-
+    
     // LD-partner annotations (CADD / eQTL / sQTL) at the very end
-    const ldCaddRows = data.ld_cadd || [];
-    const ldEqtlRows = data.ld_eqtl || [];
-    const ldSqtlRows = data.ld_sqtl || [];
+    const ldCaddFull   = data.ld_cadd || [];
+    const ldCaddDisplay = (data.ld_cadd_top && data.ld_cadd_top.length)
+      ? data.ld_cadd_top
+      : ldCaddFull;
+
+    const ldEqtlFull   = data.ld_eqtl || [];
+    const ldEqtlDisplay = (data.ld_eqtl_top && data.ld_eqtl_top.length)
+      ? data.ld_eqtl_top
+      : ldEqtlFull;
+
+    const ldSqtlFull   = data.ld_sqtl || [];
+    const ldSqtlDisplay = (data.ld_sqtl_top && data.ld_sqtl_top.length)
+      ? data.ld_sqtl_top
+      : ldSqtlFull;
 
     html += `<hr class="section-separator">`;
-    html += buildLdCaddTable(ldCaddRows);
-    html += buildLdEqtlTable(ldEqtlRows);
-    html += buildLdSqtlTable(ldSqtlRows);
+    html += buildLdCaddTable(ldCaddDisplay, ldCaddFull);
+    html += buildLdEqtlTable(ldEqtlDisplay, ldEqtlFull);
+    html += buildLdSqtlTable(ldSqtlDisplay, ldSqtlFull);
 
     resultContainer.innerHTML = html;
 

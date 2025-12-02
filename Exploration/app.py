@@ -36,6 +36,7 @@ import os
 from scipy.cluster.hierarchy import linkage, leaves_list
 from scipy.spatial.distance import squareform
 from ieugwaspy import api, query
+from datetime import timedelta
 import sqlite3
 import plotly.graph_objs as go
 from plotly.subplots import make_subplots
@@ -70,7 +71,16 @@ app.config['SESSION_TYPE'] = 'redis'
 app.config['SESSION_REDIS'] = redis.from_url('redis://localhost:6379')
 app.config['SESSION_USE_SIGNER'] = True
 app.config['SECRET_KEY'] = 'secret'
+# ✔ Set session timeout: 1 hour
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=1)
+app.config['SESSION_PERMANENT'] = True
 Session(app)
+
+# Ensure session is permanent
+@app.before_request
+def make_session_permanent():
+    session.permanent = True
+
 # Initialize Queues
 CONSOLE_QUEUES = {}
 # Register Blueprint
