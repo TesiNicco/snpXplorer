@@ -114,7 +114,7 @@ gene_col = genes_map.columns[0]
 genes_lower = genes_map[gene_col].astype(str).str.lower()
 
 # Helper for the SQlite database
-rsid_db_path = '%s/databases/Genes/variants_info.sqlite' %(Path(data_path))
+rsid_db_path = '%s/databases/Genes/variant_info.db' %(Path(data_path))
 def get_db():
     return sqlite3.connect(str(rsid_db_path))
 
@@ -288,22 +288,20 @@ def api_locus():
         conn = get_db()
         cur = conn.cursor()
         cur.execute("""
-            SELECT rsid, chr_hg38, position
-            FROM rsids
-            WHERE rsid LIKE ?
-            ORDER BY (rsid = ?) DESC,     -- exact match first
-                     LENGTH(rsid),        -- shorter (closer) IDs next (e.g. rs7412 before rs7412123)
-                     rsid
+            SELECT rsID, Chromosome, Position_hg38
+            FROM variant_info
+            WHERE rsID LIKE ?
+            ORDER BY (rsID = ?) DESC,     -- exact match first
+                    LENGTH(rsID),        -- shorter IDs next
+                    rsID
             LIMIT ? OFFSET ?
         """, (like, q, page_size + 1, offset))
         rows = cur.fetchall()
         conn.close()
-
         results = []
         for rsid, chrom, pos in rows[:page_size]:
             chrom_label = chrom if str(chrom).lower().startswith("chr") else f"chr{chrom}"
             results.append({"id": rsid, "text": f"{rsid} — {chrom_label}:{pos}"})
-
         return jsonify({"results": results, "pagination": {"more": len(rows) > page_size}})
     # Otherwise: gene name search (case-insensitive substring)
     # Filter in-memory; fast for ~27k names
@@ -370,7 +368,7 @@ def run_pipeline(console_id, formdata):
         logging.info("All good with readBrowseOption")
 
         publish("Gathering data of interest...", console_id)
-        df, df_info = get_data_plot(data_path=data_path, gwas=gwas, chrom=chrom, start_pos=start_pos, end_pos=end_pos, refGen=refGen, meta=meta)
+        df, df_info = get_data_plot(data_path=data_path, gwas=gwas, chrom=chrom, start_pos=start_pos, end_pos=end_pos, refGen=refGen, meta=meta, window=window)
         genes = extract_genes(data_path, chrom, start_pos, end_pos, refGen)
         svs, svs_df = extract_sv(data_path, chrom, start_pos, end_pos, refGen, svtypes)
         recomb_data = extract_recomb(data_path, chrom, start_pos, end_pos, refGen) if recomb == 'Yes' else "None"
@@ -1166,17 +1164,21 @@ def haplotype_detail():
         corr_vals = beta_corr
         traits = [f"T{i+1}" for i in range(corr_vals.shape[0])]
     # clustering
-    dist = 1 - corr_vals
-    # condensed form for linkage()
-    dist_condensed = squareform(dist, checks=False)
-    Z = linkage(dist_condensed, method="average")
-    # Order of items according to the dendrogram leaves
-    order = leaves_list(Z)
-    corr_clustered = corr_vals[np.ix_(order, order)]
-    # original trait labels (before wrapping)
-    traits_clustered = [traits[i] for i in order]
-    # wrap long trait names
-    traits_wrapped = [wrap_label(t, max_len=20) for t in traits_clustered]
+    if len(corr_vals) >1:
+        dist = 1 - corr_vals
+        # condensed form for linkage()
+        dist_condensed = squareform(dist, checks=False)
+        Z = linkage(dist_condensed, method="average")
+        # Order of items according to the dendrogram leaves
+        order = leaves_list(Z)
+        corr_clustered = corr_vals[np.ix_(order, order)]
+        # original trait labels (before wrapping)
+        traits_clustered = [traits[i] for i in order]
+        # shorten names and wrap long trait names
+        traits_wrapped = [t[:30] for t in traits_clustered]
+    else:
+        corr_clustered = corr_vals
+        traits_wrapped = [t[:30] for t in traits]
 
     # define palette
     custom_corr_colorscale = [[0.0,  "#4B0082"], [0.5,  "#FFFFFF"], [1.0,  "#B22222"]]

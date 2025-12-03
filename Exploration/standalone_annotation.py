@@ -24,7 +24,7 @@ import networkx as nx
 # Configuration
 # ---------------------------------------------------------
 DATA_PATH = Path("/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Data")
-DB_FILE = DATA_PATH / "databases/Genes/variants_info.sqlite"
+DB_FILE = DATA_PATH / "databases/Genes/variant_info.db"
 
 # Liftover object (hg19 → hg38)
 lifter = get_lifter("hg19", "hg38")
@@ -50,68 +50,47 @@ def sanitize_for_json(obj):
 # ---------------------------------------------------------
 # DB helper: lookup by rsID
 # ---------------------------------------------------------
-def lookup_by_rsid(rsid: str):
+def fetch_by_rsid(DB_FILE, rsid):
+    """
+    Query the SQLite database for a single rsID.
+    Returns a pandas DataFrame (can have 0, 1, or multiple rows).
+    """
     conn = sqlite3.connect(str(DB_FILE))
-    cur = conn.cursor()
-    cur.execute(
-        """
-        SELECT chr_hg38, position, position_hg19, marker_id, maf
-        FROM rsids
-        WHERE rsid = ?
-        LIMIT 1
-        """,
-        (rsid,),
-    )
-    row = cur.fetchone()
-    conn.close()
-    if row is None:
-        return None
-    chr_hg38, pos38, pos19, marker_id, maf = row
-    ref, alt = marker_id.split(":")[-2::]
-    return {
-        "query_type": "rsid",
-        "rsid": rsid,
-        "chr_hg38": chr_hg38,
-        "pos_hg38": pos38,
-        "pos_hg19": pos19,
-        "ref": ref,
-        "alt": alt,
-        "maf": maf,
-    }
+    query = """
+        SELECT *
+        FROM variant_info
+        WHERE rsID = ?
+    """
+    info = pd.read_sql_query(query, conn, params=(rsid,)).to_dict(orient="records")[0]
+    info['query_type'] = 'rsid'
+    try:
+        info['AF'] = round(float(info.get('AF')), 2)
+    except Exception:
+        info['AF'] = None
+    return {"query_type": "rsid", "rsid": rsid, "chr_hg38": info['Chromosome'], "pos_hg38": info['Position_hg38'], "pos_hg19": info['Position_hg19'], "ref": info['REF'], "alt": info['ALT'], "af": info['AF']}
 
 # ---------------------------------------------------------
 # DB helper: lookup by CHR + POS (hg38)
 # ---------------------------------------------------------
-def lookup_by_coord_hg38(chrom: str, pos38: int):
+def fetch_by_position(DB_FILE, chrom, pos38):
+    """
+    Query the SQLite database for a variant using chromosome and hg38 position.
+    Returns a pandas DataFrame.
+    """
     conn = sqlite3.connect(str(DB_FILE))
-    cur = conn.cursor()
-    cur.execute(
-        """
-        SELECT rsid, position_hg19, marker_id, maf
-        FROM rsids
-        WHERE chr_hg38 = ? AND position = ?
-        LIMIT 1
-        """,
-        (chrom, pos38),
-    )
-    row = cur.fetchone()
-    conn.close()
-    if row is None:
-        return None
-    rsid, pos19, marker_id, maf = row
-    ref, alt = marker_id.split(":")[-2::]
-    return {
-        "query_type": "coord",
-        "input_chr": chrom,
-        "input_pos_hg38": pos38,
-        "rsid": rsid,
-        "chr_hg38": chrom,
-        "pos_hg38": pos38,
-        "pos_hg19": pos19,
-        "ref": ref,
-        "alt": alt,
-        "maf": maf,
-    }
+    chrom = str(chrom).upper().replace("CHR", "")
+    query = """
+        SELECT *
+        FROM variant_info
+        WHERE Chromosome = ?
+          AND Position_hg38 = ?
+    """
+    info = pd.read_sql_query(query, conn, params=(str(chrom), int(pos38))).to_dict(orient="records")[0]
+    try:
+        info['AF'] = round(float(info.get('AF')), 2)
+    except Exception:
+        info['AF'] = None
+    return {"query_type": "coord", "input_chr": chrom, "input_pos_hg38": pos38, "rsid": info['rsID'], "chr_hg38": chrom, "pos_hg38": pos38, "pos_hg19": info['Position_hg19'], "ref": info['REF'], "alt": info['ALT'], "af": info['AF']}
 
 # ---------------------------------------------------------
 # Liftover wrapper using get_lifter()
@@ -341,7 +320,7 @@ def query_ld(chrom, pos38):
         # Lookup rsIDs for partners
         records = []
         for v in all_partner_positions:
-            info = lookup_by_coord_hg38(chrom, v)
+            info = fetch_by_position(DB_FILE, chrom, v)
             if info is not None:
                 records.append({"partner_pos": int(info["pos_hg38"]), "rsid": info["rsid"]})
         if records:
@@ -474,7 +453,7 @@ def run_variant_query(q: str, build: str = "hg38"):
             continue
         # rsID path
         if p["type"] == "rsid":
-            info = lookup_by_rsid(p["rsid"])
+            info = fetch_by_rsid(DB_FILE, p["rsid"])
             if info is None:
                 output[p['rsid']] = 'Error: rsID not found in DB'
             try:
@@ -517,7 +496,7 @@ def run_variant_query(q: str, build: str = "hg38"):
         chrom = p["chrom"]
         pos = p["pos"]
         if build == "hg38":
-            info = lookup_by_coord_hg38(chrom, pos)
+            info = fetch_by_position(DB_FILE, chrom, pos)
             if info is None:
                 output[p['query']] = 'Error: coordinate not found in DB'
                 continue
@@ -566,7 +545,7 @@ def run_variant_query(q: str, build: str = "hg38"):
                 output[p['query']] = 'Error: liftover failed from hg19 to hg38'
                 continue
             chr38, pos38 = lifted
-            info = lookup_by_coord_hg38(chr38, pos38)
+            info = fetch_by_position(DB_FILE, chr38, pos38)
             if info is None:
                 output[p['query']] = 'Error: coordinate not found in DB'
                 continue

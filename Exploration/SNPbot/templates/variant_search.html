@@ -248,7 +248,7 @@
       margin: 0;            /* no centering margin needed */
       max-height: 420px;
       overflow-y: auto;     /* vertical scroll ONLY */
-      overflow-x: hidden;   /* absolutely no horizontal scrollbars */
+      overflow-x: auto;   /* absolutely no horizontal scrollbars */
     }
 
     /* inside your snpbot template */
@@ -259,7 +259,7 @@
       font-size: 12px;
       background: #ffffff;
       border-radius: 12px;
-      overflow: hidden;
+      overflow: auto;
       table-layout: auto;
     }
 
@@ -430,7 +430,7 @@
   <div class="top-section">
     <!-- Search card -->
     <div class="search-card">
-      <h2 class="search-card-title">Search</h2>
+      <h3 class="search-card-title">Search</h3>
 
       <div class="search-row">
         <input
@@ -478,7 +478,7 @@
   <section class="result-section" id="result-section">
     <!-- Variant info header + download -->
     <div class="result-header-row">
-      <h3 class="result-subtitle">CADD annotation</h3>
+      <h3 class="result-subtitle">Variant information</h3>
       <button class="download-button" id="download-btn" onclick="downloadVariantTable()" disabled>
         ⬇ Download variant CSV
       </button>
@@ -638,7 +638,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // use (possibly truncated) caddRows for display
     let html = `
       <div class="result-header-row">
-        <h3 class="result-subtitle">CADD annotation (top 100)</h3>
+        <h3 class="result-subtitle">CADD annotation</h3>
         <button class="download-button" onclick="downloadCaddTable()">
           ⬇ Download CADD CSV
         </button>
@@ -699,7 +699,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     let html = `
       <div class="result-header-row">
-        <h3 class="result-subtitle">GWAS associations</h3>
+        <h3 class="result-subtitle">GWAS associations (top 100)</h3>
         <button class="download-button" onclick="downloadGwasTable()">⬇ Download GWAS CSV</button>
         <button class="download-button" onclick="downloadGwasForestSvg()">⬇ Download Forest SVG</button>
       </div>
@@ -786,7 +786,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     let html = `
       <div class="result-header-row">
-        <h3 class="result-subtitle">eQTL annotation</h3>
+        <h3 class="result-subtitle">eQTL annotation (top 100)</h3>
         <button class="download-button" onclick="downloadEqtlTable()">
           ⬇ Download eQTL CSV
         </button>
@@ -872,7 +872,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     let html = `
       <div class="result-header-row">
-        <h3 class="result-subtitle">sQTL annotation</h3>
+        <h3 class="result-subtitle">sQTL annotation (top 100)</h3>
         <button class="download-button" onclick="downloadSqtlTable()">
           ⬇ Download sQTL CSV
         </button>
@@ -1044,7 +1044,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     let html = `
       <div class="result-header-row">
-        <h3 class="result-subtitle">eQTL annotation for LD partners</h3>
+        <h3 class="result-subtitle">eQTL annotation for LD partners (top 100)</h3>
         <button class="download-button" onclick="downloadLdEqtlTable()">
           ⬇ Download LD-partner eQTL CSV
         </button>
@@ -1133,7 +1133,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     let html = `
       <div class="result-header-row">
-        <h3 class="result-subtitle">sQTL annotation for LD partners</h3>
+        <h3 class="result-subtitle">sQTL annotation for LD partners (top 100)</h3>
         <button class="download-button" onclick="downloadLdSqtlTable()">
           ⬇ Download LD-partner sQTL CSV
         </button>
@@ -1405,7 +1405,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       lastLdData = null;
       return `
         <div class="result-header-row">
-          <h3 class="result-subtitle">LD annotation</h3>
+          <h3 class="result-subtitle">LD annotation (top 100)</h3>
         </div>
         <p class="no-result-title">No LD found for this variant.</p>
       `;
@@ -1565,18 +1565,18 @@ document.addEventListener('DOMContentLoaded', async () => {
       "Position (hg19)",
       "REF allele",
       "ALT allele",
-      "MAF"
+      "ALT frequency"
     ];
 
     const rowValues = [
       data.query_type || "",
-      data.rsid || "",
-      data.chr_hg38 || "",
-      (data.pos_hg38 !== undefined && data.pos_hg38 !== null) ? data.pos_hg38 : "",
-      (data.pos_hg19 !== undefined && data.pos_hg19 !== null) ? data.pos_hg19 : "",
-      data.ref || "",
-      data.alt || "",
-      (data.maf !== undefined && data.maf !== null) ? data.maf : ""
+      data.rsID || "",
+      data.Chromosome || "",
+      (data.Position_hg38 !== undefined && data.Position_hg38 !== null) ? data.Position_hg38 : "",
+      (data.Position_hg19 !== undefined && data.Position_hg19 !== null) ? data.Position_hg19 : "",
+      data.REF || "",
+      data.ALT || "",
+      (data.AF !== undefined && data.AF !== null) ? data.AF : ""
     ];
 
     // store for variant download

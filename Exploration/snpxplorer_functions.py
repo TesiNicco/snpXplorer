@@ -675,36 +675,36 @@ def query_cadd_score(snps, data_path):
         return []
 
 # function to get rsid from position
-def lookup_by_coord_hg38(chrom, pos38):
-    DB_FILE = "%s/databases/Genes/variants_info.sqlite" % (data_path)
+def fetch_by_position(chrom, pos38):
+    """
+    Query the SQLite database for a variant using chromosome and hg38 position.
+    Returns a pandas DataFrame.
+    """
+    DB_FILE = "%s/databases/Genes/variant_info.db" % (data_path)
     conn = sqlite3.connect(str(DB_FILE))
-    cur = conn.cursor()
-    cur.execute(
-        """
-        SELECT rsid, position_hg19, marker_id, maf
-        FROM rsids
-        WHERE chr_hg38 = ? AND position = ?
-        LIMIT 1
-        """,
-        (chrom, pos38),
-    )
-    row = cur.fetchone()
-    conn.close()
-    if row is None:
-        return None
-    rsid, pos19, marker_id, maf = row
-    ref, alt = marker_id.split(":")[-2::]
+    chrom = str(chrom).upper().replace("CHR", "")
+    query = """
+        SELECT *
+        FROM variant_info
+        WHERE Chromosome = ?
+          AND Position_hg38 = ?
+    """
+    info = pd.read_sql_query(query, conn, params=(str(chrom), int(pos38))).to_dict(orient="records")[0]
+    try:
+        info['AF'] = round(float(info.get('AF')), 2)
+    except Exception:
+        info['AF'] = None
     return {
         "query_type": "coord",
         "input_chr": chrom,
         "input_pos_hg38": pos38,
-        "rsid": rsid,
+        "rsid": info['rsID'],
         "chr_hg38": chrom,
         "pos_hg38": pos38,
-        "pos_hg19": pos19,
-        "ref": ref,
-        "alt": alt,
-        "maf": maf,
+        "pos_hg19": info['Position_hg19'],
+        "ref": info['REF'],
+        "alt": info['ALT'],
+        "maf": info['AF'],
     }
 
 # function to get LD between SNPs
@@ -716,7 +716,7 @@ def get_ld_between_snps(snps, data_path, chrom):
     # get rsids for the SNPs
     rsids_list = {}
     for snp in snp_positions:
-        rsid_info = lookup_by_coord_hg38('chr' + chr, snp)
+        rsid_info = fetch_by_position('chr' + chr, snp)
         rsids_list[snp] = rsid_info['rsid'] if rsid_info else 'NA'
     # convert to dataframe
     rsids_df = pd.DataFrame.from_dict(rsids_list, orient='index', columns=['rsid']).reset_index().rename(columns={'index': 'position'})
@@ -1205,6 +1205,27 @@ def check_runID(run_id):
             messageToUser = 'Not valid Run ID. Try again.'
     return messageError, messageToUser
 
+# function to fetch by rsid
+def fetch_by_rsid(rsid):
+    """
+    Query the SQLite database for a single rsID.
+    Returns a pandas DataFrame (can have 0, 1, or multiple rows).
+    """
+    DB_FILE = "%s/databases/Genes/variant_info.db" % (data_path)
+    conn = sqlite3.connect(str(DB_FILE))
+    query = """
+        SELECT *
+        FROM variant_info
+        WHERE rsID = ?
+    """
+    info = pd.read_sql_query(query, conn, params=(rsid,)).to_dict(orient="records")[0]
+    info['query_type'] = 'rsid'
+    try:
+        info['AF'] = round(float(info.get('AF')), 2)
+    except Exception:
+        info['AF'] = None
+    return info
+
 # function to extract coordinates based on input type
 def readBrowseOption(data_path, browse, window, refGen):
     # check if input is in the form 1:100000
@@ -1213,17 +1234,8 @@ def readBrowseOption(data_path, browse, window, refGen):
     elif ':' in browse and '-' in browse:
         chrom, start_pos, end_pos, browse_type = int(browse.split(':')[0]), int(browse.split(':')[1].split('-')[0]) - window, int(browse.split(':')[1].split('-')[1]) + window, 'Interval'
     elif browse.lower().startswith("rs"):   # user picked an rsID
-        conn = sqlite3.connect(f"{data_path}/databases/Genes/variants_info.sqlite")
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT chr_hg38, position, position_hg19
-            FROM rsids
-            WHERE rsid = ?
-            LIMIT 1
-        """, (browse,))
-        row = cur.fetchone()
-        conn.close()
-        chrom, pos_hg38, pos_hg19 = row[0], row[1], row[2]
+        tmp_info = fetch_by_rsid(browse.replace(' ', '').split()[0])
+        chrom, pos_hg38, pos_hg19 = tmp_info['Chromosome'], tmp_info['Position_hg38'], tmp_info['Position_hg19']
         if refGen == 'GRCh37':
             start_pos, end_pos = int(pos_hg19) - window, int(pos_hg19) + window
         else:
@@ -1306,18 +1318,24 @@ def liftover_sumstats(sumstats, from_build, to_build):
     return sumstats
 
 # function to get data to plot given the gwas name, chromosome, start and end position
-def get_data_plot(data_path, gwas, chrom, start_pos, end_pos, refGen, meta):
+def get_data_plot(data_path, gwas, chrom, start_pos, end_pos, refGen, meta, window):
     # define region to look at
     if refGen == 'GRCh37':
         # set liftover
         liftover_info = get_lifter('hg19', 'hg38')
         region = '%s:%s-%s' %(str(chrom).replace('chr', ''), str(start_pos), str(end_pos))
-        region_hg38 = '%s:%s-%s' %(str(chrom).replace('chr', ''), str(liftover_info[chrom][start_pos][0][1]), str(liftover_info[chrom][end_pos][0][1]))
+        try:
+            region_hg38 = '%s:%s-%s' %(str(chrom).replace('chr', ''), str(liftover_info[chrom][start_pos][0][1]), str(liftover_info[chrom][end_pos][0][1]))
+        except:
+            region_hg38 = '%s:%s-%s' %(str(chrom).replace('chr', ''), str(liftover_info[chrom][start_pos][0][1]), str(liftover_info[chrom][start_pos][0][1] + window))
     else:
         # set liftover
         liftover_info = get_lifter('hg38', 'hg19')
         region_hg38 = '%s:%s-%s' %(str(chrom), str(start_pos), str(end_pos))
-        region = '%s:%s-%s' %(str(chrom), str(liftover_info[chrom][start_pos][0][1]), str(liftover_info[chrom][end_pos][0][1]))
+        try:
+            region = '%s:%s-%s' %(str(chrom), str(liftover_info[chrom][start_pos][0][1]), str(liftover_info[chrom][end_pos][0][1]))
+        except:
+            region = '%s:%s-%s' %(str(chrom), str(liftover_info[chrom][start_pos][0][1]), str(liftover_info[chrom][start_pos][0][1] + window))
         region = region.upper().replace('CHR', '')
     # get gwas info
     data_list = pd.DataFrame()
@@ -1874,7 +1892,7 @@ def scatterplot_plotly(df, chrom, start_pos, end_pos, gwas, genes, svs, browse_t
         if not subset_rsid.empty:
             colors = normalize_color(list(subset_rsid['Gwas'].map(color_map)))
             fig.add_trace(
-                go.Scatter(
+                go.Scattergl(
                     x=subset_rsid['Position_plot'],
                     y=subset_rsid[yaxis_interest],
                     mode='markers',
