@@ -17,7 +17,7 @@ watchdog
 scikit-learn
 ieugwaspy
 polars
-gprofiler
+gprofiler-official
 pygosemsim
 wordcloud
 plotly
