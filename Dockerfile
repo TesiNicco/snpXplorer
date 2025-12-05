@@ -4,73 +4,55 @@ FROM python:3.8-slim-buster
 
 WORKDIR /
 
-# Install required system packages by Python 3.9 (including Tabix)
+# System packages: Python tooling, tabix, Redis, R deps
 RUN apt-get update \
     && apt-get install -y \
-	wget \
-	tabix \
-	redis-server \
-	sed \
-	procps \
-	git \
-        && apt-get clean \
-        && rm -rf /var/lib/apt/lists/*
+        wget \
+        tabix \
+        redis-server \
+        sed \
+        procps \
+        git \
+        gnupg2 \
+        software-properties-common \
+        libcurl4-openssl-dev \
+        libxml2-dev \
+        libssl-dev \
+        libfontconfig1-dev \
+        libfreetype6-dev \
+        libpng-dev \
+        libtiff5-dev \
+        libjpeg-dev \
+        libfribidi-dev \
+        libharfbuzz-dev \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
+# Python deps
 COPY requirements.txt requirements.txt
-RUN pip3 install -r requirements.txt
+RUN pip3 install --no-cache-dir -r requirements.txt
 
-# Link phantomjs
-RUN ln -s /Exploration/phantomjs /usr/local/bin
-
-# Install other system packages for R
-#RUN apt-get update \
-#    && apt-get install -y \
-#	gnupg2 \
-#	software-properties-common \
-#	libcurl4-openssl-dev \
-#	libxml2-dev \
-#	openjdk-11-jdk \
-#	libssl-dev \
-#	libfontconfig1-dev \
-#	libfreetype6-dev \
-#	libpng-dev \
-#	libtiff5-dev \
-#	libjpeg-dev \
-#	libfribidi-dev \
-#	libharfbuzz-dev \
-#	&& apt-get clean \
-#	&& rm -rf /var/lib/apt/lists/*
-
-# Add CRAN GPG key
-#RUN apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys B8F25A8A73EACF41
-
-# Add CRAN repository
-#RUN echo "deb https://cloud.r-project.org/bin/linux/debian buster-cran40/" >> /etc/apt/sources.list
-
-# Install R
-#RUN apt-get update \
-#    && apt-get install -y r-base
-
-# Set JAVA_HOME environment variable -- uncomment
-#RUN R CMD javareconf && Rscript -e "install.packages('rJava', repos='http://cran.rstudio.com/')"
-
-# Install additional R packages -- uncomment
-#RUN Rscript -e "install.packages(c('RCurl', 'data.table', 'stringr', 'parallel', 'ggplot2', 'BiocManager', 'mailR', 'bedr', 'grDevices', 'plyr', 'viridis', 'ggplot2', 'plotrix', 'pheatmap', 'dynamicTreeCut', 'dendextend', 'RColorBrewer', 'htmlwidgets', 'wordcloud2', 'tidytext', 'dplyr', 'webshot', 'tibble', 'devtools', 'ggsci', 'circlize'), verbose=F, repos='http://cran.rstudio.com/')"
-
-# Install some packages through bioconductor -- uncomment
-#RUN R -e "BiocManager::install(c('GenomicRanges', 'rtracklayer', 'LDlinkR', 'gprofiler2'))"
-#RUN R -e "devtools::install_github('JosephCrispell/basicPlotteR')"
-
-# Copy the rest of your application files
+# Copy app
 COPY Exploration /Exploration
+
+# Add CRAN GPG key & repo
+RUN apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys B8F25A8A73EACF41 \
+    && echo "deb https://cloud.r-project.org/bin/linux/debian buster-cran40/" >> /etc/apt/sources.list \
+    && apt-get update \
+    && apt-get install -y r-base \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# R packages
+RUN Rscript -e "install.packages(c('dynamicTreeCut', 'argparse', 'viridis', 'dendextend', 'pheatmap', 'data.table', 'RColorBrewer', 'circlize', 'plotrix'), repos='http://cran.rstudio.com()', quiet=TRUE)"
 
 # Expose Redis port
 EXPOSE 6379
 
-# Set environment variables
+# Env
 ENV FLASK_APP=Exploration/app.py
 
+# Start Redis + Flask
 # Specify the command to run when the container starts
 CMD service redis-server start && python3 -m flask run --host=82.165.237.220 -p 8007
 #CMD python3 -m flask run --host=82.165.237.220 -p 8001

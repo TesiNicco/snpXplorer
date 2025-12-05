@@ -12,13 +12,20 @@ import argparse
 from gprofiler import GProfiler
 import plotly.graph_objects as go
 import sys
+import numpy as np
+import os
 import pickle
 import random
 from functools import reduce
 from pygosemsim import download
 from pygosemsim import graph
 from pygosemsim import similarity
+from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
+from sklearn.manifold import MDS
 import networkx as nx
+from wordcloud import WordCloud
+import matplotlib.pyplot as plt
+from collections import Counter
 
 # ---------------------------------------------------------
 # Configuration
@@ -167,7 +174,7 @@ def query_cadd_score(chrom, pos38):
 # ---------------------------------------------------------
 # Query eQTLs
 # ---------------------------------------------------------
-def query_eqtls(chrom, pos38):
+def query_eqtls(chrom, pos38, qtl_tissues):
     """
     Query eQTL annotation for a given hg38 chromosome and position.
     Returns a list of dictionaries (JSON-serializable).
@@ -199,6 +206,8 @@ def query_eqtls(chrom, pos38):
             "pval_nominal",
             "slope",
         ]
+        if 'all' not in qtl_tissues:
+            df = df[df['tissue'].isin(qtl_tissues)]
         return df.to_dict(orient="records")
     except Exception:
         return []
@@ -206,7 +215,7 @@ def query_eqtls(chrom, pos38):
 # ---------------------------------------------------------
 # Query sQTLs
 # ---------------------------------------------------------
-def query_sqtls(chrom, pos38):
+def query_sqtls(chrom, pos38, qtl_tissues):
     """
     Query sQTL annotation for a given hg38 chromosome and position.
     Returns a list of dictionaries (JSON-serializable).
@@ -238,6 +247,8 @@ def query_sqtls(chrom, pos38):
             "pval_nominal",
             "slope",
         ]
+        if 'all' not in qtl_tissues:
+            df = df[df['tissue'].isin(qtl_tissues)]
         return df.to_dict(orient="records")
     except Exception:
         return []
@@ -388,7 +399,7 @@ def query_gwas_associations(chrom, pos38):
 # ---------------------------------------------------------
 # Helper for annotating LD partners with CADD, eQTL, sQTL
 # ---------------------------------------------------------
-def annotate_ld_partners(chrom, ld_rows, pos38):
+def annotate_ld_partners(chrom, ld_rows, pos38, qtl_tissues):
     """
     For each LD partner, query CADD / eQTL / sQTL and flatten results.
     Returns three lists of dicts: (ld_cadd, ld_eqtl, ld_sqtl).
@@ -414,7 +425,7 @@ def annotate_ld_partners(chrom, ld_rows, pos38):
             r['ld_query_pos'] = pos38
             ld_cadd.append(r)
         # eQTL for partner
-        eqtl_rows = query_eqtls(chrom_clean, partner_pos)
+        eqtl_rows = query_eqtls(chrom_clean, partner_pos, qtl_tissues)
         for row in eqtl_rows:
             r = dict(row)
             r["ld_partner_pos"] = partner_pos
@@ -424,7 +435,7 @@ def annotate_ld_partners(chrom, ld_rows, pos38):
             r['ld_query_pos'] = pos38
             ld_eqtl.append(r)
         # sQTL for partner
-        sqtl_rows = query_sqtls(chrom_clean, partner_pos)
+        sqtl_rows = query_sqtls(chrom_clean, partner_pos, qtl_tissues)
         for row in sqtl_rows:
             r = dict(row)
             r["ld_partner_pos"] = partner_pos
@@ -438,7 +449,7 @@ def annotate_ld_partners(chrom, ld_rows, pos38):
 # ---------------------------------------------------------
 # Core logic for querying a variant
 # ---------------------------------------------------------
-def run_variant_query(q: str, build: str = "hg38"):
+def run_variant_query(q: str, build: str = "hg38", qtl_tissues: List[str] = ["all"]):
     print(f"Running variant query for: {q} (build={build})", file=sys.stderr, flush=True)
     # Parse query
     parsed = parse_variant_query(q)
@@ -462,16 +473,16 @@ def run_variant_query(q: str, build: str = "hg38"):
                 # Add CADD annotation
                 cadd_dic = query_cadd_score(chr38, pos38)
                 # Add eQTL annotation
-                eqtl_dic = query_eqtls(chr38, pos38)
+                eqtl_dic = query_eqtls(chr38, pos38, qtl_tissues)
                 # Add sQTL annotation
-                sqtl_dic = query_sqtls(chr38, pos38)
+                sqtl_dic = query_sqtls(chr38, pos38, qtl_tissues)
                 # Add LD annotation
                 ld_dic, all_vars = query_ld(chr38, pos38)
                 # Add GWAS associations
                 gwas_dic = query_gwas_associations(chr38, pos38)
                 # CADD / eQTL / sQTL for all LD partners
                 if ld_dic:
-                    ld_cadd, ld_eqtl, ld_sqtl = annotate_ld_partners(chr38, ld_dic, pos38)
+                    ld_cadd, ld_eqtl, ld_sqtl = annotate_ld_partners(chr38, ld_dic, pos38, qtl_tissues)
                 else:
                     ld_cadd, ld_eqtl, ld_sqtl = None, None, None
             except Exception:
@@ -506,16 +517,16 @@ def run_variant_query(q: str, build: str = "hg38"):
                 # Add CADD annotation
                 cadd_dic = query_cadd_score(chr38, pos38)
                 # Add eQTL annotation
-                eqtl_dic = query_eqtls(chr38, pos38)
+                eqtl_dic = query_eqtls(chr38, pos38, qtl_tissues)
                 # Add sQTL annotation
-                sqtl_dic = query_sqtls(chr38, pos38)
+                sqtl_dic = query_sqtls(chr38, pos38, qtl_tissues)
                 # Add LD annotation
                 ld_dic, all_vars = query_ld(chr38, pos38)
                 # Add GWAS associations
                 gwas_dic = query_gwas_associations(chr38, pos38)
                 # CADD / eQTL / sQTL for all LD partners
                 if ld_dic:
-                    ld_cadd, ld_eqtl, ld_sqtl = annotate_ld_partners(chr38, ld_dic, pos38)
+                    ld_cadd, ld_eqtl, ld_sqtl = annotate_ld_partners(chr38, ld_dic, pos38, qtl_tissues)
                 else:
                     ld_cadd, ld_eqtl, ld_sqtl = None, None, None
             except Exception:
@@ -554,16 +565,16 @@ def run_variant_query(q: str, build: str = "hg38"):
                 # Add CADD annotation based on hg38 location
                 cadd_dic = query_cadd_score(chr38, pos38)
                 # Add eQTL annotation based on hg38 location
-                eqtl_dic = query_eqtls(chr38, pos38)
+                eqtl_dic = query_eqtls(chr38, pos38, qtl_tissues)
                 # Add sQTL annotation based on hg38 location
-                sqtl_dic = query_sqtls(chr38, pos38)
+                sqtl_dic = query_sqtls(chr38, pos38, qtl_tissues)
                 # Add LD annotation based on hg38 location
                 ld_dic, all_vars = query_ld(chr38, pos38)
                 # Add GWAS associations
                 gwas_dic = query_gwas_associations(chr38, pos38)
                 # CADD / eQTL / sQTL for all LD partners
                 if ld_dic:
-                    ld_cadd, ld_eqtl, ld_sqtl = annotate_ld_partners(chr38, ld_dic, pos38)
+                    ld_cadd, ld_eqtl, ld_sqtl = annotate_ld_partners(chr38, ld_dic, pos38, qtl_tissues)
                 else:
                     ld_cadd, ld_eqtl, ld_sqtl = None, None, None
             except Exception:
@@ -648,6 +659,8 @@ def closest_gene(query_info):
         return []
     df = pd.read_csv(io.StringIO(output), sep="\t", header=None)
     df.columns = ["transcript_id", "chrom", "strand", "tx_start", "tx_end", "cds_start", "cds_end", "exon_num", "exon_start", "exon_end", "gene_symbol"]
+    # remove genes starting with LIN or LOC
+    df = df[~df["gene_symbol"].str.startswith(("LINC", "LOC"))]
     # add gene size
     df["gene_size"] = df["tx_end"] - df["tx_start"]
     # remove duplicates based on gene_symbol, keeping the longest gene
@@ -670,6 +683,8 @@ def identify_most_likely_gene(info: dict):
     for snp in info.keys():
         # Extract dataframes
         info_df, cadd_df, eqtl_df, sqtl_df, ld_df, gwas_df, ld_cadd_df, ld_eqtl_df, ld_sqtl_df = convert_info_dict_to_dfs({snp: info[snp]})
+        # Get rsid
+        rsid = info_df["rsid"].values[0]
         # First check if variant is coding in CADD
         coding_rows = cadd_df[cadd_df["annotypes"].str.contains("coding", case=False, na=False)]
         coding_rows = coding_rows[~coding_rows["annotypes"].str.contains("noncoding", case=False, na=False)]
@@ -679,23 +694,32 @@ def identify_most_likely_gene(info: dict):
             genes = [gene for sublist in genes for gene in sublist]  # flatten
             # unique genes
             genes = list(set(genes))
-            likely_genes[snp] = {'genes': genes, 'source': 'coding'}
-            continue
+            if len(genes) >0:
+                likely_genes[rsid] = {'genes': genes, 'source': 'coding'}
+                continue
+            else:
+                cadd_genes = cadd_df["genes"].dropna().unique().tolist()
         else:
             cadd_genes = cadd_df["genes"].dropna().unique().tolist()
         # Check variants in LD for coding impact
-        coding_ld_rows = ld_cadd_df[ld_cadd_df["annotypes"].str.contains("coding", case=False, na=False)]
-        coding_ld_rows = coding_ld_rows[~coding_ld_rows["annotypes"].str.contains("noncoding", case=False, na=False)]
-        cadd_ld_genes = []
-        if not coding_ld_rows.empty:
-            genes = [x.split(';') for x in coding_ld_rows["genes"].unique().tolist()]
-            genes = [gene for sublist in genes for gene in sublist]  # flatten
-            # unique genes
-            genes = list(set(genes))
-            likely_genes[snp] = {'genes': genes, 'source': 'coding_ld'}
-            continue
+        coding_ld_rows = pd.DataFrame()
+        if not ld_cadd_df.empty:
+            coding_ld_rows = ld_cadd_df[ld_cadd_df["annotypes"].str.contains("coding", case=False, na=False)]
+            coding_ld_rows = coding_ld_rows[~coding_ld_rows["annotypes"].str.contains("noncoding", case=False, na=False)]
+            if not coding_ld_rows.empty:
+                genes = [x.split(';') for x in coding_ld_rows["genes"].unique().tolist()]
+                genes = [gene for sublist in genes for gene in sublist]  # flatten
+                # unique genes
+                genes = list(set(genes))
+                if len(genes) >0:
+                    likely_genes[rsid] = {'genes': genes, 'source': 'coding_ld'}
+                    continue
+                else:
+                    cadd_ld_genes = ld_cadd_df["genes"].dropna().unique().tolist()
+            else:
+                cadd_ld_genes = ld_cadd_df["genes"].dropna().unique().tolist()
         else:
-            cadd_ld_genes = ld_cadd_df["genes"].dropna().unique().tolist()
+            cadd_ld_genes = []
         # Next check QTLs
         if not eqtl_df.empty or not sqtl_df.empty:
             eqtl_genes = []
@@ -705,8 +729,9 @@ def identify_most_likely_gene(info: dict):
             if not sqtl_df.empty:
                 sqtl_genes = sqtl_df["gene"].dropna().unique().tolist()
             qtl_combined = list(set(eqtl_genes + sqtl_genes + cadd_genes))
-            likely_genes[snp] = {'genes': qtl_combined, 'source': 'qtl_query'}
-            continue
+            if len(qtl_combined) >0:
+                likely_genes[rsid] = {'genes': qtl_combined, 'source': 'qtl_query'}
+                continue
         # Next check LD QTLs
         if not ld_eqtl_df.empty or not ld_sqtl_df.empty:
             ld_eqtl_genes = []
@@ -716,10 +741,11 @@ def identify_most_likely_gene(info: dict):
             if not ld_sqtl_df.empty:
                 ld_sqtl_genes = ld_sqtl_df["gene"].dropna().unique().tolist()
             ld_qtl_combined = list(set(ld_eqtl_genes + ld_sqtl_genes + cadd_ld_genes))
-            likely_genes[snp] = {'genes': ld_qtl_combined, 'source': 'qtl_ld'}
-            continue
+            if len(ld_qtl_combined) >0:
+                likely_genes[rsid] = {'genes': ld_qtl_combined, 'source': 'qtl_ld'}
+                continue
         # If none of the above, return closest gene (placeholder)
-        likely_genes[snp] = {'genes': closest_gene(cadd_df), 'source': 'closest_gene'}
+        likely_genes[rsid] = {'genes': closest_gene(cadd_df), 'source': 'closest_gene'}
     # Convert to dataframe
     likely_genes_df = pd.DataFrame.from_dict(likely_genes, orient='index')
     likely_genes_df['query'] = likely_genes_df.index
@@ -753,6 +779,108 @@ def convert_info_dict_to_dfs(info: dict):
     return info_df, cadd_df, eqtl_df, sqtl_df, ld_df, gwas_df, ld_cadd_df, ld_eqtl_df, ld_sqtl_df
 
 # ---------------------------------------------------------
+# Merge tables
+# ---------------------------------------------------------
+def merge_info(info_df, cadd_df, eqtl_df, sqtl_df, ld_df, gwas_df, ld_cadd_df, ld_eqtl_df, ld_sqtl_df, most_likely_gene, enrichment_df):
+    # Return empty DF if info_df is empty
+    if info_df.empty:
+        return pd.DataFrame()
+    # Rename info_df columns
+    info_df_renamed = info_df.rename(columns={"query_type": "Query Type", "rsid": "RsID", "chr_hg38": "Chromosome", "pos_hg38": "Position (hg38)", "pos_hg19": "Position (hg19)", "ref": "Reference", "alt": "Alternative", "af": "Alternative Allele Frequency"}).reset_index(drop=True)
+    # Add locus ID as chrom:pos:alleles (alleles are alphabetically ordered)
+    info_df_renamed['Locus ID'] = info_df_renamed['Chromosome'].astype(str) + ":" + info_df_renamed['Position (hg38)'].astype(str) + ":" + info_df_renamed[['Reference', 'Alternative']].apply(lambda row: ':'.join(sorted([str(row['Reference']), str(row['Alternative'])])), axis=1)
+    # Check if cadd_df is empty
+    if cadd_df.empty:
+        cadd_df_renamed = pd.DataFrame(columns=["Locus ID", "CADD Reference", "CADD Alternative", "CADD Score", "CADD Genes", "CADD Annotation Types", "CADD Consequences", "CADD CpG Max", "CADD GC Max", "CADD H3K27ac Max", "CADD H3K4me3 Max", "CADD DNase Max", "CADD SpliceAI Acc Loss Max", "CADD SpliceAI Don Loss Max", "CADD SIFT Max", "CADD PolyPhen Max", "CADD GERPRS Max", "CADD PhyloP Max"])
+    else:
+        # Rename cadd_df columns
+        cadd_df_renamed = cadd_df.rename(columns={"ref": "CADD Reference", "alt": "CADD Alternative", "phred_max": "CADD Score", "genes": "CADD Genes", "annotypes": "CADD Annotation Types", "consequences": "CADD Consequences", "cpg_max": "CADD CpG Max", "gc_max": "CADD GC Max", "h3k27ac_max": "CADD H3K27ac Max", "h3k4me3_max": "CADD H3K4me3 Max", "dnase_max": "CADD DNase Max", "spliceai_acc_loss_max": "CADD SpliceAI Acc Loss Max", "spliceai_don_loss_max": "CADD SpliceAI Don Loss Max", "siftval_max": "CADD SIFT Max", "polyphenval_max": "CADD PolyPhen Max", "gerprs_max": "CADD GERPRS Max", "priphyloP_max": "CADD PhyloP Max"}).reset_index(drop=True)
+        # Add locus ID to cadd_df
+        cadd_df_renamed['Locus ID'] = cadd_df_renamed['chrom'].astype(str) + ":" + cadd_df_renamed['pos'].astype(str) + ":" + cadd_df_renamed[['CADD Reference', 'CADD Alternative']].apply(lambda row: ':'.join(sorted([str(row['CADD Reference']), str(row['CADD Alternative'])])), axis=1)
+        cadd_df_renamed = cadd_df_renamed.drop(columns=['chrom', 'pos'])
+        # Sort by phred score descending
+        cadd_df_renamed = cadd_df_renamed.sort_values(by='CADD Score', ascending=False).reset_index(drop=True)
+        # Remove duplicate locus IDs, keeping highest CADD score
+        cadd_df_renamed = cadd_df_renamed.drop_duplicates(subset=['Locus ID'])
+    # Merge info_df and cadd_df on Locus ID
+    info_cadd_df = pd.merge(info_df_renamed, cadd_df_renamed, on='Locus ID', how='left')
+    # Check if eqtl_df is empty
+    if eqtl_df.empty:
+        eqtl_grouped = pd.DataFrame(columns=["Locus ID", "eQTL Reference", "eQTL Alternative", "eQTL ensemble", "eQTL Gene", "eQTL Tissue", "eQTL TSS Distance", "eQTL P-value", "eQTL Slope", "eQTL MAF"])
+        eqtl_df_renamed = eqtl_grouped
+    else:
+        # Rename eqtl_df columns
+        eqtl_df_renamed = eqtl_df.rename(columns={"ref": "eQTL Reference", "alt": "eQTL Alternative", "ensemble": "eQTL ensemble", "gene": "eQTL Gene", "tissue": "eQTL Tissue", "tss_distance": "eQTL TSS Distance", "pval_nominal": "eQTL P-value", "slope": "eQTL Slope", "maf": "eQTL MAF"}).reset_index(drop=True)
+        # Add locus ID to eqtl_df
+        eqtl_df_renamed['Locus ID'] = eqtl_df_renamed['chrom'].astype(str) + ":" + eqtl_df_renamed['pos'].astype(str) + ":" + eqtl_df_renamed[['eQTL Reference', 'eQTL Alternative']].apply(lambda row: ':'.join(sorted([str(row['eQTL Reference']), str(row['eQTL Alternative'])])), axis=1)
+        # Compress multiple eQTLs per locus into lists
+        eqtl_grouped = eqtl_df_renamed.groupby('Locus ID').agg({'eQTL ensemble': lambda x: ','.join(x.dropna().astype(str)), 'eQTL Gene': lambda x: ','.join(x.dropna().astype(str)), 'eQTL Tissue': lambda x: ','.join(x.dropna().astype(str)), 'eQTL TSS Distance': lambda x: ','.join(x.dropna().astype(str)), 'eQTL P-value': lambda x: ','.join(x.dropna().astype(str)), 'eQTL Slope': lambda x: ','.join(x.dropna().astype(str)), 'eQTL MAF': lambda x: ','.join(x.dropna().astype(str))}).reset_index()
+        # Drop chrom and pos columns from eqtl_df
+        eqtl_grouped = eqtl_grouped.drop(columns=['chrom', 'pos'], errors='ignore')
+    # Merge info_cadd_df and eqtl_grouped on Locus ID
+    info_cadd_eqtl_df = pd.merge(info_cadd_df, eqtl_grouped, on='Locus ID', how='left')
+    # Check if sqtl_df is empty
+    if sqtl_df.empty:
+        sqtl_grouped = pd.DataFrame(columns=["Locus ID", "sQTL Reference", "sQTL Alternative", "sQTL ensemble", "sQTL Gene", "sQTL Tissue", "sQTL TSS Distance", "sQTL P-value", "sQTL Slope", "sQTL MAF"])
+        sqtl_df_renamed = sqtl_grouped
+    else:
+        # Similarly process sqtl_df
+        sqtl_df_renamed = sqtl_df.rename(columns={"ref": "sQTL Reference", "alt": "sQTL Alternative", "ensemble": "sQTL ensemble", "gene": "sQTL Gene", "tissue": "sQTL Tissue", "tss_distance": "sQTL TSS Distance", "pval_nominal": "sQTL P-value", "slope": "sQTL Slope", "maf": "sQTL MAF"}).reset_index(drop=True)
+        # Add locus ID to sqtl_df
+        sqtl_df_renamed['Locus ID'] = sqtl_df_renamed['chrom'].astype(str) + ":" + sqtl_df_renamed['pos'].astype(str) + ":" + sqtl_df_renamed[['sQTL Reference', 'sQTL Alternative']].apply(lambda row: ':'.join(sorted([str(row['sQTL Reference']), str(row['sQTL Alternative'])])), axis=1)
+        # Compress multiple sQTL
+        sqtl_grouped = sqtl_df_renamed.groupby('Locus ID').agg({'sQTL ensemble': lambda x: ','.join(x.dropna().astype(str)), 'sQTL Gene': lambda x: ','.join(x.dropna().astype(str)), 'sQTL Tissue': lambda x: ','.join(x.dropna().astype(str)), 'sQTL TSS Distance': lambda x: ','.join(x.dropna().astype(str)), 'sQTL P-value': lambda x: ','.join(x.dropna().astype(str)), 'sQTL Slope': lambda x: ','.join(x.dropna().astype(str)), 'sQTL MAF': lambda x: ','.join(x.dropna().astype(str))}).reset_index()
+        # Drop chrom and pos columns from sqtl_df
+        sqtl_grouped = sqtl_grouped.drop(columns=['chrom', 'pos'], errors='ignore')
+    # Merge with previous
+    merged_df = pd.merge(info_cadd_eqtl_df, sqtl_grouped, on='Locus ID', how='left')
+    # Check if most_likely_gene is empty
+    if most_likely_gene.empty:
+        most_likely_gene_renamed = pd.DataFrame(columns=["RsID", "Most Likely Genes", "Source"])
+    else:
+        most_likely_gene_renamed = most_likely_gene.rename(columns={"query": "RsID", "genes": "Most Likely Genes", "source": "Source"}).reset_index(drop=True)
+        most_likely_gene_renamed['Most Likely Genes'] = most_likely_gene_renamed['Most Likely Genes'].apply(lambda x: ','.join(x) if isinstance(x, list) else x)
+    # Merge with previous
+    merged_df = pd.merge(merged_df, most_likely_gene_renamed, on='RsID', how='left')
+    # Check if ld_cadd_df is empty
+    if ld_cadd_df.empty:
+        ld_cadd_df_renamed = pd.DataFrame(columns=["Chromosome", "Position (hg38)", "LD CADD Reference", "LD CADD Alternative", "LD CADD Score", "LD CADD Genes", "LD CADD Annotation Types", "LD CADD Consequences", "LD CADD CpG Max", "LD CADD GC Max", "LD CADD H3K27ac Max", "LD CADD H3K4me3 Max", "LD CADD DNase Max", "LD CADD SpliceAI Acc Loss Max", "LD CADD SpliceAI Don Loss Max", "LD CADD SIFT Max", "LD CADD PolyPhen Max", "LD CADD GERPRS Max", "LD CADD PhyloP Max"])
+    else:
+        # Rename ld_cadd_df columns
+        ld_cadd_df_renamed = ld_cadd_df.rename(columns={"ref": "LD CADD Reference", "alt": "LD CADD Alternative", "phred_max": "LD CADD Score", "genes": "LD CADD Genes", "annotypes": "LD CADD Annotation Types", "consequences": "LD CADD Consequences", "cpg_max": "LD CADD CpG Max", "gc_max": "LD CADD GC Max", "h3k27ac_max": "LD CADD H3K27ac Max", "h3k4me3_max": "LD CADD H3K4me3 Max", "dnase_max": "LD CADD DNase Max", "spliceai_acc_loss_max": "LD CADD SpliceAI Acc Loss Max", "spliceai_don_loss_max": "LD CADD SpliceAI Don Loss Max", "siftval_max": "LD CADD SIFT Max", "polyphenval_max": "LD CADD PolyPhen Max", "gerprs_max": "LD CADD GERPRS Max", "priphyloP_max": "LD CADD PhyloP Max", "chrom": "Chromosome", "pos": "Position (hg38)"}).reset_index(drop=True)
+    # Check if ld_eqtl_df is empty
+    if ld_eqtl_df.empty:
+        ld_eqtl_df_renamed = pd.DataFrame(columns=["Chromosome", "Position (hg38)", "LD eQTL Reference", "LD eQTL Alternative", "LD eQTL ensemble", "LD eQTL Gene", "LD eQTL Tissue", "LD eQTL TSS Distance", "LD eQTL P-value", "LD eQTL Slope", "LD eQTL MAF"])
+    else:
+        # Rename ld_eqtl_df columns
+        ld_eqtl_df_renamed = ld_eqtl_df.rename(columns={"ref": "LD eQTL Reference", "alt": "LD eQTL Alternative", "ensemble": "LD eQTL ensemble", "gene": "LD eQTL Gene", "tissue": "LD eQTL Tissue", "tss_distance": "LD eQTL TSS Distance", "pval_nominal": "LD eQTL P-value", "slope": "LD eQTL Slope", "maf": "LD eQTL MAF", "chrom": "Chromosome", "pos": "Position (hg38)"}).reset_index(drop=True)
+    # Check if ld_sqtl_df is empty
+    if ld_sqtl_df.empty:
+        ld_sqtl_df_renamed = pd.DataFrame(columns=["Chromosome", "Position (hg38)", "LD sQTL Reference", "LD sQTL Alternative", "LD sQTL ensemble", "LD sQTL Gene", "LD sQTL Tissue", "LD sQTL TSS Distance", "LD sQTL P-value", "LD sQTL Slope", "LD sQTL MAF"])
+    else:    
+        # Rename ld_sqtl_df columns
+        ld_sqtl_df_renamed = ld_sqtl_df.rename(columns={"ref": "LD sQTL Reference", "alt": "LD sQTL Alternative", "ensemble": "LD sQTL ensemble", "gene": "LD sQTL Gene", "tissue": "LD sQTL Tissue", "tss_distance": "LD sQTL TSS Distance", "pval_nominal": "LD sQTL P-value", "slope": "LD sQTL Slope", "maf": "LD sQTL MAF", "chrom": "Chromosome", "pos": "Position (hg38)"}).reset_index(drop=True)
+    # Check if ld_df is empty
+    if ld_df.empty:
+        ld_df_renamed = pd.DataFrame(columns=["Query position", "LD Partner Position (hg38)", "LD Partner RsID", "LD R2", "LD Distance (bp)", "Chromosome", "Position (hg38)"])
+    else:
+        # Rename ld_df columns
+        ld_df_renamed = ld_df.rename(columns={"query_pos": "Query position", "partner_pos": "LD Partner Position (hg38)", "rsid": "LD Partner RsID", "r2": "LD R2", "dist_bp": "LD Distance (bp)", "chr": "Chromosome", "pos": "Position (hg38)"}).reset_index(drop=True)
+    # Check if gwas_df is empty
+    if gwas_df.empty:
+        gwas_df_renamed = pd.DataFrame(columns=["GWAS Trait", "Effect Allele", "Non-effect Allele", "GWAS Beta", "GWAS SE", "GWAS P-value", "GWAS ID", "Sample size", "RsID"])
+    else:
+        # Rename gwas_df columns
+        gwas_df_renamed = gwas_df.rename(columns={"trait": "GWAS Trait", "ea": "Effect Allele", "nea": "Non-effect Allele", "beta": "GWAS Beta", "se": "GWAS SE", "pval": "GWAS P-value", "gwas_id": "GWAS ID", "n": "Sample size", "rsid": "RsID"}).reset_index(drop=True)
+    # Check if enrichment_df is empty
+    if enrichment_df.empty:
+        enrichment_df_renamed = pd.DataFrame(columns=["Enrichment Term ID", "Enrichment Term Name", "Enrichment Source", "Enrichment P-value", "Enrichment Term Size", "Enrichment Query Size", "Enrichment Precision", "Enrichment Recall", "Enrichment Term Description", "Enrichment intersections"])
+    else:
+        enrichment_df_renamed = enrichment_df.rename(columns={"native": "Enrichment Term ID", "name": "Enrichment Term Name", "source": "Enrichment Source", "p_value": "Enrichment P-value", "term_size": "Enrichment Term Size", "query_size": "Enrichment Query Size", "precision": "Enrichment Precision", "recall": "Enrichment Recall", "description": "Enrichment Term Description", "intersections": "Enrichment intersections"}).reset_index(drop=True)
+        enrichment_df_renamed['Enrichment intersections'] = enrichment_df_renamed['Enrichment intersections'].apply(lambda x: ','.join(x) if isinstance(x, list) else x)
+    return cadd_df_renamed, eqtl_df_renamed, sqtl_df_renamed, merged_df, ld_cadd_df_renamed, ld_eqtl_df_renamed, ld_sqtl_df_renamed, ld_df_renamed, gwas_df_renamed, enrichment_df_renamed
+
+# ---------------------------------------------------------
 # Create bootstrap datasets of most likely genes
 # ---------------------------------------------------------
 def create_bootstrap_datasets(most_likely_gene: pd.DataFrame, n_iterations: int = 10):
@@ -783,6 +911,8 @@ def gene_set_enrichment_analysis(most_likely_gene: pd.DataFrame, n_iterations: i
         enrichment_results.append(res)
     # average results across bootstraps
     avg_enrichment = average_enrichment_results(enrichment_results)
+    # sort by p_value
+    avg_enrichment = avg_enrichment.sort_values(by='p_value', ascending=True).reset_index(drop=True)
     return avg_enrichment
 
 # ---------------------------------------------------------
@@ -875,7 +1005,127 @@ def semantic_pygosemsim(enrichment_df: pd.DataFrame, p_threshold: float = 0.05):
                 sim = similarity.lin(G, go_list[i], go_list[j])
                 row.append(sim)
         dist_mt.append(row)
+    # Convert to matrix with GO terms as row and column names
+    dist_mt = pd.DataFrame(dist_mt, index=go_list, columns=go_list)
+    # Write to file
+    dist_mt.to_csv("semantic_similarity_matrix.csv", sep="\t", index=True, header=True)
     return dist_mt, go_list
+
+# ---------------------------------------------------------
+# Function count frequency of all GO terms words
+# ---------------------------------------------------------
+def count_go_term_words(percentace=0.02):
+    # Load GO terms
+    all_go_bp = pd.read_csv(DATA_PATH / "../Annotation/BIN/go_terms_BP_all.txt", sep="\t", header=None)
+    # Put all in a list
+    text_all = ' '.join(all_go_bp[0].dropna().tolist()).split()
+    # Count frequency of each word
+    word_counts = Counter(text_all)
+    # Take top X% most common words
+    most_common_count = int(len(word_counts) * percentace)
+    word_counts = dict(word_counts.most_common(most_common_count))
+    return word_counts
+
+# ---------------------------------------------------------
+# Function to guide wordclouds after clustering
+# ---------------------------------------------------------
+def guide_wordclouds(output_folder, enrichment_df):
+    # Calculate word frequencies across all GO terms
+    word_counts = count_go_term_words(percentace=0.02)
+    # List files in output folder
+    files = [x for x in os.listdir(f"{output_folder}/gene_set_enrichment/") if x.startswith('clustering') and x.endswith('.tsv')]
+    # Container for clustered GO terms
+    clustered_go_terms_list = []
+    # Iterate over files
+    for file in files:
+        # Load clustered GO terms
+        clustered_go_terms = pd.read_csv(f"{output_folder}/gene_set_enrichment/{file}", sep="\t")
+        # Get max cluster ID
+        max_cluster_id = clustered_go_terms['cluster'].max()
+        # Create folder for wordclouds
+        os.makedirs(f"{output_folder}/gene_set_enrichment/wordclouds_{max_cluster_id}_clusters", exist_ok=True)
+        # Draw wordclouds
+        clustered_go_terms = draw_wordcloud(clustered_go_terms, enrichment_df, word_counts, f"{output_folder}/gene_set_enrichment/wordclouds_{max_cluster_id}_clusters")
+        # Save updated clustered_go_terms with GO term names
+        clustered_go_terms.to_csv(f"{output_folder}/gene_set_enrichment/{file}", sep="\t", index=False)
+        clustered_go_terms_list.append(clustered_go_terms)
+    return clustered_go_terms_list
+
+# ---------------------------------------------------------
+# Function to draw wordclouds
+# ---------------------------------------------------------
+def draw_wordcloud(clustered_go_terms, enrichment_df, word_counts, outpath):
+    # Merge to get GO term names
+    clustered_go_terms = pd.merge(clustered_go_terms, enrichment_df[['Enrichment Term ID', 'Enrichment Term Name']], left_on='term', right_on='Enrichment Term ID', how='left')
+    # Iterate over clusters
+    for cluster_id, group in clustered_go_terms.groupby('cluster'):
+        # Combine all GO term names in the cluster
+        text = ' '.join(group['Enrichment Term Name'].dropna().tolist()).split()
+        # Exclude common words
+        filtered_text = [word for word in text if word not in word_counts]
+        # Recreate text
+        text = ' '.join(filtered_text)
+        # Generate word cloud
+        wc = WordCloud(width=800, height=400, background_color="white", max_words=20).generate(text)
+        plt.figure(figsize=(10, 5))
+        plt.imshow(wc, interpolation="bilinear")
+        plt.axis("off")
+        plt.tight_layout()
+        # Save word cloud
+        plt.savefig(f"{outpath}/wordcloud_cluster_{cluster_id}.png")
+        plt.close()
+    return clustered_go_terms
+
+# ---------------------------------------------------------
+# Function to guide weights for pathway-PRS
+# ---------------------------------------------------------
+def prepare_pathway_prs_weights(clustered_go_terms_list, merged_df, output_folder, enrichment_df):
+    # Folder to save weights
+    os.makedirs(f"{output_folder}/pathway_prs_weights", exist_ok=True)
+    # Iterate over clustered_go_terms_list
+    for clustered_go_terms in clustered_go_terms_list:
+        # Derive weights
+        weights_df = derive_pathway_prs_weights(clustered_go_terms, merged_df, enrichment_df)
+        # Save weights
+        max_cluster_id = clustered_go_terms['cluster'].max()
+        weights_df.to_csv(f"{output_folder}/pathway_prs_weights/pathway_prs_weights_{max_cluster_id}_clusters.tsv", sep="\t", index=True, header=True)
+
+# ---------------------------------------------------------
+# Function to derive weights for pathway-PRS
+# ---------------------------------------------------------
+def derive_pathway_prs_weights(clustered_go_terms, merged_df, enrichment_df):
+    # Merge with enrichment_df to get genes in each GO term
+    merged_enrichment = pd.merge(clustered_go_terms, enrichment_df[['Enrichment Term ID', 'Enrichment intersections']], left_on='term', right_on='Enrichment Term ID', how='left')
+    # Container for weights
+    weights = {}
+    # Iterate over snps
+    for idx, row in merged_df.iterrows():
+        rsid = row['RsID']
+        gene_list = row['Most Likely Genes'].split(',') if pd.notna(row['Most Likely Genes']) else []
+        # Iterate over genes and grep all rows from merged_enrichment where the gene is in Enrichment intersections
+        total_counts_per_snp = 0
+        dict_per_snp = {}
+        for gene in gene_list:
+            gene_rows = merged_enrichment[merged_enrichment['Enrichment intersections'].str.contains(gene, na=False)]
+            # Count number of hits per cluster
+            cluster_counts = gene_rows['cluster'].value_counts().to_dict()
+            # Derive weights by dividing cluster counts by the total cluster counts
+            total_counts_per_snp += sum(cluster_counts.values())
+            for cluster_id, count in cluster_counts.items():
+                dict_per_snp[cluster_id] = dict_per_snp.get(cluster_id, 0) + count
+        # Normalize weights
+        if total_counts_per_snp > 0:
+            for cluster_id in dict_per_snp:
+                dict_per_snp[cluster_id] = dict_per_snp[cluster_id] / total_counts_per_snp
+        # Otherwise set weights to zero
+        else:
+            for cluster_id in merged_enrichment['cluster'].unique():
+                dict_per_snp[cluster_id] = 0.0
+        # Save weights per rsid
+        weights[rsid] = dict_per_snp
+    # Convert to DataFrame
+    weights_df = pd.DataFrame.from_dict(weights, orient='index').fillna(0)
+    return weights_df
 
 # ---------------------------------------------------------
 # CLI entrypoint
@@ -885,25 +1135,110 @@ def main():
     parser = argparse.ArgumentParser(description="Variant annotation query (standalone CLI). Outputs a pickled list of pandas DataFrames to stdout.")
     parser.add_argument("-q", "--query", required=True, help="Variant query (rsID like rs7412 or coordinate like 19:45411941 or chr19 45411941). Can be a file with one variant per line.")
     parser.add_argument("-b", "--build", default="hg38", choices=["hg19", "hg38"], help="Reference genome build of the input query (default: hg38).")
-    parser.add_argument("-r", "--random", required=False, help="Random number to create folder for results (Default is AnnotateMe_results.")
+    parser.add_argument("-o", "--output", default=".", help="Output directory for results (Default is current working directory).")
+    parser.add_argument("-r", "--random", required=False, help="Random number to create folder for results (Default is AnnotateMe_results).")
+    parser.add_argument("-t", "--type", default="annotation", choices=["annotation", "enrichment"], help="Type of analysis to perform (default: annotation).")
+    parser.add_argument("-ts", "--qtl-tissues", default="all", help="Comma-separated list of tissues to consider for eQTL/sQTL annotation (default: all).")
     args = parser.parse_args()
     # Place arguments into variables
     query = args.query
     build = args.build
+    output_folder = args.output
     random_number = args.random
-    # query = 'rs7412'
+    analysis_type = args.type
+    qtl_tissues = args.qtl_tissues.split(",") if args.qtl_tissues != "all" else ["all"]
+    # query = '/Users/nicco/Downloads/ADsnps.txt'
     # build = 'hg38'
-    # random = 123456
+    # random_number = 123456
+    # output_folder = '/Users/nicco/Downloads'
+    # analysis_type = 'enrichment'
+    # qtl_tissues = ['Brain_Cortex', 'Brain_Hippocampus']
     # Run query
-    info = run_variant_query(query, build)
+    
+    # Compile output folder name
+    if random_number:
+        output_folder = os.path.join(output_folder, f"snpXplorer_annotation_{random_number}")
+    else:
+        output_folder = os.path.join(output_folder, "snpXplorer_annotation")
+    
+    # Check if output folder exists and in case stop execution
+    if not os.path.exists(output_folder):
+        # Create output folder
+        os.makedirs(output_folder)
+    else:
+        print(f"Output folder {output_folder} already exists. Please remove it or provide a different random number.", file=sys.stderr, flush=True)
+        sys.exit(1)
+    
+    # Run query
+    info = run_variant_query(query, build, qtl_tissues)
+    
     # Identify most likely gene
     most_likely_gene = identify_most_likely_gene(info)
+    
     # Combine dictionaries by index across dictionary keys into dataframes (eg info[all_queries][0] + info[all_queries][1] + ...)
     info_df, cadd_df, eqtl_df, sqtl_df, ld_df, gwas_df, ld_cadd_df, ld_eqtl_df, ld_sqtl_df = convert_info_dict_to_dfs(info)
-    # Gene-set enrichment analysis
-    enrichment_df = gene_set_enrichment_analysis(most_likely_gene, n_iterations=10)
-    # Semantic similarity analysis with pygosemsim
-    dist_mt, go_list = semantic_pygosemsim(enrichment_df, p_threshold=0.05)
     
+    # Gene-set enrichment analysis
+    if analysis_type == "enrichment":
+        # Perform gene-set enrichment analysis
+        enrichment_df = gene_set_enrichment_analysis(most_likely_gene, n_iterations=5)
+        
+        # Semantic similarity analysis with pygosemsim
+        dist_mt, go_list = semantic_pygosemsim(enrichment_df, p_threshold=0.05)
+        
+        # Clustering of GO terms based on semantic similarity with Rscript
+        cmd = f"Rscript standalone_annotation.R -d {output_folder}/gene_set_enrichment/semantic_similarity_matrix.tsv -o {output_folder}/gene_set_enrichment"
+        os.system(cmd)
+    
+        # Wordclouds
+        clustered_go_terms_list = guide_wordclouds(output_folder, enrichment_df)
+    
+        # Prepare weights for pathway-PRS
+        prepare_pathway_prs_weights(clustered_go_terms_list, merged_df, output_folder, enrichment_df)
+    else:
+        enrichment_df = pd.DataFrame()
+        dist_mt = pd.DataFrame()
+    
+    # Merge tables
+    cadd_df, eqtl_df, sqtl_df, merged_df, ld_cadd_df, ld_eqtl_df, ld_sqtl_df, ld_df, gwas_df, enrichment_df = merge_info(info_df, cadd_df, eqtl_df, sqtl_df, ld_df, gwas_df, ld_cadd_df, ld_eqtl_df, ld_sqtl_df, most_likely_gene, enrichment_df)
+    
+    # Write outputs to files
+    if not merged_df.empty:
+        merged_df.to_csv(f"{output_folder}/variant_annotation_combined.tsv", index=False, sep="\t")
+    if not most_likely_gene.empty or not eqtl_df.empty or not sqtl_df.empty:
+        os.makedirs(f"{output_folder}/target_annotations", exist_ok=True)
+    if not cadd_df.empty:
+        cadd_df.to_csv(f"{output_folder}/target_annotations/cadd_annotation_target.tsv", index=False, sep="\t")
+    if not eqtl_df.empty:
+        eqtl_df.to_csv(f"{output_folder}/target_annotations/eqtl_annotation_target.tsv", index=False, sep="\t")
+    if not sqtl_df.empty:
+        sqtl_df.to_csv(f"{output_folder}/target_annotations/sqtl_annotation_target.tsv", index=False, sep="\t")
+    if not gwas_df.empty:
+        gwas_df.to_csv(f"{output_folder}/target_annotations/gwas_annotation_target.tsv", index=False, sep="\t")
+    if not ld_df.empty or ld_cadd_df.empty or ld_eqtl_df.empty or ld_sqtl_df.empty:
+        os.makedirs(f"{output_folder}/ld_partner_annotations", exist_ok=True)
+    if not ld_df.empty:
+        ld_df.to_csv(f"{output_folder}/ld_partner_annotations/ld_annotation_target.tsv", index=False, sep="\t")
+    if not ld_cadd_df.empty:
+        ld_cadd_df.to_csv(f"{output_folder}/ld_partner_annotations/cadd_annotation_LD_partners.tsv", index=False, sep="\t")
+    if not ld_eqtl_df.empty:
+        ld_eqtl_df.to_csv(f"{output_folder}/ld_partner_annotations/eqtl_annotation_LD_partners.tsv", index=False, sep="\t")
+    if not ld_sqtl_df.empty:
+        ld_sqtl_df.to_csv(f"{output_folder}/ld_partner_annotations/sqtl_annotation_LD_partners.tsv", index=False, sep="\t")
+    if not enrichment_df.empty or not dist_mt.empty:
+        os.makedirs(f"{output_folder}/gene_set_enrichment", exist_ok=True)
+    if not enrichment_df.empty:
+        enrichment_df.to_csv(f"{output_folder}/gene_set_enrichment/gene_set_enrichment.tsv", index=False, sep="\t")
+    if not dist_mt.empty:
+        dist_mt.to_csv(f"{output_folder}/gene_set_enrichment/semantic_similarity_matrix.tsv", index=True, sep="\t")
+    
+    # Plots with R
+    cmd = f"Rscript plot_annotation.R -i {output_folder}/variant_annotation_combined.tsv -g {output_folder}/target_annotations/gwas_annotation_target.tsv -o {output_folder}/plots_variant_annotation"
+    os.system(cmd)
+    
+    # Send email notification
+    
+        
 if __name__ == "__main__":
     main()
+
