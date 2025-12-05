@@ -1007,8 +1007,6 @@ def semantic_pygosemsim(enrichment_df: pd.DataFrame, p_threshold: float = 0.05):
         dist_mt.append(row)
     # Convert to matrix with GO terms as row and column names
     dist_mt = pd.DataFrame(dist_mt, index=go_list, columns=go_list)
-    # Write to file
-    dist_mt.to_csv("semantic_similarity_matrix.csv", sep="\t", index=True, header=True)
     return dist_mt, go_list
 
 # ---------------------------------------------------------
