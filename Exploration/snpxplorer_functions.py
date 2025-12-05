@@ -1272,7 +1272,7 @@ def run_annotation(my_list, inpType, refGeno, analType, gsea_source, qtl_tissues
     refGeno = str(refGeno).lower()
     # Then run annotate me externally in background -- this depends on the analysis_type requested
     #command = "Rscript /Annotation/BIN/MAIN.R %s %s %s %s %s %s %s %s > %s" %(filename, ftype, email, analysis_type, analysis_mode, gtex_tissues, refGeno, random_number, log_filename_server)
-    command = f"python /Annotation/BIN/standalone_annotation.py -q {filename} -t {analysis_type} -o /Annotation/RUNS/ -r {random_number} -b {refGeno} -ts {gtex_tissues} -gs {analysis_mode} -e {email} "
+    command = f"python /Annotation/BIN/standalone_annotation.py -q {fpath_server} -t {analysis_type} -o /Annotation/RUNS/ -r {random_number} -b {refGeno} -ts {gtex_tissues} -gs {analysis_mode} -e {email} "
     print(command)
     return command
 
