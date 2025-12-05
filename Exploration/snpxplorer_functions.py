@@ -1197,7 +1197,7 @@ def check_runID(run_id):
         messageToUser = 'Please insert a valid Run ID'
     else:
         # check whether the file exists
-        if os.path.exists('/Annotation/RUNS/AnnotateMe_results_%s.tar.gz' %(run_id)):
+        if os.path.exists('/Annotation/RUNS/snpXplorer_annotation_%s.zip' %(run_id)):
             messageError = False
             messageToUser = 'Valid Run ID. Download will start soon'
         else:
