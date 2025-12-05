@@ -18,10 +18,8 @@ scikit-learn
 ieugwaspy
 polars
 gprofiler
-functools
 pygosemsim
 wordcloud
-collections
 plotly
 networkx
 git+https://github.com/mojaie/pygosemsim
