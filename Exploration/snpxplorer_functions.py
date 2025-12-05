@@ -1267,6 +1267,7 @@ def run_annotation(my_list, inpType, refGeno, analType, gsea_source, qtl_tissues
     analysis_type = str(analType)
     analysis_type = 'annotation' if analysis_type == 'Annot' else 'enrichment'
     analysis_mode = ','.join(list(gsea_source)) if analysis_type == 'enrichment' else 'None'
+    analysis_mode = analysis_mode.replace('Default', 'GO:BP')
     # Take gtex tissues
     gtex_tissues = ','.join(list(qtl_tissues))
     refGeno = str(refGeno).lower()

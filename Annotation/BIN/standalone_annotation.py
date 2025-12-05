@@ -36,6 +36,7 @@ from email.mime.multipart import MIMEMultipart
 #DATA_PATH = Path("/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Data")
 DATA_PATH = Path("/Data")
 DB_FILE = DATA_PATH / "databases/Genes/variant_info.db"
+PATH_SCRIPT = '/Annotation/BIN/'
 
 # Liftover object (hg19 → hg38)
 lifter = get_lifter("hg19", "hg38")
@@ -1345,7 +1346,7 @@ def main():
         
         # Clustering of GO terms based on semantic similarity with Rscript
         if not dist_mt.empty:
-            cmd = f"Rscript standalone_annotation.R -d {output_folder}/gene_set_enrichment/semantic_similarity_matrix.tsv -o {output_folder}/gene_set_enrichment"
+            cmd = f"Rscript {PATH_SCRIPT}/standalone_annotation.R -d {output_folder}/gene_set_enrichment/semantic_similarity_matrix.tsv -o {output_folder}/gene_set_enrichment"
             os.system(cmd)
     
             # Wordclouds
@@ -1392,7 +1393,7 @@ def main():
         dist_mt.to_csv(f"{output_folder}/gene_set_enrichment/semantic_similarity_matrix.tsv", index=True, sep="\t")
     
     # Plots with R
-    cmd = f"Rscript plot_annotation.R -i {output_folder}/variant_annotation_combined.tsv -g {output_folder}/target_annotations/gwas_annotation_target.tsv -o {output_folder}/plots_variant_annotation"
+    cmd = f"Rscript {PATH_SCRIPT}/plot_annotation.R -i {output_folder}/variant_annotation_combined.tsv -g {output_folder}/target_annotations/gwas_annotation_target.tsv -o {output_folder}/plots_variant_annotation"
     os.system(cmd)
     
     # Move query file in output folder
