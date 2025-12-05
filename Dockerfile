@@ -35,13 +35,14 @@ RUN pip3 install --no-cache-dir -r requirements.txt
 # Copy app
 COPY Exploration /Exploration
 
-# Add CRAN GPG key & repo
 # Add CRAN key & repo for Debian bullseye and install R
 RUN apt-get update \
-    && apt-get install -y wget gnupg2 ca-certificates \
-    && wget -qO- https://cloud.r-project.org/bin/linux/debian/marutter_pubkey.asc \
-         | gpg --dearmor -o /usr/share/keyrings/cran.gpg \
-    && echo "deb [signed-by=/usr/share/keyrings/cran.gpg] https://cloud.r-project.org/bin/linux/debian bullseye-cran40/" \
+    && apt-get install -y gnupg2 ca-certificates \
+    && gpg --keyserver keyserver.ubuntu.com \
+           --recv-key '95C0FAF38DB3CCAD0C080A7BDC78B2DDEABC47B7' \
+    && gpg --armor --export '95C0FAF38DB3CCAD0C080A7BDC78B2DDEABC47B7' \
+         > /etc/apt/trusted.gpg.d/cran_debian_key.asc \
+    && echo "deb http://cloud.r-project.org/bin/linux/debian bullseye-cran40/" \
          > /etc/apt/sources.list.d/cran.list \
     && apt-get update \
     && apt-get install -y r-base \
