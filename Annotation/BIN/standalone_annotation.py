@@ -26,6 +26,9 @@ import networkx as nx
 from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 from collections import Counter
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 # ---------------------------------------------------------
 # Configuration
@@ -450,10 +453,14 @@ def annotate_ld_partners(chrom, ld_rows, pos38, qtl_tissues):
 # ---------------------------------------------------------
 # Core logic for querying a variant
 # ---------------------------------------------------------
-def run_variant_query(q: str, build: str = "hg38", qtl_tissues: List[str] = ["all"]):
+def run_variant_query(q: str, build: str = "hg38", qtl_tissues: List[str] = ["all"], email: str = "", output_folder: str = "") -> dict:
     print(f"Running variant query for: {q} (build={build})", file=sys.stderr, flush=True)
     # Parse query
     parsed = parse_variant_query(q)
+    if len(parsed) == 0:
+        send_email_error(email, q, output_folder)
+        # stop execution
+        sys.exit(1)
     # Define output
     output = {}
     # Iterate over parsed queries -- it's always a list
@@ -895,25 +902,29 @@ def create_bootstrap_datasets(most_likely_gene: pd.DataFrame, n_iterations: int 
 # ---------------------------------------------------------
 # Gene-set enrichment analysis
 # ---------------------------------------------------------
-def gene_set_enrichment_analysis(most_likely_gene: pd.DataFrame, n_iterations: int = 10):
-    # Create client
-    gp = GProfiler(return_dataframe=True)
-    # Set bootstrap iterations
-    bootstrap_iterations = n_iterations
-    # Create bootstrap datasets
-    bootstrap_datasets = create_bootstrap_datasets(most_likely_gene, n_iterations=bootstrap_iterations)
-    # Run gene-set enrichment for each bootstrap dataset
-    enrichment_results = []
-    for b in bootstrap_datasets:
-        print(f"Running GSEA for bootstrap dataset with {len(b)} genes.", file=sys.stderr, flush=True)
-        if not b:
-            continue
-        res = gp.profile(organism='hsapiens', query=b, sources=['GO:BP', 'KEGG', 'REAC', 'WP'], significance_threshold_method='fdr', no_evidences=False, user_threshold=1)
-        enrichment_results.append(res)
-    # average results across bootstraps
-    avg_enrichment = average_enrichment_results(enrichment_results)
-    # sort by p_value
-    avg_enrichment = avg_enrichment.sort_values(by='p_value', ascending=True).reset_index(drop=True)
+def gene_set_enrichment_analysis(most_likely_gene: pd.DataFrame, n_iterations: int = 10, gsea_sets = ['GO:BP', 'KEGG', 'REAC', 'WP']):
+    try:
+        # Create client
+        gp = GProfiler(return_dataframe=True)
+        # Set bootstrap iterations
+        bootstrap_iterations = n_iterations
+        # Create bootstrap datasets
+        bootstrap_datasets = create_bootstrap_datasets(most_likely_gene, n_iterations=bootstrap_iterations)
+        # Run gene-set enrichment for each bootstrap dataset
+        enrichment_results = []
+        for b in bootstrap_datasets:
+            print(f"Running GSEA for bootstrap dataset with {len(b)} genes.", file=sys.stderr, flush=True)
+            if not b:
+                continue
+            res = gp.profile(organism='hsapiens', query=b, sources=gsea_sets, significance_threshold_method='fdr', no_evidences=False, user_threshold=1)
+            enrichment_results.append(res)
+        # average results across bootstraps
+        avg_enrichment = average_enrichment_results(enrichment_results)
+        # sort by p_value
+        avg_enrichment = avg_enrichment.sort_values(by='p_value', ascending=True).reset_index(drop=True)
+    except Exception as e:
+        print(f"Error during gene-set enrichment analysis: {e}", file=sys.stderr, flush=True)
+        avg_enrichment = pd.DataFrame()
     return avg_enrichment
 
 # ---------------------------------------------------------
@@ -973,41 +984,50 @@ def average_enrichment_results(enrichment_results: List[pd.DataFrame]):
 # ---------------------------------------------------------
 # Semantic similarity analysis -- pygosemsim
 # ---------------------------------------------------------
-def semantic_pygosemsim(enrichment_df: pd.DataFrame, p_threshold: float = 0.05):
-    # Set Path
-    go_path = DATA_PATH / "../Annotation/INPUTS_OTHER/20220510_go"
-    # Load Go graph
-    G = graph.from_resource(go_path)
-    # Prepare list of GO terms
-    term_list = list(G)
-    # Take precalculated lower bounds
-    similarity.precalc_lower_bounds(G)
-    # Parse enrichment terms -- take only p<threshold
-    sb = enrichment_df[(enrichment_df['p_value'] < p_threshold) & (enrichment_df['source'].str.contains('GO'))]
-    # sort by p_value
-    sb = sb.sort_values(by='p_value', ascending=True)
-    # remove duplicates
-    sb = sb.drop_duplicates(subset=['native'])
-    # get list of GO terms
-    go_list = sb['native'].unique().tolist()
-    # get a dictionary of native (key) and pvalue (value)
-    go_pval_dict = dict(zip(sb['native'], sb['p_value']))
-    # Make sure terms are in the graph
-    go_list = [term for term in go_list if term in term_list]
-    go_pval_dict = {k: v for k, v in go_pval_dict.items() if k in go_list}
-    # Calculate pairwise semantic similarity
-    dist_mt = []
-    for i in range(len(go_list)):
-        row = []
-        for j in range(len(go_list)):
-            if i == j:
-                row.append(1.0)
-            else:
-                sim = similarity.lin(G, go_list[i], go_list[j])
-                row.append(sim)
-        dist_mt.append(row)
-    # Convert to matrix with GO terms as row and column names
-    dist_mt = pd.DataFrame(dist_mt, index=go_list, columns=go_list)
+def semantic_pygosemsim(enrichment_df: pd.DataFrame, p_threshold: float = 0.05, output_folder: str = ""):
+    try:
+        # Set Path
+        go_path = DATA_PATH / "../Annotation/INPUTS_OTHER/20220510_go"
+        # Load Go graph
+        G = graph.from_resource(go_path)
+        # Prepare list of GO terms
+        term_list = list(G)
+        # Take precalculated lower bounds
+        similarity.precalc_lower_bounds(G)
+        # Parse enrichment terms -- take only p<threshold
+        sb = enrichment_df[(enrichment_df['p_value'] < p_threshold) & (enrichment_df['source'].str.contains('GO'))]
+        # sort by p_value
+        sb = sb.sort_values(by='p_value', ascending=True)
+        # remove duplicates
+        sb = sb.drop_duplicates(subset=['native'])
+        # get list of GO terms
+        go_list = sb['native'].unique().tolist()
+        # get a dictionary of native (key) and pvalue (value)
+        go_pval_dict = dict(zip(sb['native'], sb['p_value']))
+        # Make sure terms are in the graph
+        go_list = [term for term in go_list if term in term_list]
+        go_pval_dict = {k: v for k, v in go_pval_dict.items() if k in go_list}
+        # Calculate pairwise semantic similarity
+        dist_mt = []
+        for i in range(len(go_list)):
+            row = []
+            for j in range(len(go_list)):
+                if i == j:
+                    row.append(1.0)
+                else:
+                    sim = similarity.lin(G, go_list[i], go_list[j])
+                    row.append(sim)
+            dist_mt.append(row)
+        # Convert to matrix with GO terms as row and column names
+        dist_mt = pd.DataFrame(dist_mt, index=go_list, columns=go_list)
+        # Save distance matrix
+        output_folder_gset = f"{output_folder}/gene_set_enrichment"
+        os.makedirs(output_folder_gset, exist_ok=True)
+        dist_mt.to_csv(f"{output_folder_gset}/semantic_similarity_matrix.tsv", sep="\t", index=True, header=True)
+    except Exception as e:
+        print(f"Error during semantic similarity analysis: {e}", file=sys.stderr, flush=True)
+        dist_mt = pd.DataFrame()
+        go_list = []
     return dist_mt, go_list
 
 # ---------------------------------------------------------
@@ -1029,25 +1049,29 @@ def count_go_term_words(percentace=0.02):
 # Function to guide wordclouds after clustering
 # ---------------------------------------------------------
 def guide_wordclouds(output_folder, enrichment_df):
-    # Calculate word frequencies across all GO terms
-    word_counts = count_go_term_words(percentace=0.02)
-    # List files in output folder
-    files = [x for x in os.listdir(f"{output_folder}/gene_set_enrichment/") if x.startswith('clustering') and x.endswith('.tsv')]
-    # Container for clustered GO terms
-    clustered_go_terms_list = []
-    # Iterate over files
-    for file in files:
-        # Load clustered GO terms
-        clustered_go_terms = pd.read_csv(f"{output_folder}/gene_set_enrichment/{file}", sep="\t")
-        # Get max cluster ID
-        max_cluster_id = clustered_go_terms['cluster'].max()
-        # Create folder for wordclouds
-        os.makedirs(f"{output_folder}/gene_set_enrichment/wordclouds_{max_cluster_id}_clusters", exist_ok=True)
-        # Draw wordclouds
-        clustered_go_terms = draw_wordcloud(clustered_go_terms, enrichment_df, word_counts, f"{output_folder}/gene_set_enrichment/wordclouds_{max_cluster_id}_clusters")
-        # Save updated clustered_go_terms with GO term names
-        clustered_go_terms.to_csv(f"{output_folder}/gene_set_enrichment/{file}", sep="\t", index=False)
-        clustered_go_terms_list.append(clustered_go_terms)
+    try:
+        # Calculate word frequencies across all GO terms
+        word_counts = count_go_term_words(percentace=0.02)
+        # List files in output folder
+        files = [x for x in os.listdir(f"{output_folder}/gene_set_enrichment/") if x.startswith('clustering') and x.endswith('.tsv')]
+        # Container for clustered GO terms
+        clustered_go_terms_list = []
+        # Iterate over files
+        for file in files:
+            # Load clustered GO terms
+            clustered_go_terms = pd.read_csv(f"{output_folder}/gene_set_enrichment/{file}", sep="\t")
+            # Get max cluster ID
+            max_cluster_id = clustered_go_terms['cluster'].max()
+            # Create folder for wordclouds
+            os.makedirs(f"{output_folder}/gene_set_enrichment/wordclouds_{max_cluster_id}_clusters", exist_ok=True)
+            # Draw wordclouds
+            clustered_go_terms = draw_wordcloud(clustered_go_terms, enrichment_df, word_counts, f"{output_folder}/gene_set_enrichment/wordclouds_{max_cluster_id}_clusters")
+            # Save updated clustered_go_terms with GO term names
+            clustered_go_terms.to_csv(f"{output_folder}/gene_set_enrichment/{file}", sep="\t", index=False)
+            clustered_go_terms_list.append(clustered_go_terms)
+    except Exception as e:
+        print(f"Error during wordcloud generation: {e}", file=sys.stderr, flush=True)
+        clustered_go_terms_list = pd.DataFrame()
     return clustered_go_terms_list
 
 # ---------------------------------------------------------
@@ -1055,11 +1079,11 @@ def guide_wordclouds(output_folder, enrichment_df):
 # ---------------------------------------------------------
 def draw_wordcloud(clustered_go_terms, enrichment_df, word_counts, outpath):
     # Merge to get GO term names
-    clustered_go_terms = pd.merge(clustered_go_terms, enrichment_df[['Enrichment Term ID', 'Enrichment Term Name']], left_on='term', right_on='Enrichment Term ID', how='left')
+    clustered_go_terms = pd.merge(clustered_go_terms, enrichment_df[['native', 'name']], left_on='term', right_on='native', how='left')
     # Iterate over clusters
     for cluster_id, group in clustered_go_terms.groupby('cluster'):
         # Combine all GO term names in the cluster
-        text = ' '.join(group['Enrichment Term Name'].dropna().tolist()).split()
+        text = ' '.join(group['name'].dropna().tolist()).split()
         # Exclude common words
         filtered_text = [word for word in text if word not in word_counts]
         # Recreate text
@@ -1127,32 +1151,163 @@ def derive_pathway_prs_weights(clustered_go_terms, merged_df, enrichment_df):
     return weights_df
 
 # ---------------------------------------------------------
+# Function to send email at start of analysis
+# ---------------------------------------------------------
+def email_at_start(email: str, output_folder: str, query: str, analysis_type: str, build: str, qtl_tissues: List[str], gsea_sets: List[str], random_number: str = None):
+    # First read configuration file values for the emails
+    cfg = pd.read_table(f"{DATA_PATH}/../Annotation/config_email.txt")
+    sender = str(cfg['username'].values[0])
+    port = int(cfg['port'].values[0])
+    psw = str(cfg['psw'].values[0])
+    host = str(cfg['host'].values[0])
+    cc_add = 'snpxplorer@gmail.com'
+    # Send email to myself to notify a new request has been received
+    message_email = f"Dear user, \nsnpXplorer received an annotation request from you. \n You receive thie email to confirm that your request is being processed. A typical job takes about 30 minutes to complete, however, due to the high number of requests, jobs may be delayed. \n\n The following settings were requested: \n input --> {query} \n analysis_type --> {analysis_type} \n analysis mode --> {gsea_sets} \n interest_tissue --> {qtl_tissues} \n ref_version --> {build} \n run_ID --> {random_number} \n\n Thanks for using snpXplorer! \n\n snpXplorer Team"
+    msg = MIMEMultipart()
+    msg["From"] = sender
+    msg["To"] = ", ".join(email) if isinstance(email, list) else email
+    msg["Cc"] = ", ".join(cc_add) if isinstance(cc_add, list) else cc_add
+    msg["Subject"] = 'snpXplorer request'
+    # Add body
+    msg.attach(MIMEText(message_email, "plain"))
+    # Combine "to" and "cc" for sending
+    all_emails = []
+    if isinstance(email, list):
+        all_emails.extend(email)
+    else:
+        all_emails.append(email)
+    if cc_add:
+        if isinstance(cc_add, list):
+            all_emails.extend(cc_add)
+        else:
+            all_emails.append(cc_add)
+    # Send email using SSL
+    with smtplib.SMTP_SSL(host, port) as server:
+        server.login(sender, psw)
+        server.sendmail(sender, all_emails, msg.as_string())
+    print("Email sent successfully!")
+
+# ---------------------------------------------------------
+# Function to send email at end of analysis
+# ---------------------------------------------------------
+def email_at_end(email: str, random_number: str = None):    
+    # First read configuration file values for the emails
+    cfg = pd.read_table(f"{DATA_PATH}/../Annotation/config_email.txt")
+    sender = str(cfg['username'].values[0])
+    port = int(cfg['port'].values[0])
+    psw = str(cfg['psw'].values[0])
+    host = str(cfg['host'].values[0])
+    cc_add = 'snpxplorer@gmail.com'
+    # Send email to myself to notify a new request has been received
+    message_email = f"Dear user, \n\n Thanks so much for using snpXplorer and its annotation pipeline. \n We hope you find the tool useful. \n\n We now implemented a new way to download your results directly from the web-server. Please open https://snpxplorer.net/download/ and follow the instructions to get your results. \n\nYour Run ID --> {random_number}\n\nBest wishes, \n snpXplorer Team."
+    msg = MIMEMultipart()
+    msg["From"] = sender
+    msg["To"] = ", ".join(email) if isinstance(email, list) else email
+    msg["Cc"] = ", ".join(cc_add) if isinstance(cc_add, list) else cc_add
+    msg["Subject"] = 'snpXplorer request'
+    # Add body
+    msg.attach(MIMEText(message_email, "plain"))
+    # Combine "to" and "cc" for sending
+    all_emails = []
+    if isinstance(email, list):
+        all_emails.extend(email)
+    else:
+        all_emails.append(email)
+    if cc_add:
+        if isinstance(cc_add, list):
+            all_emails.extend(cc_add)
+        else:
+            all_emails.append(cc_add)
+    # Send email using SSL
+    with smtplib.SMTP_SSL(host, port) as server:
+        server.login(sender, psw)
+        server.sendmail(sender, all_emails, msg.as_string())
+    print("Email sent successfully!")
+
+# ---------------------------------------------------------
+# Function to send email for errors
+# ---------------------------------------------------------
+def send_email_error(email, q, output_folder):
+    # First read configuration file values for the emails
+    cfg = pd.read_table(f"{DATA_PATH}/../Annotation/config_email.txt")
+    sender = str(cfg['username'].values[0])
+    port = int(cfg['port'].values[0])
+    psw = str(cfg['psw'].values[0])
+    host = str(cfg['host'].values[0])
+    cc_add = 'snpxplorer@gmail.com'
+    # Send email to myself to notify a new request has been received
+    message_email = f"Dear user, \nsnpXplorer encountered an error while processing your annotation request. \n Please check your input query: {q} \n\n If the problem persists, please contact us at {sender}. \n\n Best wishes, \n snpXplorer Team"
+    msg = MIMEMultipart()
+    msg["From"] = sender
+    msg["To"] = ", ".join(email) if isinstance(email, list) else email
+    msg["Cc"] = ", ".join(cc_add) if isinstance(cc_add, list) else cc_add
+    msg["Subject"] = 'snpXplorer request - ERROR'
+    # Add body
+    msg.attach(MIMEText(message_email, "plain"))
+    # Combine "to" and "cc" for sending
+    all_emails = []
+    if isinstance(email, list):
+        all_emails.extend(email)
+    else:
+        all_emails.append(email)
+    if cc_add:
+        if isinstance(cc_add, list):
+            all_emails.extend(cc_add)
+        else:
+            all_emails.append(cc_add)
+    # Send email using SSL
+    with smtplib.SMTP_SSL(host, port) as server:
+        server.login(sender, psw)
+        server.sendmail(sender, all_emails, msg.as_string())
+    # Move query file to error folder
+    cmd = f"mv {q} {output_folder}/"
+    os.system(cmd)
+    # Compress output folder
+    cmd = f"cd {os.path.dirname(output_folder)} && zip -r {os.path.basename(output_folder)}.zip {os.path.basename(output_folder)}"
+    os.system(cmd)
+    # Remove output folder
+    cmd = f"rm -rf {output_folder}"
+    os.system(cmd)
+    print("Error email sent successfully!")
+
+# ---------------------------------------------------------
 # CLI entrypoint
 # ---------------------------------------------------------
 def main():
     # Parse arguments
     parser = argparse.ArgumentParser(description="Variant annotation query (standalone CLI). Outputs a pickled list of pandas DataFrames to stdout.")
     parser.add_argument("-q", "--query", required=True, help="Variant query (rsID like rs7412 or coordinate like 19:45411941 or chr19 45411941). Can be a file with one variant per line.")
-    parser.add_argument("-b", "--build", default="hg38", choices=["hg19", "hg38"], help="Reference genome build of the input query (default: hg38).")
+    parser.add_argument("-b", "--build", default="hg38", choices=["hg19", "hg38", 'grch38', 'grch37'], help="Reference genome build of the input query (default: hg38).")
     parser.add_argument("-o", "--output", default=".", help="Output directory for results (Default is current working directory).")
     parser.add_argument("-r", "--random", required=False, help="Random number to create folder for results (Default is AnnotateMe_results).")
     parser.add_argument("-t", "--type", default="annotation", choices=["annotation", "enrichment"], help="Type of analysis to perform (default: annotation).")
     parser.add_argument("-ts", "--qtl-tissues", default="all", help="Comma-separated list of tissues to consider for eQTL/sQTL annotation (default: all).")
+    parser.add_argument("-gs", "--gsea-sets", default="GO:BP", help="Comma-separated list of gene sets to use for gene-set enrichment analysis (default: GO:BP). Options: GO:BP, KEGG, REAC, WP.")
+    parser.add_argument("-e", "--email", required=True, help="Email address to send results to.")
     args = parser.parse_args()
     # Place arguments into variables
     query = args.query
-    build = args.build
+    build = args.build.lower()
     output_folder = args.output
     random_number = args.random
     analysis_type = args.type
     qtl_tissues = args.qtl_tissues.split(",") if args.qtl_tissues != "all" else ["all"]
+    gsea_sets = args.gsea_sets.split(",")
+    email = args.email
     # query = '/Users/nicco/Downloads/ADsnps.txt'
     # build = 'hg38'
     # random_number = 123456
     # output_folder = '/Users/nicco/Downloads'
     # analysis_type = 'enrichment'
     # qtl_tissues = ['Brain_Cortex', 'Brain_Hippocampus']
-    # Run query
+    # gsea_sets = ['GO:BP', 'KEGG', 'REAC', 'WP']
+    # email = 'tesinicco@gmail.com'
+    
+    # Fix reference built
+    if build == 'grch38':
+        build = 'hg38'
+    elif build == 'grch37':
+        build = 'hg19'
     
     # Compile output folder name
     if random_number:
@@ -1168,8 +1323,11 @@ def main():
         print(f"Output folder {output_folder} already exists. Please remove it or provide a different random number.", file=sys.stderr, flush=True)
         sys.exit(1)
     
+    # Email notification
+    email_at_start(email, output_folder, query, analysis_type, build, qtl_tissues, gsea_sets, random_number)
+    
     # Run query
-    info = run_variant_query(query, build, qtl_tissues)
+    info = run_variant_query(query, build, qtl_tissues, email, output_folder)
     
     # Identify most likely gene
     most_likely_gene = identify_most_likely_gene(info)
@@ -1180,26 +1338,28 @@ def main():
     # Gene-set enrichment analysis
     if analysis_type == "enrichment":
         # Perform gene-set enrichment analysis
-        enrichment_df = gene_set_enrichment_analysis(most_likely_gene, n_iterations=5)
+        enrichment_df = gene_set_enrichment_analysis(most_likely_gene, n_iterations=5, gsea_sets=gsea_sets)
         
         # Semantic similarity analysis with pygosemsim
-        dist_mt, go_list = semantic_pygosemsim(enrichment_df, p_threshold=0.05)
+        dist_mt, go_list = semantic_pygosemsim(enrichment_df, p_threshold=0.05, output_folder=output_folder)
         
         # Clustering of GO terms based on semantic similarity with Rscript
-        cmd = f"Rscript standalone_annotation.R -d {output_folder}/gene_set_enrichment/semantic_similarity_matrix.tsv -o {output_folder}/gene_set_enrichment"
-        os.system(cmd)
+        if not dist_mt.empty:
+            cmd = f"Rscript standalone_annotation.R -d {output_folder}/gene_set_enrichment/semantic_similarity_matrix.tsv -o {output_folder}/gene_set_enrichment"
+            os.system(cmd)
     
-        # Wordclouds
-        clustered_go_terms_list = guide_wordclouds(output_folder, enrichment_df)
-    
-        # Prepare weights for pathway-PRS
-        prepare_pathway_prs_weights(clustered_go_terms_list, merged_df, output_folder, enrichment_df)
+            # Wordclouds
+            clustered_go_terms_list = guide_wordclouds(output_folder, enrichment_df)    
     else:
         enrichment_df = pd.DataFrame()
         dist_mt = pd.DataFrame()
     
     # Merge tables
     cadd_df, eqtl_df, sqtl_df, merged_df, ld_cadd_df, ld_eqtl_df, ld_sqtl_df, ld_df, gwas_df, enrichment_df = merge_info(info_df, cadd_df, eqtl_df, sqtl_df, ld_df, gwas_df, ld_cadd_df, ld_eqtl_df, ld_sqtl_df, most_likely_gene, enrichment_df)
+    
+    # Prepare pathway-PRS weights if clustering was performed
+    if analysis_type == "enrichment" and clustered_go_terms_list:
+        prepare_pathway_prs_weights(clustered_go_terms_list, merged_df, output_folder, enrichment_df)
     
     # Write outputs to files
     if not merged_df.empty:
@@ -1235,8 +1395,18 @@ def main():
     cmd = f"Rscript plot_annotation.R -i {output_folder}/variant_annotation_combined.tsv -g {output_folder}/target_annotations/gwas_annotation_target.tsv -o {output_folder}/plots_variant_annotation"
     os.system(cmd)
     
-    # Send email notification
+    # Move query file in output folder
+    cmd = f"mv {query} {output_folder}/"
+    os.system(cmd)
+    # Compress output folder
+    cmd = f"cd {os.path.dirname(output_folder)} && zip -r {os.path.basename(output_folder)}.zip {os.path.basename(output_folder)}"
+    os.system(cmd)
+    # Remove output folder after compression
+    cmd = f"rm -rf {output_folder}"
+    os.system(cmd)
     
+    # Send email notification at the end
+    email_at_end(email, random_number)    
         
 if __name__ == "__main__":
     main()
