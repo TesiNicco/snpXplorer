@@ -50,7 +50,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # R packages
-RUN Rscript -e "install.packages(c('dynamicTreeCut', 'argparse', 'viridis', 'dendextend', 'pheatmap', 'data.table', 'RColorBrewer', 'circlize', 'plotrix'), repos='http://cran.rstudio.com()', quiet=TRUE)"
+RUN Rscript -e "install.packages(c('dynamicTreeCut','argparse','viridis','dendextend', 'pheatmap', 'data.table','RColorBrewer','circlize','plotrix'), repos='https://cloud.r-project.org', quiet=TRUE)"
 
 # Expose Redis port
 EXPOSE 6379
