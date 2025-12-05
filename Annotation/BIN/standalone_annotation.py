@@ -33,10 +33,14 @@ from email.mime.multipart import MIMEMultipart
 # ---------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------
+# Local data path
 #DATA_PATH = Path("/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Data")
+#PATH_SCRIPT = Path("/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Annotation/BIN/")
+# Server data path
 DATA_PATH = Path("/Data")
-DB_FILE = DATA_PATH / "databases/Genes/variant_info.db"
 PATH_SCRIPT = '/Annotation/BIN/'
+
+DB_FILE = DATA_PATH / "databases/Genes/variant_info.db"
 
 # Liftover object (hg19 → hg38)
 lifter = get_lifter("hg19", "hg38")
@@ -688,8 +692,12 @@ def closest_gene(query_info):
 def identify_most_likely_gene(info: dict):
     # Set container for genes
     likely_genes = {}
+    invalid_queries = []
     # Iterate over snps in info
     for snp in info.keys():
+        if 'Error' in info[snp]:
+            invalid_queries.append(snp)
+            continue
         # Extract dataframes
         info_df, cadd_df, eqtl_df, sqtl_df, ld_df, gwas_df, ld_cadd_df, ld_eqtl_df, ld_sqtl_df = convert_info_dict_to_dfs({snp: info[snp]})
         # Get rsid
@@ -759,7 +767,9 @@ def identify_most_likely_gene(info: dict):
     likely_genes_df = pd.DataFrame.from_dict(likely_genes, orient='index')
     likely_genes_df['query'] = likely_genes_df.index
     likely_genes_df = likely_genes_df.reset_index(drop=True)
-    return likely_genes_df
+    # Remove invalid queries from info dictionary -- to implement
+    filtered = {k: v for k, v in info.items() if k not in invalid_queries}
+    return likely_genes_df, filtered, invalid_queries
 
 # ---------------------------------------------------------
 # Convert info dict to DataFrames
@@ -1331,7 +1341,7 @@ def main():
     info = run_variant_query(query, build, qtl_tissues, email, output_folder)
     
     # Identify most likely gene
-    most_likely_gene = identify_most_likely_gene(info)
+    most_likely_gene, info, invalid_queries = identify_most_likely_gene(info)
     
     # Combine dictionaries by index across dictionary keys into dataframes (eg info[all_queries][0] + info[all_queries][1] + ...)
     info_df, cadd_df, eqtl_df, sqtl_df, ld_df, gwas_df, ld_cadd_df, ld_eqtl_df, ld_sqtl_df = convert_info_dict_to_dfs(info)
@@ -1364,6 +1374,11 @@ def main():
     
     # Write outputs to files
     if not merged_df.empty:
+        if len(invalid_queries) > 0:
+            # Make a dataframe with "Query Type" = paste0(Invalid, invalid_queries)
+            invalid_queries_df = pd.DataFrame({"Query Type": ["Invalid: " + q for q in invalid_queries]})
+            # Add to merged_df
+            merged_df = pd.concat([merged_df, invalid_queries_df], ignore_index=True, sort=False)
         merged_df.to_csv(f"{output_folder}/variant_annotation_combined.tsv", index=False, sep="\t")
     if not most_likely_gene.empty or not eqtl_df.empty or not sqtl_df.empty:
         os.makedirs(f"{output_folder}/target_annotations", exist_ok=True)
