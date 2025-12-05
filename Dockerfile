@@ -74,6 +74,9 @@ EXPOSE 6379
 
 ENV FLASK_APP=Exploration/app.py
 
+# Change directory to Exploration
+WORKDIR /Exploration
+
 # -------------------------------------------------------------------
 # Start Redis + Flask
 # -------------------------------------------------------------------
