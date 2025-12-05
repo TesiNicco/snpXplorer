@@ -30,7 +30,8 @@ from collections import Counter
 # ---------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------
-DATA_PATH = Path("/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Data")
+#DATA_PATH = Path("/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Data")
+DATA_PATH = Path("/Data")
 DB_FILE = DATA_PATH / "databases/Genes/variant_info.db"
 
 # Liftover object (hg19 → hg38)
