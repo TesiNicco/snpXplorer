@@ -477,9 +477,14 @@ def run_variant_query(q: str, build: str = "hg38", qtl_tissues: List[str] = ["al
             continue
         # rsID path
         if p["type"] == "rsid":
-            info = fetch_by_rsid(DB_FILE, p["rsid"])
+            try:
+                info = fetch_by_rsid(DB_FILE, p["rsid"])
+            except Exception:
+                info = None
             if info is None:
                 output[p['rsid']] = 'Error: rsID not found in DB'
+                cadd_dic, eqtl_dic, sqtl_dic, ld_dic, gwas_dic = None, None, None, None, None
+                continue
             try:
                 chr38 = info["chr_hg38"]
                 pos38 = info["pos_hg38"]
@@ -520,9 +525,13 @@ def run_variant_query(q: str, build: str = "hg38", qtl_tissues: List[str] = ["al
         chrom = p["chrom"]
         pos = p["pos"]
         if build == "hg38":
-            info = fetch_by_position(DB_FILE, chrom, pos)
+            try:
+                info = fetch_by_position(DB_FILE, chrom, pos)
+            except Exception:
+                info = None
             if info is None:
                 output[p['query']] = 'Error: coordinate not found in DB'
+                cadd_dic, eqtl_dic, sqtl_dic, ld_dic, gwas_dic = None, None, None, None, None
                 continue
             try:
                 chr38 = info["chr_hg38"]
@@ -564,9 +573,13 @@ def run_variant_query(q: str, build: str = "hg38", qtl_tissues: List[str] = ["al
             output[p['query']].append(gwas_dic if gwas_dic is not None else [])
             continue
         if build == "hg19":
-            lifted = liftover_hg19_to_hg38(chrom, pos)
+            try:
+                lifted = liftover_hg19_to_hg38(chrom, pos)
+            except Exception:
+                lifted = None
             if lifted is None:
                 output[p['query']] = 'Error: liftover failed from hg19 to hg38'
+                cadd_dic, eqtl_dic, sqtl_dic, ld_dic, gwas_dic = None, None, None, None, None
                 continue
             chr38, pos38 = lifted
             info = fetch_by_position(DB_FILE, chr38, pos38)
