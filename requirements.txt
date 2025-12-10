@@ -21,4 +21,5 @@ gprofiler-official
 wordcloud
 plotly
 networkx
+psutil
 git+https://github.com/mojaie/pygosemsim

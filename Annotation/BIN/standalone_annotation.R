@@ -18,20 +18,29 @@ args <- parser$parse_args()
 # Functions
 # Clustering function
 clustering_function = function(data, max_n_clust, hc, hr){
-    # Set initial parameters
-    n_clust = 0
-    minModuleSize = 15
-    # Hierarchical clustering on the distance matrix
-    while (n_clust < 2 | n_clust > max_n_clust){
-        dynamicMods = dynamicTreeCut::cutreeDynamic(dendro = hc, distM = data, minClusterSize = minModuleSize, deepSplit = 0, verbose = 0, respectSmallClusters = T)
-        tb <- as.data.frame(table(dynamicMods))
-        n_clust <- max(as.numeric(as.character(tb$dynamicMods)))
-        df_cluster_terms = data.frame(term = colnames(data), cluster = dynamicMods)
-        df_cluster_terms$cluster_in_dendro = NA
-        if (n_clust > max_n_clust){
-            minModuleSize = minModuleSize + ceiling(minModuleSize*0.10)
-        } else {
-            minModuleSize = minModuleSize - 1
+    n_terms <- ncol(data)
+    if (n_terms <= max_n_clust){
+        # Tiny case: just do basic cutree into <= max_n_clust clusters
+        k <- 1
+        dynamicMods <- cutree(hc, k = k)
+        n_clust <- length(unique(dynamicMods))
+        df_cluster_terms <- data.frame(term = colnames(data), cluster = dynamicMods, cluster_in_dendro = NA_integer_)
+    } else {
+        # Set initial parameters
+        n_clust = 0
+        minModuleSize = 15
+        # Hierarchical clustering on the distance matrix
+        while (n_clust < 2 | n_clust > max_n_clust){
+            dynamicMods = dynamicTreeCut::cutreeDynamic(dendro = hc, distM = data, minClusterSize = minModuleSize, deepSplit = 0, verbose = 0, respectSmallClusters = T)
+            tb <- as.data.frame(table(dynamicMods))
+            n_clust <- max(as.numeric(as.character(tb$dynamicMods)))
+            df_cluster_terms = data.frame(term = colnames(data), cluster = dynamicMods)
+            df_cluster_terms$cluster_in_dendro = NA
+            if (n_clust > max_n_clust){
+                minModuleSize = minModuleSize + ceiling(minModuleSize*0.10)
+            } else {
+                minModuleSize = minModuleSize - 1
+            }
         }
     }
     # Get cluster in dendrogram order
@@ -97,16 +106,32 @@ hc <- hclust(as.dist(1-data), method="ward.D2", members = NULL)
 hd <- as.dendrogram(hclust(as.dist(1-data), method="ward.D2", members = NULL))
 
 # Dynamic clustering loop until clusters are found
-# Set different thresholds for how aggressive the clustering should be
-aggressive_thresholds <- c(5, 8, 10, 12)
-res_list = list()
-for (max_n_clust in aggressive_thresholds){
-    # Define name for the outputs
-    output_prefix = paste0(output_folder, "/clustering_max_", max_n_clust)
-    print(paste0("Clustering with max ", max_n_clust, " clusters"))
-    df_cluster_terms <- clustering_function(data, max_n_clust, hc, hd)
+# Check how many terms are present
+n_terms <- ncol(data)
+if (n_terms < 5){
+    print("Less than 5 terms found, forcing single cluster")
+    output_prefix = paste0(output_folder, "/clustering_max_1")
+    print(paste0("Clustering with 1 cluster"))
+    df_cluster_terms <- clustering_function(data, 5, hc, hd)
     # Plot dendrogram
     plot_dendrogram(df_cluster_terms, data, hd, output_prefix)
     # Save clustering results
     write.table(df_cluster_terms, file=paste0(output_prefix, "_clusters.tsv"), sep="\t", row.names=FALSE, quote=FALSE)
+} else {
+    # Set different thresholds for how aggressive the clustering should be
+    aggressive_thresholds <- c(5, 8, 10, 12)
+    res_list = list()
+    for (max_n_clust in aggressive_thresholds){
+        if (n_terms <= max_n_clust){
+            next
+        }
+        # Define name for the outputs
+        output_prefix = paste0(output_folder, "/clustering_max_", max_n_clust)
+        print(paste0("Clustering with max ", max_n_clust, " clusters"))
+        df_cluster_terms <- clustering_function(data, max_n_clust, hc, hd)
+        # Plot dendrogram
+        plot_dendrogram(df_cluster_terms, data, hd, output_prefix)
+        # Save clustering results
+        write.table(df_cluster_terms, file=paste0(output_prefix, "_clusters.tsv"), sep="\t", row.names=FALSE, quote=FALSE)
+    }
 }

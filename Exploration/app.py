@@ -758,9 +758,9 @@ def annotation():
         textarea_input = request.form.get('SNPlist', '')
         my_list = textarea_input.replace(' ', '').replace(';', '\n').replace(',', '\n').split('\n')
         # input type
-        inpType = request.form["inputType"]
+        #inpType = request.form["inputType"]
         # if the input type is not rsid, then read also the reference genome
-        refGeno = request.form["annotRefGen"] if inpType != 'RsID' else 'GRCh37'
+        refGeno = request.form["annotRefGen"]
         # analysis type
         analType = request.form["analType"]
         # if the analysis type is GSEA, then look at the enrichment sources

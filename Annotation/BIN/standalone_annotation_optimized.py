@@ -14,6 +14,7 @@ import plotly.graph_objects as go
 import sys
 import numpy as np
 import os
+import time
 import pickle
 import random
 from functools import reduce
@@ -464,9 +465,7 @@ def run_variant_query(q: str, build: str = "hg38", qtl_tissues: List[str] = ["al
     # Parse query
     parsed = parse_variant_query(q)
     if len(parsed) == 0:
-        send_email_error(email, q, output_folder)
-        # stop execution
-        sys.exit(1)
+        return {}
     # Define output
     output = {}
     # Iterate over parsed queries -- it's always a list
@@ -847,7 +846,7 @@ def merge_info(info_df, cadd_df, eqtl_df, sqtl_df, ld_df, gwas_df, ld_cadd_df, l
         # Add locus ID to eqtl_df
         eqtl_df_renamed['Locus ID'] = eqtl_df_renamed['chrom'].astype(str) + ":" + eqtl_df_renamed['pos'].astype(str) + ":" + eqtl_df_renamed[['eQTL Reference', 'eQTL Alternative']].apply(lambda row: ':'.join(sorted([str(row['eQTL Reference']), str(row['eQTL Alternative'])])), axis=1)
         # Compress multiple eQTLs per locus into lists
-        eqtl_grouped = eqtl_df_renamed.groupby('Locus ID').agg({'eQTL ensemble': lambda x: ','.join(x.dropna().astype(str)), 'eQTL Gene': lambda x: ','.join(x.dropna().astype(str)), 'eQTL Tissue': lambda x: ','.join(x.dropna().astype(str)), 'eQTL TSS Distance': lambda x: ','.join(x.dropna().astype(str)), 'eQTL P-value': lambda x: ','.join(x.dropna().astype(str)), 'eQTL Slope': lambda x: ','.join(x.dropna().astype(str)), 'eQTL MAF': lambda x: ','.join(x.dropna().astype(str))}).reset_index()
+        eqtl_grouped = eqtl_df_renamed.groupby('Locus ID').agg({'eQTL Reference': lambda x: ','.join(x.dropna().astype(str)), 'eQTL Alternative': lambda x: ','.join(x.dropna().astype(str)), 'eQTL ensemble': lambda x: ','.join(x.dropna().astype(str)), 'eQTL Gene': lambda x: ','.join(x.dropna().astype(str)), 'eQTL Tissue': lambda x: ','.join(x.dropna().astype(str)), 'eQTL TSS Distance': lambda x: ','.join(x.dropna().astype(str)), 'eQTL P-value': lambda x: ','.join(x.dropna().astype(str)), 'eQTL Slope': lambda x: ','.join(x.dropna().astype(str)), 'eQTL MAF': lambda x: ','.join(x.dropna().astype(str))}).reset_index()
         # Drop chrom and pos columns from eqtl_df
         eqtl_grouped = eqtl_grouped.drop(columns=['chrom', 'pos'], errors='ignore')
     # Merge info_cadd_df and eqtl_grouped on Locus ID
@@ -862,7 +861,7 @@ def merge_info(info_df, cadd_df, eqtl_df, sqtl_df, ld_df, gwas_df, ld_cadd_df, l
         # Add locus ID to sqtl_df
         sqtl_df_renamed['Locus ID'] = sqtl_df_renamed['chrom'].astype(str) + ":" + sqtl_df_renamed['pos'].astype(str) + ":" + sqtl_df_renamed[['sQTL Reference', 'sQTL Alternative']].apply(lambda row: ':'.join(sorted([str(row['sQTL Reference']), str(row['sQTL Alternative'])])), axis=1)
         # Compress multiple sQTL
-        sqtl_grouped = sqtl_df_renamed.groupby('Locus ID').agg({'sQTL ensemble': lambda x: ','.join(x.dropna().astype(str)), 'sQTL Gene': lambda x: ','.join(x.dropna().astype(str)), 'sQTL Tissue': lambda x: ','.join(x.dropna().astype(str)), 'sQTL TSS Distance': lambda x: ','.join(x.dropna().astype(str)), 'sQTL P-value': lambda x: ','.join(x.dropna().astype(str)), 'sQTL Slope': lambda x: ','.join(x.dropna().astype(str)), 'sQTL MAF': lambda x: ','.join(x.dropna().astype(str))}).reset_index()
+        sqtl_grouped = sqtl_df_renamed.groupby('Locus ID').agg({'sQTL Reference': lambda x: ','.join(x.dropna().astype(str)), 'sQTL Alternative': lambda x: ','.join(x.dropna().astype(str)), 'sQTL ensemble': lambda x: ','.join(x.dropna().astype(str)), 'sQTL Gene': lambda x: ','.join(x.dropna().astype(str)), 'sQTL Tissue': lambda x: ','.join(x.dropna().astype(str)), 'sQTL TSS Distance': lambda x: ','.join(x.dropna().astype(str)), 'sQTL P-value': lambda x: ','.join(x.dropna().astype(str)), 'sQTL Slope': lambda x: ','.join(x.dropna().astype(str)), 'sQTL MAF': lambda x: ','.join(x.dropna().astype(str))}).reset_index()
         # Drop chrom and pos columns from sqtl_df
         sqtl_grouped = sqtl_grouped.drop(columns=['chrom', 'pos'], errors='ignore')
     # Merge with previous
@@ -1309,9 +1308,21 @@ def wait_for_memory(analysis_type: str, poll_interval: int = 60):
         if free_gb >= MIN_FREE_GB:
             print(f"[MEM] {free_gb:.2f} GB free – starting job.", file=sys.stderr, flush=True)
             return
-        print(f"[MEM] Only {free_gb:.2f} GB free (< {min_free_gb} GB). Waiting...",
+        print(f"[MEM] Only {free_gb:.2f} GB free (< {MIN_FREE_GB} GB). Waiting...",
               file=sys.stderr, flush=True)
         time.sleep(poll_interval)
+
+# ---------------------------------------------------------
+# Helper to append to disk
+# ---------------------------------------------------------
+def append_df(path: str, df: pd.DataFrame):
+    """
+    Append df to a TSV file, creating it with header if it doesn't exist.
+    """
+    if df is None or df.empty:
+        return
+    write_header = not os.path.exists(path)
+    df.to_csv(path, sep="\t", index=False, mode="a", header=write_header, na_rep="NA")
 
 # ---------------------------------------------------------
 # CLI entrypoint
@@ -1337,7 +1348,7 @@ def main():
     qtl_tissues = args.qtl_tissues.split(",") if args.qtl_tissues != "all" else ["all"]
     gsea_sets = args.gsea_sets.split(",")
     email = args.email
-    # query = '/Users/nicco/Downloads/ADsnps.txt'
+    # query = '/Users/nicco/Downloads/tmp_snps.txt'
     # build = 'hg38'
     # random_number = 123456
     # output_folder = '/Users/nicco/Downloads'
@@ -1345,9 +1356,6 @@ def main():
     # qtl_tissues = ['Brain_Cortex', 'Brain_Hippocampus']
     # gsea_sets = ['GO:BP', 'KEGG', 'REAC', 'WP']
     # email = 'tesinicco@gmail.com'
-
-    # Decide whether to run the process or not
-    wait_for_memory(analysis_type)
     
     # Fix reference built
     if build == 'grch38':
@@ -1372,76 +1380,108 @@ def main():
     # Email notification
     email_at_start(email, output_folder, query, analysis_type, build, qtl_tissues, gsea_sets, random_number)
     
-    # Run query
-    info = run_variant_query(query, build, qtl_tissues, email, output_folder)
+    # Decide whether to run the process or not
+    wait_for_memory(analysis_type)
+
+    # Initialize output files
+    most_likely_gene_list = []
+    invalid_queries = []
+    variant_combined_path = f"{output_folder}/variant_annotation_combined.tsv"
+    cadd_path = f"{output_folder}/target_annotations/cadd_annotation_target.tsv"
+    eqtl_path = f"{output_folder}/target_annotations/eqtl_annotation_target.tsv"
+    sqtl_path = f"{output_folder}/target_annotations/sqtl_annotation_target.tsv"
+    gwas_path = f"{output_folder}/target_annotations/gwas_annotation_target.tsv"
+    ld_path = f"{output_folder}/ld_partner_annotations/ld_annotation_target.tsv"
+    ld_cadd_path = f"{output_folder}/ld_partner_annotations/cadd_annotation_LD_partners.tsv"
+    ld_eqtl_path = f"{output_folder}/ld_partner_annotations/eqtl_annotation_LD_partners.tsv"
+    ld_sqtl_path = f"{output_folder}/ld_partner_annotations/sqtl_annotation_LD_partners.tsv"
+    invalid_queries_path = f"{output_folder}/invalid_queries.txt"
+    os.makedirs(f"{output_folder}/target_annotations", exist_ok=True)
+    os.makedirs(f"{output_folder}/ld_partner_annotations", exist_ok=True)
+
+    # If query is a file: process line-by-line
+    if Path(query).is_file():
+        with open(query) as f:
+            queries = [l.strip() for l in f if l.strip()]
+            queries = list(set(queries))  # Remove duplicates
+    else:
+        queries = [query]
+
+    # Iterate over elements in queries
+    for q_line in queries:
+        # Run query
+        info_single = run_variant_query(q_line, build, qtl_tissues, email, output_folder)
+
+        # Identify most likely gene
+        most_likely_gene_single, info_single_filtered, invalid_queries_single = identify_most_likely_gene(info_single)
+        if not most_likely_gene_single.empty:
+            # Append to list
+            most_likely_gene_list.append(most_likely_gene_single)
+            
+            # Combine dictionaries by index across dictionary keys into dataframes (eg info[all_queries][0] + info[all_queries][1] + ...)
+            info_df, cadd_df, eqtl_df, sqtl_df, ld_df, gwas_df, ld_cadd_df, ld_eqtl_df, ld_sqtl_df = convert_info_dict_to_dfs(info_single_filtered)
+            
+            # Merge tables
+            cadd_df_m, eqtl_df_m, sqtl_df_m, merged_df_single, ld_cadd_df_m, ld_eqtl_df_m, ld_sqtl_df_m, ld_df_m, gwas_df_m, _ = merge_info(info_df, cadd_df, eqtl_df, sqtl_df, ld_df, gwas_df, ld_cadd_df, ld_eqtl_df, ld_sqtl_df, most_likely_gene_single, pd.DataFrame())
+            
+            # Append partial results to disk
+            append_df(variant_combined_path, merged_df_single)
+            append_df(cadd_path, cadd_df_m)
+            append_df(eqtl_path, eqtl_df_m)
+            append_df(sqtl_path, sqtl_df_m)
+            append_df(gwas_path, gwas_df_m)
+            append_df(ld_path, ld_df_m)
+            append_df(ld_cadd_path, ld_cadd_df_m)
+            append_df(ld_eqtl_path, ld_eqtl_df_m)
+            append_df(ld_sqtl_path, ld_sqtl_df_m)
+        else:
+            invalid_queries.extend(invalid_queries_single)
+
+    # Save invalid queries
+    if invalid_queries:
+        with open(invalid_queries_path, "w") as f:
+            for iq in invalid_queries:
+                f.write(f"{iq}\n")
     
-    # Identify most likely gene
-    most_likely_gene, info, invalid_queries = identify_most_likely_gene(info)
+    # If all queries were invalid, send error email and exit
+    if len(invalid_queries) == len(queries):
+        send_email_error(email, query, output_folder)
+        sys.exit(1)
     
-    # Combine dictionaries by index across dictionary keys into dataframes (eg info[all_queries][0] + info[all_queries][1] + ...)
-    info_df, cadd_df, eqtl_df, sqtl_df, ld_df, gwas_df, ld_cadd_df, ld_eqtl_df, ld_sqtl_df = convert_info_dict_to_dfs(info)
-    
+    # At this point, combine all most likely genes into a single DataFrame
+    if most_likely_gene_list:
+        most_likely_gene = pd.concat(most_likely_gene_list, ignore_index=True)
+    else:
+        most_likely_gene = pd.DataFrame()
+
     # Gene-set enrichment analysis
-    if analysis_type == "enrichment":
-        # Perform gene-set enrichment analysis
+    if analysis_type == "enrichment" and not most_likely_gene.empty:
         enrichment_df = gene_set_enrichment_analysis(most_likely_gene, n_iterations=5, gsea_sets=gsea_sets)
-        
-        # Semantic similarity analysis with pygosemsim
         dist_mt, go_list = semantic_pygosemsim(enrichment_df, p_threshold=0.05, output_folder=output_folder)
-        
-        # Clustering of GO terms based on semantic similarity with Rscript
+
+        clustered_go_terms_list = []
         if not dist_mt.empty:
             cmd = f"Rscript {PATH_SCRIPT}/standalone_annotation.R -d {output_folder}/gene_set_enrichment/semantic_similarity_matrix.tsv -o {output_folder}/gene_set_enrichment"
             os.system(cmd)
-    
-            # Wordclouds
-            clustered_go_terms_list = guide_wordclouds(output_folder, enrichment_df)    
+            clustered_go_terms_list = guide_wordclouds(output_folder, enrichment_df)
+        
+        # Rename columns of enrichment_df for consistency
+        enrichment_df = enrichment_df.rename(columns={"native": "Enrichment Term ID", "name": "Enrichment Term Name", "source": "Enrichment Source", "p_value": "Enrichment P-value", "term_size": "Enrichment Term Size", "query_size": "Enrichment Query Size", "precision": "Enrichment Precision", "recall": "Enrichment Recall", "description": "Enrichment Term Description", "intersections": "Enrichment intersections"}).reset_index(drop=True)
+        # Convert intersections to comma-separated strings
+        enrichment_df['Enrichment intersections'] = enrichment_df['Enrichment intersections'].apply(lambda x: ','.join(x) if isinstance(x, list) else x)
+        
     else:
         enrichment_df = pd.DataFrame()
         dist_mt = pd.DataFrame()
+        clustered_go_terms_list = []
     
-    # Merge tables
-    cadd_df, eqtl_df, sqtl_df, merged_df, ld_cadd_df, ld_eqtl_df, ld_sqtl_df, ld_df, gwas_df, enrichment_df = merge_info(info_df, cadd_df, eqtl_df, sqtl_df, ld_df, gwas_df, ld_cadd_df, ld_eqtl_df, ld_sqtl_df, most_likely_gene, enrichment_df)
+    # Read again the merged_df from disk
+    merged_df = pd.read_csv(variant_combined_path, sep="\t")
     
     # Prepare pathway-PRS weights if clustering was performed
     if analysis_type == "enrichment" and clustered_go_terms_list:
         prepare_pathway_prs_weights(clustered_go_terms_list, merged_df, output_folder, enrichment_df)
-    
-    # Write outputs to files
-    if not merged_df.empty:
-        if len(invalid_queries) > 0:
-            # Make a dataframe with "Query Type" = paste0(Invalid, invalid_queries)
-            invalid_queries_df = pd.DataFrame({"Query Type": ["Invalid: " + q for q in invalid_queries]})
-            # Add to merged_df
-            merged_df = pd.concat([merged_df, invalid_queries_df], ignore_index=True, sort=False)
-        merged_df.to_csv(f"{output_folder}/variant_annotation_combined.tsv", index=False, sep="\t")
-    if not most_likely_gene.empty or not eqtl_df.empty or not sqtl_df.empty:
-        os.makedirs(f"{output_folder}/target_annotations", exist_ok=True)
-    if not cadd_df.empty:
-        cadd_df.to_csv(f"{output_folder}/target_annotations/cadd_annotation_target.tsv", index=False, sep="\t")
-    if not eqtl_df.empty:
-        eqtl_df.to_csv(f"{output_folder}/target_annotations/eqtl_annotation_target.tsv", index=False, sep="\t")
-    if not sqtl_df.empty:
-        sqtl_df.to_csv(f"{output_folder}/target_annotations/sqtl_annotation_target.tsv", index=False, sep="\t")
-    if not gwas_df.empty:
-        gwas_df.to_csv(f"{output_folder}/target_annotations/gwas_annotation_target.tsv", index=False, sep="\t")
-    if not ld_df.empty or ld_cadd_df.empty or ld_eqtl_df.empty or ld_sqtl_df.empty:
-        os.makedirs(f"{output_folder}/ld_partner_annotations", exist_ok=True)
-    if not ld_df.empty:
-        ld_df.to_csv(f"{output_folder}/ld_partner_annotations/ld_annotation_target.tsv", index=False, sep="\t")
-    if not ld_cadd_df.empty:
-        ld_cadd_df.to_csv(f"{output_folder}/ld_partner_annotations/cadd_annotation_LD_partners.tsv", index=False, sep="\t")
-    if not ld_eqtl_df.empty:
-        ld_eqtl_df.to_csv(f"{output_folder}/ld_partner_annotations/eqtl_annotation_LD_partners.tsv", index=False, sep="\t")
-    if not ld_sqtl_df.empty:
-        ld_sqtl_df.to_csv(f"{output_folder}/ld_partner_annotations/sqtl_annotation_LD_partners.tsv", index=False, sep="\t")
-    if not enrichment_df.empty or not dist_mt.empty:
-        os.makedirs(f"{output_folder}/gene_set_enrichment", exist_ok=True)
-    if not enrichment_df.empty:
-        enrichment_df.to_csv(f"{output_folder}/gene_set_enrichment/gene_set_enrichment.tsv", index=False, sep="\t")
-    if not dist_mt.empty:
-        dist_mt.to_csv(f"{output_folder}/gene_set_enrichment/semantic_similarity_matrix.tsv", index=True, sep="\t")
-    
+        
     # Plots with R
     cmd = f"Rscript {PATH_SCRIPT}/plot_annotation.R -i {output_folder}/variant_annotation_combined.tsv -g {output_folder}/target_annotations/gwas_annotation_target.tsv -o {output_folder}/plots_variant_annotation"
     os.system(cmd)

@@ -18,18 +18,18 @@
                 <!-- Textarea for the input SNPs -->
                 <div style="padding: 10px; background-color: #9FD8C6; margin: 20px; width: 22.5%;">
                 <h4>List of variants</h4>
-                <textarea name="SNPlist" placeholder="Paste variants of interest, then choose the correct format. &#10;&#13; Please paste 1 variant per line, no commas or colons. &#10;&#13; Paste up to 1,000 SNPs if Analysis type is 'Gene-set enrichment analysis' and up to 10,000 SNPs in case of 'SNP-gene annotation'. &#10;&#13;&#10;&#13; Example: &#10;&#13; rs7412 &#xA; rs123484" rows="20" cols="30" style="font-size: 16px;">{{ request.form.get('SNPlist', '') }}</textarea>
+                <textarea name="SNPlist" placeholder="Paste variants of interest. &#10;&#13; The format will be derived. Please paste 1 variant per line, no commas or colons. &#10;&#13; Paste up to 1,000 SNPs if Analysis type is 'Gene-set enrichment analysis' and up to 10,000 SNPs in case of 'SNP-gene annotation'. &#10;&#13;&#10;&#13; Example: &#10;&#13; rs7412 &#xA; rs123484" rows="20" cols="30" style="font-size: 16px;">{{ request.form.get('SNPlist', '') }}</textarea>
                 </div> 
         
                 <!-- Next column: input type and analysis type -->
                 <div style="display:flex;flex-direction:column; width: 70%; margin-right: 20px;">
                     <!-- Input type -->
-                    <div style="padding: 10px; background-color: #E0E5F0; margin: 20px; width: 100%;">
+                    <!--<div style="padding: 10px; background-color: #E0E5F0; margin: 20px; width: 100%;">
                         <h4>Input type</h4>
                         <input type="radio" name="inputType" id="RsID" value="RsID" checked > RsID (rs7412) </input><br>
                         <input type="radio" name="inputType" id="Colon" value="Colon"> Chr:Position (1:12475693) </input><br>
                         <input type="radio" name="inputType" id="Tab" value="Tab"> Chr  Position (1 12475693) </input>
-                    </div>
+                    </div> -->
         
                     <!-- In case input type is not rsid, choose the reference genome version -->
                     <div id="annot_referenceGenome" style="display:none; padding: 10px; background-color: #FDB59A; margin: 20px; width: 100%;">
@@ -37,21 +37,6 @@
                         <input type="radio" name="annotRefGen" id="GRCh37" value="GRCh37" checked > GRCh37 (hg19) </input><br>
                         <input type="radio" name="annotRefGen" id="GRCh38" value="GRCh38"> GRCh38 (hg38) </input>
                     </div>
-                    <!-- Javascript to handle the conditional appearance of reference genome radio button -->
-                    <script>
-                        // Get the input type radio buttons
-                        var inputTypeRadios = document.getElementsByName('inputType');
-                        // Attach an event listener to each input type radio button to show/hide extra input type field
-                        for (var i = 0; i < inputTypeRadios.length; i++) {
-                            inputTypeRadios[i].addEventListener('change', function() {
-                                if (this.value !== 'RsID') {
-                                    document.getElementById('annot_referenceGenome').style.display = 'block';
-                                } else {
-                                    document.getElementById('annot_referenceGenome').style.display = 'none';
-                                }
-                            });
-                        }
-                    </script>
                     
                     <!-- Analysis type -->
                     <div style="padding: 10px; background-color: #8EAFAA; margin: 20px; width: 100%;">
