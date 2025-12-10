@@ -759,6 +759,7 @@ def annotation():
         my_list = textarea_input.replace(' ', '').replace(';', '\n').replace(',', '\n').split('\n')
         # input type
         #inpType = request.form["inputType"]
+        inpType = 'rsid'  # for now, only rsid
         # if the input type is not rsid, then read also the reference genome
         refGeno = request.form["annotRefGen"]
         # analysis type
