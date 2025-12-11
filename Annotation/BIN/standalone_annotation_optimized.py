@@ -309,7 +309,7 @@ def partners_by_position(db_path: str, pos: int, r2_min: float = 0.0, limit: Opt
 # ---------------------------------------------------------
 # Query LD
 # ---------------------------------------------------------
-def query_ld(chrom, pos38):
+def query_ld(chrom, pos38, ld_threshold):
     """
     Query LD partners for given chromosome and position.
     Returns:
@@ -319,7 +319,7 @@ def query_ld(chrom, pos38):
     try:
         chrom_clean = str(chrom).upper().replace("CHR", "")
         db_path = DATA_PATH / f"databases/LD_db/ld_chr{chrom_clean}.sqlite"
-        ld_partners = partners_by_position(db_path, int(pos38), r2_min=0.2)
+        ld_partners = partners_by_position(db_path, int(pos38), r2_min=ld_threshold)
         if not ld_partners:
             return [], []
         # partner_uniq, r2, dist_bp
@@ -356,7 +356,7 @@ def query_ld(chrom, pos38):
             df_ld["rsid"] = None
         # Keep only useful columns
         df_ld = df_ld[["chr", "partner_pos", "rsid", "partner_uniq", "r2", "dist_bp"]]
-        df_ld = df_ld[df_ld["r2"] >= 0.2]
+        df_ld = df_ld[df_ld["r2"] >= ld_threshold]
         # Add query position
         df_ld['query_pos'] = int(pos38)
         if df_ld.empty:
@@ -460,7 +460,7 @@ def annotate_ld_partners(chrom, ld_rows, pos38, qtl_tissues):
 # ---------------------------------------------------------
 # Core logic for querying a variant
 # ---------------------------------------------------------
-def run_variant_query(q: str, build: str = "hg38", qtl_tissues: List[str] = ["all"], email: str = "", output_folder: str = "") -> dict:
+def run_variant_query(q: str, build: str = "hg38", qtl_tissues: List[str] = ["all"], email: str = "", output_folder: str = "", ld_threshold: float = 0.2) -> dict:
     print(f"Running variant query for: {q} (build={build})", file=sys.stderr, flush=True)
     # Parse query
     parsed = parse_variant_query(q)
@@ -495,9 +495,11 @@ def run_variant_query(q: str, build: str = "hg38", qtl_tissues: List[str] = ["al
                 # Add sQTL annotation
                 sqtl_dic = query_sqtls(chr38, pos38, qtl_tissues)
                 # Add LD annotation
-                ld_dic, all_vars = query_ld(chr38, pos38)
+                ld_dic, all_vars = query_ld(chr38, pos38, ld_threshold)
                 # Add GWAS associations
                 gwas_dic = query_gwas_associations(chr38, pos38)
+                # Add SV annotation
+                sv_list = extract_sv(DATA_PATH, chr38, pos38, build, ['all'])
                 # CADD / eQTL / sQTL for all LD partners
                 if ld_dic:
                     ld_cadd, ld_eqtl, ld_sqtl = annotate_ld_partners(chr38, ld_dic, pos38, qtl_tissues)
@@ -509,6 +511,10 @@ def run_variant_query(q: str, build: str = "hg38", qtl_tissues: List[str] = ["al
                 sqtl_dic = None
                 ld_dic = None
                 gwas_dic = None
+                ld_cadd = None
+                ld_eqtl = None
+                ld_sqtl = None
+                sv_list = None
             # Convert to dfs
             output[p['rsid']] = []
             output[p['rsid']].append([info] if info is not None else [])
@@ -520,6 +526,7 @@ def run_variant_query(q: str, build: str = "hg38", qtl_tissues: List[str] = ["al
             output[p['rsid']].append(ld_eqtl if ld_eqtl is not None else [])
             output[p['rsid']].append(ld_sqtl if ld_sqtl is not None else [])
             output[p['rsid']].append(gwas_dic if gwas_dic is not None else [])
+            output[p['rsid']].append(sv_list if sv_list is not None else [])
             continue
         # coordinate path
         chrom = p["chrom"]
@@ -543,9 +550,11 @@ def run_variant_query(q: str, build: str = "hg38", qtl_tissues: List[str] = ["al
                 # Add sQTL annotation
                 sqtl_dic = query_sqtls(chr38, pos38, qtl_tissues)
                 # Add LD annotation
-                ld_dic, all_vars = query_ld(chr38, pos38)
+                ld_dic, all_vars = query_ld(chr38, pos38, ld_threshold)
                 # Add GWAS associations
                 gwas_dic = query_gwas_associations(chr38, pos38)
+                # Add SV annotation
+                sv_list = extract_sv(DATA_PATH, chr38, pos38, build, ['all'])
                 # CADD / eQTL / sQTL for all LD partners
                 if ld_dic:
                     ld_cadd, ld_eqtl, ld_sqtl = annotate_ld_partners(chr38, ld_dic, pos38, qtl_tissues)
@@ -560,6 +569,7 @@ def run_variant_query(q: str, build: str = "hg38", qtl_tissues: List[str] = ["al
                 ld_cadd = None
                 ld_eqtl = None
                 ld_sqtl = None
+                sv_list = None
             # Convert to dfs
             output[p['query']] = []
             output[p['query']].append([info] if info is not None else [])
@@ -571,6 +581,7 @@ def run_variant_query(q: str, build: str = "hg38", qtl_tissues: List[str] = ["al
             output[p['query']].append(ld_eqtl if ld_eqtl is not None else [])
             output[p['query']].append(ld_sqtl if ld_sqtl is not None else [])
             output[p['query']].append(gwas_dic if gwas_dic is not None else [])
+            output[p['query']].append(sv_list if sv_list is not None else [])
             continue
         if build == "hg19":
             try:
@@ -595,9 +606,11 @@ def run_variant_query(q: str, build: str = "hg38", qtl_tissues: List[str] = ["al
                 # Add sQTL annotation based on hg38 location
                 sqtl_dic = query_sqtls(chr38, pos38, qtl_tissues)
                 # Add LD annotation based on hg38 location
-                ld_dic, all_vars = query_ld(chr38, pos38)
+                ld_dic, all_vars = query_ld(chr38, pos38, ld_threshold)
                 # Add GWAS associations
                 gwas_dic = query_gwas_associations(chr38, pos38)
+                # Add SV annotation
+                sv_list = extract_sv(DATA_PATH, chr38, pos38, build, ['all'])
                 # CADD / eQTL / sQTL for all LD partners
                 if ld_dic:
                     ld_cadd, ld_eqtl, ld_sqtl = annotate_ld_partners(chr38, ld_dic, pos38, qtl_tissues)
@@ -609,6 +622,10 @@ def run_variant_query(q: str, build: str = "hg38", qtl_tissues: List[str] = ["al
                 sqtl_dic = None
                 ld_dic = None
                 gwas_dic = None
+                ld_cadd = None
+                ld_eqtl = None
+                ld_sqtl = None
+                sv_list = None
             # Convert to dfs
             output[p['query']] = []
             output[p['query']].append([info] if info is not None else [])
@@ -620,6 +637,7 @@ def run_variant_query(q: str, build: str = "hg38", qtl_tissues: List[str] = ["al
             output[p['query']].append(ld_eqtl if ld_eqtl is not None else [])
             output[p['query']].append(ld_sqtl if ld_sqtl is not None else [])
             output[p['query']].append(gwas_dic if gwas_dic is not None else [])
+            output[p['query']].append(sv_list if sv_list is not None else [])
             continue
     return output
 
@@ -712,7 +730,7 @@ def identify_most_likely_gene(info: dict):
             invalid_queries.append(snp)
             continue
         # Extract dataframes
-        info_df, cadd_df, eqtl_df, sqtl_df, ld_df, gwas_df, ld_cadd_df, ld_eqtl_df, ld_sqtl_df = convert_info_dict_to_dfs({snp: info[snp]})
+        info_df, cadd_df, eqtl_df, sqtl_df, ld_df, gwas_df, ld_cadd_df, ld_eqtl_df, ld_sqtl_df, sv_df = convert_info_dict_to_dfs({snp: info[snp]})
         # Get rsid
         rsid = info_df["rsid"].values[0]
         # First check if variant is coding in CADD
@@ -808,12 +826,13 @@ def convert_info_dict_to_dfs(info: dict):
     ld_cadd_df = pd.DataFrame(combined[5])
     ld_eqtl_df = pd.DataFrame(combined[6])
     ld_sqtl_df = pd.DataFrame(combined[7])
-    return info_df, cadd_df, eqtl_df, sqtl_df, ld_df, gwas_df, ld_cadd_df, ld_eqtl_df, ld_sqtl_df
+    sv_df = pd.DataFrame(combined[9], columns=['Repeat Class', 'Chromosome', 'Start Position (hg38)', 'End Position (hg38)', 'Length', 'Repeat Name', 'Repeat Family', 'Color'])
+    return info_df, cadd_df, eqtl_df, sqtl_df, ld_df, gwas_df, ld_cadd_df, ld_eqtl_df, ld_sqtl_df, sv_df
 
 # ---------------------------------------------------------
 # Merge tables
 # ---------------------------------------------------------
-def merge_info(info_df, cadd_df, eqtl_df, sqtl_df, ld_df, gwas_df, ld_cadd_df, ld_eqtl_df, ld_sqtl_df, most_likely_gene, enrichment_df):
+def merge_info(info_df, cadd_df, eqtl_df, sqtl_df, ld_df, gwas_df, ld_cadd_df, ld_eqtl_df, ld_sqtl_df, most_likely_gene, enrichment_df, sv_df):
     # Return empty DF if info_df is empty
     if info_df.empty:
         return pd.DataFrame()
@@ -910,7 +929,12 @@ def merge_info(info_df, cadd_df, eqtl_df, sqtl_df, ld_df, gwas_df, ld_cadd_df, l
     else:
         enrichment_df_renamed = enrichment_df.rename(columns={"native": "Enrichment Term ID", "name": "Enrichment Term Name", "source": "Enrichment Source", "p_value": "Enrichment P-value", "term_size": "Enrichment Term Size", "query_size": "Enrichment Query Size", "precision": "Enrichment Precision", "recall": "Enrichment Recall", "description": "Enrichment Term Description", "intersections": "Enrichment intersections"}).reset_index(drop=True)
         enrichment_df_renamed['Enrichment intersections'] = enrichment_df_renamed['Enrichment intersections'].apply(lambda x: ','.join(x) if isinstance(x, list) else x)
-    return cadd_df_renamed, eqtl_df_renamed, sqtl_df_renamed, merged_df, ld_cadd_df_renamed, ld_eqtl_df_renamed, ld_sqtl_df_renamed, ld_df_renamed, gwas_df_renamed, enrichment_df_renamed
+    # Check sv_df
+    if sv_df.empty:
+        sv_df_renamed = pd.DataFrame(columns=['Repeat Class', 'Chromosome', 'Start Position (hg38)', 'End Position (hg38)', 'Length', 'Repeat Name', 'Repeat Family', 'Color'])
+    else:
+        sv_df = sv_df.drop(columns=['Color'])
+    return cadd_df_renamed, eqtl_df_renamed, sqtl_df_renamed, merged_df, ld_cadd_df_renamed, ld_eqtl_df_renamed, ld_sqtl_df_renamed, ld_df_renamed, gwas_df_renamed, enrichment_df_renamed, sv_df
 
 # ---------------------------------------------------------
 # Create bootstrap datasets of most likely genes
@@ -1301,7 +1325,7 @@ def wait_for_memory(analysis_type: str, poll_interval: int = 60):
     """
     Block until at least `min_free_gb` GB of RAM are available.
     """
-    MIN_FREE_GB = 2 if analysis_type == "annotation" else 4
+    MIN_FREE_GB = 2 if analysis_type == "annotation" else 2
     while True:
         mem = psutil.virtual_memory()
         free_gb = mem.available / (1024 ** 3)
@@ -1311,6 +1335,28 @@ def wait_for_memory(analysis_type: str, poll_interval: int = 60):
         print(f"[MEM] Only {free_gb:.2f} GB free (< {MIN_FREE_GB} GB). Waiting...",
               file=sys.stderr, flush=True)
         time.sleep(poll_interval)
+
+# ---------------------------------------------------------
+# Function to query SVs
+# ---------------------------------------------------------
+def extract_sv(DATA_PATH, chrom, start_pos, refGen, svtypes):
+    try:
+        # define end_pos
+        end_pos = start_pos + 1000
+        start_pos = start_pos - 1000
+        # set reference prefix
+        refPrefix = 'hg19' if refGen == 'GRCh37' else 'hg38'
+        # use tabix to find genes -- enlarge window by 50kb up and down
+        cmd = 'tabix %s/databases/Structural_variants/harmonized_svs_%s.bed.gz chr%s:%s-%s' %(str(DATA_PATH).replace(' ', '\ '), refPrefix, str(chrom), str(start_pos), str(end_pos))
+        svs = [x.rstrip().split('\t') for x in os.popen(cmd)]
+        # select based on the input selected
+        if 'all' in svtypes:
+            pass
+        else:
+            svs = [x for x in svs if x[0] in svtypes]
+    except Exception as e:
+        svs = []
+    return svs
 
 # ---------------------------------------------------------
 # Helper to append to disk
@@ -1395,10 +1441,25 @@ def main():
     ld_cadd_path = f"{output_folder}/ld_partner_annotations/cadd_annotation_LD_partners.tsv"
     ld_eqtl_path = f"{output_folder}/ld_partner_annotations/eqtl_annotation_LD_partners.tsv"
     ld_sqtl_path = f"{output_folder}/ld_partner_annotations/sqtl_annotation_LD_partners.tsv"
+    sv_path = f"{output_folder}/target_annotations/sv_annotation_target.tsv"
     invalid_queries_path = f"{output_folder}/invalid_queries.txt"
     os.makedirs(f"{output_folder}/target_annotations", exist_ok=True)
     os.makedirs(f"{output_folder}/ld_partner_annotations", exist_ok=True)
 
+    # Buffering settings to write to disk every N queries
+    FLUSH_EVERY = 30
+    processed_valid = 0
+    buf_variant = []
+    buf_cadd = []
+    buf_eqtl = []
+    buf_sqtl = []
+    buf_gwas = []
+    buf_ld = []
+    buf_ld_cadd = []
+    buf_ld_eqtl = []
+    buf_ld_sqtl = []
+    buf_sv = []
+    
     # If query is a file: process line-by-line
     if Path(query).is_file():
         with open(query) as f:
@@ -1407,10 +1468,13 @@ def main():
     else:
         queries = [query]
 
+    # Set ld threshold
+    ld_threshold = 0.4
+    
     # Iterate over elements in queries
     for q_line in queries:
         # Run query
-        info_single = run_variant_query(q_line, build, qtl_tissues, email, output_folder)
+        info_single = run_variant_query(q_line, build, qtl_tissues, email, output_folder, ld_threshold)
 
         # Identify most likely gene
         most_likely_gene_single, info_single_filtered, invalid_queries_single = identify_most_likely_gene(info_single)
@@ -1419,23 +1483,80 @@ def main():
             most_likely_gene_list.append(most_likely_gene_single)
             
             # Combine dictionaries by index across dictionary keys into dataframes (eg info[all_queries][0] + info[all_queries][1] + ...)
-            info_df, cadd_df, eqtl_df, sqtl_df, ld_df, gwas_df, ld_cadd_df, ld_eqtl_df, ld_sqtl_df = convert_info_dict_to_dfs(info_single_filtered)
+            info_df, cadd_df, eqtl_df, sqtl_df, ld_df, gwas_df, ld_cadd_df, ld_eqtl_df, ld_sqtl_df, sv_df = convert_info_dict_to_dfs(info_single_filtered)
             
             # Merge tables
-            cadd_df_m, eqtl_df_m, sqtl_df_m, merged_df_single, ld_cadd_df_m, ld_eqtl_df_m, ld_sqtl_df_m, ld_df_m, gwas_df_m, _ = merge_info(info_df, cadd_df, eqtl_df, sqtl_df, ld_df, gwas_df, ld_cadd_df, ld_eqtl_df, ld_sqtl_df, most_likely_gene_single, pd.DataFrame())
+            cadd_df_m, eqtl_df_m, sqtl_df_m, merged_df_single, ld_cadd_df_m, ld_eqtl_df_m, ld_sqtl_df_m, ld_df_m, gwas_df_m, _, sv_df_m = merge_info(info_df, cadd_df, eqtl_df, sqtl_df, ld_df, gwas_df, ld_cadd_df, ld_eqtl_df, ld_sqtl_df, most_likely_gene_single, pd.DataFrame(), sv_df)
+            
+            # Store in buffers
+            buf_variant.append(merged_df_single)
+            buf_cadd.append(cadd_df_m)
+            buf_eqtl.append(eqtl_df_m)
+            buf_sqtl.append(sqtl_df_m)
+            buf_gwas.append(gwas_df_m)
+            buf_ld.append(ld_df_m)
+            buf_ld_cadd.append(ld_cadd_df_m)
+            buf_ld_eqtl.append(ld_eqtl_df_m)
+            buf_ld_sqtl.append(ld_sqtl_df_m)
+            buf_sv.append(sv_df_m)
+            processed_valid += 1
             
             # Append partial results to disk
-            append_df(variant_combined_path, merged_df_single)
-            append_df(cadd_path, cadd_df_m)
-            append_df(eqtl_path, eqtl_df_m)
-            append_df(sqtl_path, sqtl_df_m)
-            append_df(gwas_path, gwas_df_m)
-            append_df(ld_path, ld_df_m)
-            append_df(ld_cadd_path, ld_cadd_df_m)
-            append_df(ld_eqtl_path, ld_eqtl_df_m)
-            append_df(ld_sqtl_path, ld_sqtl_df_m)
+            if processed_valid % FLUSH_EVERY == 0:
+                if buf_variant:
+                    append_df(variant_combined_path, pd.concat(buf_variant, ignore_index=True))
+                    buf_variant = []
+                if buf_cadd:
+                    append_df(cadd_path, pd.concat(buf_cadd, ignore_index=True))
+                    buf_cadd = []
+                if buf_eqtl:
+                    append_df(eqtl_path, pd.concat(buf_eqtl, ignore_index=True))
+                    buf_eqtl = []
+                if buf_sqtl:
+                    append_df(sqtl_path, pd.concat(buf_sqtl, ignore_index=True))
+                    buf_sqtl = []
+                if buf_gwas:
+                    append_df(gwas_path, pd.concat(buf_gwas, ignore_index=True))
+                    buf_gwas = []
+                if buf_ld:
+                    append_df(ld_path, pd.concat(buf_ld, ignore_index=True))
+                    buf_ld = []
+                if buf_ld_cadd:
+                    append_df(ld_cadd_path, pd.concat(buf_ld_cadd, ignore_index=True))
+                    buf_ld_cadd = []
+                if buf_ld_eqtl:
+                    append_df(ld_eqtl_path, pd.concat(buf_ld_eqtl, ignore_index=True))
+                    buf_ld_eqtl = []
+                if buf_ld_sqtl:
+                    append_df(ld_sqtl_path, pd.concat(buf_ld_sqtl, ignore_index=True))
+                    buf_ld_sqtl = []
+                if buf_sv:
+                    append_df(sv_path, pd.concat(buf_sv, ignore_index=True))
+                    buf_sv = []
         else:
             invalid_queries.extend(invalid_queries_single)
+
+    # Final flush to disk
+    if buf_variant:
+        append_df(variant_combined_path, pd.concat(buf_variant, ignore_index=True))
+    if buf_cadd:
+        append_df(cadd_path, pd.concat(buf_cadd, ignore_index=True))
+    if buf_eqtl:
+        append_df(eqtl_path, pd.concat(buf_eqtl, ignore_index=True))
+    if buf_sqtl:    
+        append_df(sqtl_path, pd.concat(buf_sqtl, ignore_index=True))
+    if buf_gwas:
+        append_df(gwas_path, pd.concat(buf_gwas, ignore_index=True))
+    if buf_ld:
+        append_df(ld_path, pd.concat(buf_ld, ignore_index=True))
+    if buf_ld_cadd:
+        append_df(ld_cadd_path, pd.concat(buf_ld_cadd, ignore_index=True))
+    if buf_ld_eqtl:
+        append_df(ld_eqtl_path, pd.concat(buf_ld_eqtl, ignore_index=True))
+    if buf_ld_sqtl:
+        append_df(ld_sqtl_path, pd.concat(buf_ld_sqtl, ignore_index=True))
+    if buf_sv:
+        append_df(sv_path, pd.concat(buf_sv, ignore_index=True))
 
     # Save invalid queries
     if invalid_queries:
