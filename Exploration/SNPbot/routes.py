@@ -457,7 +457,7 @@ def identify_most_likely_gene(info: dict):
             # unique genes
             genes = list(set(genes))
             if len(genes) >0:
-                likely_genes = {'genes': genes, 'source': 'coding'}
+                likely_genes = {'genes': genes, 'source': 'Coding'}
                 # return most likely gene
                 info['likely_gene'] = likely_genes
                 return info
@@ -476,7 +476,7 @@ def identify_most_likely_gene(info: dict):
                 # unique genes
                 genes = list(set(genes))
                 if len(genes) >0:
-                    likely_genes = {'genes': genes, 'source': 'coding_ld'}
+                    likely_genes = {'genes': genes, 'source': 'LD with Coding'}
                     # return most likely gene
                     info['likely_gene'] = likely_genes
                     return info
@@ -496,7 +496,7 @@ def identify_most_likely_gene(info: dict):
                 sqtl_genes = sqtl_df["gene"].dropna().unique().tolist()
             qtl_combined = list(set(eqtl_genes + sqtl_genes + cadd_genes))
             if len(qtl_combined) >0:
-                likely_genes = {'genes': qtl_combined, 'source': 'qtl_query'}
+                likely_genes = {'genes': qtl_combined, 'source': 'QTL'}
                 # return most likely gene
                 info['likely_gene'] = likely_genes
                 return info
@@ -510,17 +510,17 @@ def identify_most_likely_gene(info: dict):
                 ld_sqtl_genes = ld_sqtl_df["gene"].dropna().unique().tolist()
             ld_qtl_combined = list(set(ld_eqtl_genes + ld_sqtl_genes + cadd_ld_genes))
             if len(ld_qtl_combined) >0:
-                likely_genes = {'genes': ld_qtl_combined, 'source': 'qtl_ld'}
+                likely_genes = {'genes': ld_qtl_combined, 'source': 'LD with QTL'}
                 # return most likely gene
                 info['likely_gene'] = likely_genes
                 return info
         # If none of the above, return closest gene (placeholder)
-        likely_genes = {'genes': closest_gene(cadd_df), 'source': 'closest_gene'}
+        likely_genes = {'genes': closest_gene(cadd_df), 'source': 'Closest Gene'}
         # return most likely gene
         info['likely_gene'] = likely_genes
         return info
     except Exception as e:
-        likely_genes = {'genes': [], 'source': 'error'}
+        likely_genes = {'genes': [], 'source': 'Error'}
         info['likely_gene'] = likely_genes
         return info
 

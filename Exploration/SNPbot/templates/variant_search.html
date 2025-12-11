@@ -535,6 +535,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   let lastLdCaddData = null;       // LD-partner CADD
   let lastLdEqtlData = null;       // LD-partner eQTL
   let lastLdSqtlData = null;       // LD-partner sQTL
+  let lastGwasData = null;        // GWAS download
+  let lastSvData = null;          // SV download
   const SNPBOT_API_URL = "{{ url_for('snpbot.variant_query') }}";
 
   function setLoading(isLoading) {
@@ -567,6 +569,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     lastLdCaddData = null;
     lastLdEqtlData = null;
     lastLdSqtlData = null;
+    lastGwasData = null;
+    lastSvData = null;
     document.getElementById("download-btn").disabled = true;
   }
 
@@ -911,7 +915,69 @@ document.addEventListener('DOMContentLoaded', async () => {
     return html;
   }
 
-    /* ---------- LD-PARTNER CADD TABLE ---------- */
+  /* ---------- SV TABLE ---------- */
+  function buildSVTable(svRows, svRowsFull) {
+    if (!svRows || svRows.length === 0) {
+      lastSvData = null;
+      return `
+        <div class="result-header-row">
+        </div>
+        <p class="no-result-title">No SVs found for this variant.</p>
+      `;
+    }
+
+    const svColumns = ["Repeat Class", "Chromosome", "Start (hg38)", "End (hg38)", "Length", "Repeat Name", "Repeat Family"];
+
+    const svHeaders = ["Repeat Class", "Chromosome", "Start (hg38)", "End (hg38)", "Length", "Repeat Name", "Repeat Family"];
+
+    lastSvData = {
+      rows: svRowsFull || svRows,
+      columns: svColumns,
+      headers: svHeaders
+    };
+
+    let html = `
+      <div class="result-header-row">
+        <h3 class="result-subtitle">SV annotation (top 100)</h3>
+        <button class="download-button" onclick="downloadSVTable()">
+          ⬇ Download SV CSV
+        </button>
+      </div>
+      <div class="result-table-wrapper">
+        <table class="result-table">
+          <thead>
+            <tr>
+    `;
+
+    svHeaders.forEach(h => {
+      html += `<th>${h}</th>`;
+    });
+
+    html += `
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+    svRows.forEach(row => {
+      html += `<tr>`;
+      svColumns.forEach(col => {
+        const val = (row[col] === null || row[col] === undefined) ? "" : row[col];
+        html += `<td>${val}</td>`;
+      });
+      html += `</tr>`;
+    });
+
+    html += `
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    return html;
+  }
+
+  /* ---------- LD-PARTNER CADD TABLE ---------- */
   function buildLdCaddTable(ldCaddRows, ldCaddRowsFull) {
     if (!ldCaddRows || ldCaddRows.length === 0) {
       return `
@@ -1645,6 +1711,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       ? data.sqtl_top
       : sqtlRowsFull;
     html += buildSqtlTable(sqtlRowsDisplay, sqtlRowsFull);
+    
+    // SV table
+    const svRowsFull   = data.svs || [];
+    const svRowsDisplay = (data.svs)
+      ? data.svs
+      : svRowsFull;
+    html += buildSVTable(svRowsDisplay, svRowsFull);
 
     // GWAS table
     const gwasRows = data.gwas || [];
@@ -1832,6 +1905,35 @@ document.addEventListener('DOMContentLoaded', async () => {
     const a = document.createElement("a");
     a.href = url;
     a.download = `sqtl_annotation.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadSVTable() {
+    if (!lastSvData) return;
+
+    const { rows, columns, headers } = lastSvData;
+
+    const headerLine = headers.map(escapeCell).join(",");
+    const lines = [headerLine];
+
+    rows.forEach(row => {
+      const line = columns.map(col => {
+        const val = (row[col] === null || row[col] === undefined) ? "" : row[col];
+        return escapeCell(val);
+      }).join(",");
+      lines.push(line);
+    });
+
+    const csv = lines.join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `sv_annotation.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
