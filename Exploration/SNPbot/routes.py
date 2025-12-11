@@ -419,7 +419,9 @@ def extract_sv(chrom, start_pos, refGen, svtypes):
         refPrefix = 'hg19' if refGen == 'GRCh37' else 'hg38'
         # use tabix to find genes -- enlarge window by 50kb up and down
         cmd = 'tabix %s/databases/Structural_variants/harmonized_svs_%s.bed.gz chr%s:%s-%s' %(str(DATA_PATH).replace(' ', '\ '), refPrefix, str(chrom), str(start_pos), str(end_pos))
+        print(cmd, flush=True)
         svs = [x.rstrip().split('\t') for x in os.popen(cmd)]
+        print(svs, flush=True)
         # select based on the input selected
         if 'all' in svtypes:
             pass
