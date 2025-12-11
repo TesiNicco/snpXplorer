@@ -5,6 +5,7 @@ import pandas as pd
 from flask import Flask, request, jsonify, render_template, Blueprint, redirect, url_for, session
 from liftover import get_lifter
 import io
+import os
 import subprocess
 from datetime import timedelta
 import math
@@ -419,9 +420,7 @@ def extract_sv(chrom, start_pos, refGen, svtypes):
         refPrefix = 'hg19' if refGen == 'GRCh37' else 'hg38'
         # use tabix to find genes -- enlarge window by 50kb up and down
         cmd = 'tabix %s/databases/Structural_variants/harmonized_svs_%s.bed.gz chr%s:%s-%s' %(str(DATA_PATH).replace(' ', '\ '), refPrefix, str(chrom), str(start_pos), str(end_pos))
-        print(cmd, flush=True)
         svs = [x.rstrip().split('\t') for x in os.popen(cmd)]
-        print(svs, flush=True)
         # select based on the input selected
         if 'all' in svtypes:
             pass
@@ -595,7 +594,6 @@ def run_variant_query(q, build="hg38"):
             info["gwas"] = query_gwas_associations(chr38, pos38)
             # Add structural variant (SV) annotations
             info["svs"] = extract_sv(chr38, pos38, refGen="GRCh38", svtypes=["all"])
-            print(info["svs"], flush=True)
             
             # CADD / eQTL / sQTL for all LD partners
             if info["ld"]:
