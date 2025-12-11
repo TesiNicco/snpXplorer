@@ -593,6 +593,7 @@ def run_variant_query(q, build="hg38"):
             info["gwas"] = query_gwas_associations(chr38, pos38)
             # Add structural variant (SV) annotations
             info["svs"] = extract_sv(chr38, pos38, refGen="GRCh38", svtypes=["all"])
+            print(info["svs"], flush=True)
             
             # CADD / eQTL / sQTL for all LD partners
             if info["ld"]:
