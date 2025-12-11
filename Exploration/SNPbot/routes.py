@@ -413,8 +413,8 @@ def annotate_ld_partners(chrom, ld_rows):
 def extract_sv(chrom, start_pos, refGen, svtypes):
     try:
         # define end_pos
-        end_pos = start_pos + 1000
-        start_pos = start_pos - 1000
+        end_pos = start_pos + 10000
+        start_pos = start_pos - 10000
         # set reference prefix
         refPrefix = 'hg19' if refGen == 'GRCh37' else 'hg38'
         # use tabix to find genes -- enlarge window by 50kb up and down
