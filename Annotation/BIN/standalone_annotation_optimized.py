@@ -1325,7 +1325,7 @@ def wait_for_memory(analysis_type: str, poll_interval: int = 60):
     """
     Block until at least `min_free_gb` GB of RAM are available.
     """
-    MIN_FREE_GB = 2 if analysis_type == "annotation" else 2
+    MIN_FREE_GB = 2 if analysis_type == "annotation" else 4
     while True:
         mem = psutil.virtual_memory()
         free_gb = mem.available / (1024 ** 3)
