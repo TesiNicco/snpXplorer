@@ -1565,8 +1565,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       "Position (hg19)",
       "REF allele",
       "ALT allele",
-      "ALT frequency"
+      "ALT frequency",
+      "Most likely Gene(s)",
+      "Gene(s) based on"
     ];
+    
+    const likelyGenes   = data.likely_gene && Array.isArray(data.likely_gene.genes) ? data.likely_gene.genes.join(", ") : "";
+    const likelySource  = data.likely_gene && data.likely_gene.source ? data.likely_gene.source : "";
 
     const rowValues = [
       data.query_type || "",
@@ -1576,7 +1581,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       (data.Position_hg19 !== undefined && data.Position_hg19 !== null) ? data.Position_hg19 : "",
       data.REF || "",
       data.ALT || "",
-      (data.AF !== undefined && data.AF !== null) ? data.AF : ""
+      (data.AF !== undefined && data.AF !== null) ? data.AF : "",
+      likelyGenes,
+      likelySource
     ];
 
     // store for variant download

@@ -238,7 +238,6 @@ def partners_by_position(db_path: str, pos: int, r2_min: float = 0.0, limit: Opt
     """
     R2_SCALE = 1000
     r2m_min = int(round(max(0.0, min(1.0, r2_min)) * R2_SCALE))
-
     sql = f"""
     WITH v AS (
       SELECT id FROM variants WHERE pos = ?
@@ -260,7 +259,6 @@ def partners_by_position(db_path: str, pos: int, r2_min: float = 0.0, limit: Opt
     ORDER BY r2 DESC, dist_bp ASC
     {f"LIMIT {int(limit)}" if limit else ""}
     """
-
     with _open_db_for_query(str(db_path)) as conn:
         return conn.execute(sql, (pos, r2m_min)).fetchall()
 
@@ -410,6 +408,155 @@ def annotate_ld_partners(chrom, ld_rows):
     return ld_cadd, ld_eqtl, ld_sqtl
 
 # ---------------------------------------------------------
+# Function to query SVs
+# ---------------------------------------------------------
+def extract_sv(chrom, start_pos, refGen, svtypes):
+    try:
+        # define end_pos
+        end_pos = start_pos + 1000
+        start_pos = start_pos - 1000
+        # set reference prefix
+        refPrefix = 'hg19' if refGen == 'GRCh37' else 'hg38'
+        # use tabix to find genes -- enlarge window by 50kb up and down
+        cmd = 'tabix %s/databases/Structural_variants/harmonized_svs_%s.bed.gz chr%s:%s-%s' %(str(DATA_PATH).replace(' ', '\ '), refPrefix, str(chrom), str(start_pos), str(end_pos))
+        svs = [x.rstrip().split('\t') for x in os.popen(cmd)]
+        # select based on the input selected
+        if 'all' in svtypes:
+            pass
+        else:
+            svs = [x for x in svs if x[0] in svtypes]
+        # Convert to dataframe
+        svs = pd.DataFrame(svs, columns=["Repeat Class", "Chromosome", "Start (hg38)", "End (hg38)", "Length", "Repeat Name", "Repeat Family", "Color"])
+        # Drop Color column
+        svs = svs.drop(columns=["Color"])
+        # Dataframe to dictionary
+        svs = svs.to_dict(orient="records")
+    except Exception as e:
+        svs = pd.DataFrame(columns=["Repeat Class", "Chromosome", "Start (hg38)", "End (hg38)", "Length", "Repeat Name", "Repeat Family"])
+        svs = svs.to_dict(orient="records")
+    return svs
+
+# ---------------------------------------------------------
+# Identify most likely gene
+# ---------------------------------------------------------
+def identify_most_likely_gene(info: dict):
+    # Set container for genes
+    likely_genes = {}
+    invalid_queries = []
+    # Iterate over snps in info
+    try:
+        # Extract dataframes
+        cadd_df, eqtl_df, sqtl_df, ld_df, gwas_df, ld_cadd_df, ld_eqtl_df, ld_sqtl_df, sv_df = pd.DataFrame(info['cadd_top']), pd.DataFrame(info['eqtl']), pd.DataFrame(info['sqtl']), pd.DataFrame(info['ld']), pd.DataFrame(info['gwas']), pd.DataFrame(info['ld_cadd']), pd.DataFrame(info['ld_eqtl']), pd.DataFrame(info['ld_sqtl']), pd.DataFrame(info['svs'])
+        # First check if variant is coding in CADD
+        coding_rows = cadd_df[cadd_df["annotypes"].str.contains("coding", case=False, na=False)]
+        coding_rows = coding_rows[~coding_rows["annotypes"].str.contains("noncoding", case=False, na=False)]
+        cadd_genes = []
+        if not coding_rows.empty:
+            genes = [x.split(';') for x in coding_rows["genes"].unique().tolist()]
+            genes = [gene for sublist in genes for gene in sublist]  # flatten
+            # unique genes
+            genes = list(set(genes))
+            if len(genes) >0:
+                likely_genes = {'genes': genes, 'source': 'coding'}
+                # return most likely gene
+                info['likely_gene'] = likely_genes
+                return info
+            else:
+                cadd_genes = cadd_df["genes"].dropna().unique().tolist()
+        else:
+            cadd_genes = cadd_df["genes"].dropna().unique().tolist()
+        # Check variants in LD for coding impact
+        coding_ld_rows = pd.DataFrame()
+        if not ld_cadd_df.empty:
+            coding_ld_rows = ld_cadd_df[ld_cadd_df["annotypes"].str.contains("coding", case=False, na=False)]
+            coding_ld_rows = coding_ld_rows[~coding_ld_rows["annotypes"].str.contains("noncoding", case=False, na=False)]
+            if not coding_ld_rows.empty:
+                genes = [x.split(';') for x in coding_ld_rows["genes"].unique().tolist()]
+                genes = [gene for sublist in genes for gene in sublist]  # flatten
+                # unique genes
+                genes = list(set(genes))
+                if len(genes) >0:
+                    likely_genes = {'genes': genes, 'source': 'coding_ld'}
+                    # return most likely gene
+                    info['likely_gene'] = likely_genes
+                    return info
+                else:
+                    cadd_ld_genes = ld_cadd_df["genes"].dropna().unique().tolist()
+            else:
+                cadd_ld_genes = ld_cadd_df["genes"].dropna().unique().tolist()
+        else:
+            cadd_ld_genes = []
+        # Next check QTLs
+        if not eqtl_df.empty or not sqtl_df.empty:
+            eqtl_genes = []
+            sqtl_genes = []
+            if not eqtl_df.empty:
+                eqtl_genes = eqtl_df["gene"].dropna().unique().tolist()
+            if not sqtl_df.empty:
+                sqtl_genes = sqtl_df["gene"].dropna().unique().tolist()
+            qtl_combined = list(set(eqtl_genes + sqtl_genes + cadd_genes))
+            if len(qtl_combined) >0:
+                likely_genes = {'genes': qtl_combined, 'source': 'qtl_query'}
+                # return most likely gene
+                info['likely_gene'] = likely_genes
+                return info
+        # Next check LD QTLs
+        if not ld_eqtl_df.empty or not ld_sqtl_df.empty:
+            ld_eqtl_genes = []
+            ld_sqtl_genes = []
+            if not ld_eqtl_df.empty:
+                ld_eqtl_genes = ld_eqtl_df["gene"].dropna().unique().tolist()
+            if not ld_sqtl_df.empty:
+                ld_sqtl_genes = ld_sqtl_df["gene"].dropna().unique().tolist()
+            ld_qtl_combined = list(set(ld_eqtl_genes + ld_sqtl_genes + cadd_ld_genes))
+            if len(ld_qtl_combined) >0:
+                likely_genes = {'genes': ld_qtl_combined, 'source': 'qtl_ld'}
+                # return most likely gene
+                info['likely_gene'] = likely_genes
+                return info
+        # If none of the above, return closest gene (placeholder)
+        likely_genes = {'genes': closest_gene(cadd_df), 'source': 'closest_gene'}
+        # return most likely gene
+        info['likely_gene'] = likely_genes
+        return info
+    except Exception as e:
+        likely_genes = {'genes': [], 'source': 'error'}
+        info['likely_gene'] = likely_genes
+        return info
+
+# ---------------------------------------------------------
+# Identify closest gene
+# ---------------------------------------------------------
+def closest_gene(query_info):
+    # get chromosome and position
+    chrom = query_info["chrom"].values[0].lower()
+    if 'chr' not in chrom:
+        chrom = 'chr' + chrom
+    start_pos = query_info["pos"].values[0] - 500000
+    end_pos = query_info["pos"].values[0] + 500000
+    # tabix command
+    GENE_DB_FILE = DATA_PATH / "databases/Genes/genes_hg38.txt.gz"
+    result = subprocess.run(["tabix", str(GENE_DB_FILE), f"{chrom}:{start_pos}-{end_pos}"], capture_output=True, check=True, text=True)
+    output = result.stdout.strip()
+    if output == "":
+        return []
+    df = pd.read_csv(io.StringIO(output), sep="\t", header=None)
+    df.columns = ["transcript_id", "chrom", "strand", "tx_start", "tx_end", "cds_start", "cds_end", "exon_num", "exon_start", "exon_end", "gene_symbol"]
+    # remove genes starting with LIN or LOC
+    df = df[~df["gene_symbol"].str.startswith(("LINC", "LOC"))]
+    # add gene size
+    df["gene_size"] = df["tx_end"] - df["tx_start"]
+    # remove duplicates based on gene_symbol, keeping the longest gene
+    df = df.sort_values(by="gene_size", ascending=False).drop_duplicates(subset=["gene_symbol"])
+    # add distance to variant from tx_start and tx_end, and keep minimum
+    variant_pos = query_info["pos"].values[0]
+    df["dist_to_variant"] = df.apply(lambda row: min(abs(row["tx_start"] - variant_pos), abs(row["tx_end"] - variant_pos)), axis=1)
+    # sort by distance
+    df = df.sort_values(by="dist_to_variant", ascending=True)
+    # return closest gene symbol
+    return [df.iloc[0]["gene_symbol"]]
+
+# ---------------------------------------------------------
 # Core logic for querying a variant
 # ---------------------------------------------------------
 def run_variant_query(q, build="hg38"):
@@ -444,7 +591,9 @@ def run_variant_query(q, build="hg38"):
             info["ld"], all_vars = query_ld(chr38, pos38)
             # Add GWAS associations
             info["gwas"] = query_gwas_associations(chr38, pos38)
-
+            # Add structural variant (SV) annotations
+            info["svs"] = extract_sv(chr38, pos38, refGen="GRCh38", svtypes=["all"])
+            
             # CADD / eQTL / sQTL for all LD partners
             if info["ld"]:
                 ld_cadd, ld_eqtl, ld_sqtl = annotate_ld_partners(chr38, info["ld"])
@@ -462,6 +611,10 @@ def run_variant_query(q, build="hg38"):
                 info["ld_cadd_top"] = []
                 info["ld_eqtl_top"] = []
                 info["ld_sqtl_top"] = []
+            
+            # Identify most likely gene
+            info = identify_most_likely_gene(info)
+    
         except Exception:
             info.setdefault("cadd", [])
             info.setdefault("eqtl", [])
@@ -471,6 +624,8 @@ def run_variant_query(q, build="hg38"):
             info.setdefault("ld_eqtl", [])
             info.setdefault("ld_sqtl", [])
             info.setdefault("gwas", [])
+            info.setdefault("svs", [])
+            info.setdefault("likely_gene", [])
 
         # record in session
         info["query"] = q
@@ -506,6 +661,9 @@ def run_variant_query(q, build="hg38"):
             info["ld"], all_vars = query_ld(chr38, pos38)
             # Add GWAS associations
             info["gwas"] = query_gwas_associations(chr38, pos38)
+            # Add structural variant (SV) annotations
+            info["svs"] = extract_sv(chr38, pos38, refGen="GRCh38", svtypes=["all"])
+            
             # CADD / eQTL / sQTL for all LD partners
             if info["ld"]:
                 ld_cadd, ld_eqtl, ld_sqtl = annotate_ld_partners(chr38, info["ld"])
@@ -523,6 +681,9 @@ def run_variant_query(q, build="hg38"):
                 info["ld_cadd_top"] = []
                 info["ld_eqtl_top"] = []
                 info["ld_sqtl_top"] = []
+            
+            # Identify most likely gene
+            info = identify_most_likely_gene(info)
 
         except Exception:
             info.setdefault("cadd", [])
@@ -533,6 +694,8 @@ def run_variant_query(q, build="hg38"):
             info.setdefault("ld_eqtl", [])
             info.setdefault("ld_sqtl", [])
             info.setdefault("gwas", [])
+            info.setdefault("svs", [])
+            info.setdefault("likely_gene", [])
 
         # record in session
         info["query"] = q
@@ -571,6 +734,9 @@ def run_variant_query(q, build="hg38"):
             info["ld"], all_vars = query_ld(chr38, pos38)
             # Add GWAS associations
             info["gwas"] = query_gwas_associations(chr38, pos38)
+            # Add structural variant (SV) annotations
+            info["svs"] = extract_sv(chr38, pos38, refGen="GRCh38", svtypes=["all"])
+            
             # CADD / eQTL / sQTL for all LD partners
             if info["ld"]:
                 ld_cadd, ld_eqtl, ld_sqtl = annotate_ld_partners(chr38, info["ld"])
@@ -588,6 +754,10 @@ def run_variant_query(q, build="hg38"):
                 info["ld_cadd_top"] = []
                 info["ld_eqtl_top"] = []
                 info["ld_sqtl_top"] = []
+            
+            # Identify most likely gene
+            info = identify_most_likely_gene(info)
+            
         except Exception:
             info.setdefault("cadd", [])
             info.setdefault("eqtl", [])
@@ -597,6 +767,8 @@ def run_variant_query(q, build="hg38"):
             info.setdefault("ld_eqtl", [])
             info.setdefault("ld_sqtl", [])
             info.setdefault("gwas", [])
+            info.setdefault("svs", [])
+            info.setdefault("likely_gene", [])
             
         # record in session
         info["query"] = q
