@@ -110,12 +110,12 @@ build_search_row(meta)
 
 # Read browsing options for genes and rsids
 genes_map = pd.read_csv('%s/databases/Genes/gene_names.txt' %(Path(data_path)), sep='\t')
-gene_col = genes_map.columns[0]
-genes_lower = genes_map[gene_col].astype(str).str.lower()
 # remove duplicates
-genes_lower = genes_lower[~genes_lower.duplicated()]
+genes_map = genes_map.drop_duplicates()
 # remove genes starting with loc, linc, mir
-genes_lower = genes_lower[~genes_lower.str.lower().str.startswith(('loc', 'linc', 'mir'))]
+gene_col = genes_map.columns[0]
+genes_map = genes_map[~genes_map[gene_col].str.lower().str.startswith(('loc', 'linc', 'mir'))]
+genes_lower = genes_map[gene_col].astype(str).str.lower()
 
 # Helper for the SQlite database
 rsid_db_path = '%s/databases/Genes/variant_info.db' %(Path(data_path))
