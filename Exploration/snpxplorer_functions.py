@@ -999,35 +999,38 @@ def extract_haplo_data(data_path, chrom, start_pos, end_pos):
 
 # function to get variants in LD
 def extract_ld(data_path, chrom, df, refGen, browse_type, browse):
-    if browse_type != 'RsID':
-        # take most significant variant in the region, create a string like chr:pos:ea:nea
-        top_snp = df.loc[df['Pvalue'].idxmax()]     
-    else:
-        # take the rsID from the browse field, create a string like chr:pos:ea:nea
-        rsid = browse.replace(' ', '').split()[0].lower()
-        # get the relative information from the df
-        top_snp = df[df['Rsid'].str.lower() == rsid]
-    if refGen == 'GRCh37':
-        uniq1 = f"{top_snp['Position_hg38']}:{top_snp['EA']}:{top_snp['NEA']}"
-        uniq2 = f"{top_snp['Position_hg38']}:{top_snp['NEA']}:{top_snp['EA']}"
-    else:
-        uniq1 = f"{top_snp['Position']}:{top_snp['EA']}:{top_snp['NEA']}"
-        uniq2 = f"{top_snp['Position']}:{top_snp['NEA']}:{top_snp['EA']}"       
-    # define database path
-    db_path = f"{data_path}/databases/LD_db/ld_chr{chrom}.sqlite"
-    # query the database
-    res1 = partners_by_uniq(db_path, uniq1, r2_min=0.2, limit=100)
-    res2 = partners_by_uniq(db_path, uniq2, r2_min=0.2, limit=100)
-    # combine results
-    res = res1 + res2
-    # convert to df
-    ld_df = pd.DataFrame(res, columns=['partner_uniq', 'r2', 'dist_bp'])
-    # add the original variant
-    ld_df = pd.concat([ld_df, pd.DataFrame({'partner_uniq': [uniq1], 'r2': [1.0], 'dist_bp': [0]})], ignore_index=True)
-    # extract position from partner_uniq
-    ld_df['pos'] = ld_df['partner_uniq'].apply(lambda x: int(float(str(x).split(':')[0])))
-    # assign colors for ld: >=0.8 red, >=0.6 orange, >=0.4 green, >=0.2 lightblue, <0.2 grey
-    ld_df['color'] = ld_df['r2'].apply(assign_color)
+    try:
+        if browse_type != 'RsID':
+            # take most significant variant in the region, create a string like chr:pos:ea:nea
+            top_snp = df.loc[df['Pvalue'].idxmax()]     
+        else:
+            # take the rsID from the browse field, create a string like chr:pos:ea:nea
+            rsid = browse.replace(' ', '').split()[0].lower()
+            # get the relative information from the df
+            top_snp = df[df['Rsid'].str.lower() == rsid]
+        if refGen == 'GRCh37':
+            uniq1 = f"{top_snp['Position_hg38']}:{top_snp['EA']}:{top_snp['NEA']}"
+            uniq2 = f"{top_snp['Position_hg38']}:{top_snp['NEA']}:{top_snp['EA']}"
+        else:
+            uniq1 = f"{top_snp['Position']}:{top_snp['EA']}:{top_snp['NEA']}"
+            uniq2 = f"{top_snp['Position']}:{top_snp['NEA']}:{top_snp['EA']}"       
+        # define database path
+        db_path = f"{data_path}/databases/LD_db/ld_chr{chrom}.sqlite"
+        # query the database
+        res1 = partners_by_uniq(db_path, uniq1, r2_min=0.2, limit=100)
+        res2 = partners_by_uniq(db_path, uniq2, r2_min=0.2, limit=100)
+        # combine results
+        res = res1 + res2
+        # convert to df
+        ld_df = pd.DataFrame(res, columns=['partner_uniq', 'r2', 'dist_bp'])
+        # add the original variant
+        ld_df = pd.concat([ld_df, pd.DataFrame({'partner_uniq': [uniq1], 'r2': [1.0], 'dist_bp': [0]})], ignore_index=True)
+        # extract position from partner_uniq
+        ld_df['pos'] = ld_df['partner_uniq'].apply(lambda x: int(float(str(x).split(':')[0])))
+        # assign colors for ld: >=0.8 red, >=0.6 orange, >=0.4 green, >=0.2 lightblue, <0.2 grey
+        ld_df['color'] = ld_df['r2'].apply(assign_color)
+    except Exception:
+        ld_df = pd.DataFrame(columns=['partner_uniq', 'r2', 'dist_bp', 'pos', 'color'])
     return ld_df
 
 # function to assign colors for ld
