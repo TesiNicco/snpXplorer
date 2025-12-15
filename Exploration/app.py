@@ -890,7 +890,7 @@ def haplotype_detail():
         rows=3,
         cols=2,
         shared_xaxes=True,              # still share X for col=1 (rows 2 & 3)
-        vertical_spacing=0.04,
+        vertical_spacing=0.08,
         horizontal_spacing=0.08,
         row_heights=[0.40, 0.40, 0.20],
         column_widths=[0.4, 0.6],
@@ -976,7 +976,7 @@ def haplotype_detail():
                 mode='markers',
                 marker=dict(
                     color=palette[i % len(palette)],
-                    size=10,
+                    size=8,
                     line=dict(width=1, color="black")
                 ),
                 name=f'{trait} (n={count})',

@@ -453,7 +453,7 @@ function downloadGWASTable() {
 </script>
 {% endif %}
 
-<!-- FOOTER IMAGES (outside main wrapper, in normal flow) -->
+<!-- FOOTER IMAGES (outside main wrapper, in normal flow)  -->
 <div class="image-container-foot">
   <img src="{{ url_for('static', filename='images/amstUMC.jpg') }}" alt="ams">
   <img src="{{ url_for('static', filename='images/tudelft1.png') }}" alt="tud">
@@ -496,22 +496,45 @@ function downloadGWASTable() {
       ajax: {
         transport: function (params, success, failure) {
           const term = $.trim(params.data.q || '');
-          let url;
-          // if it's an rsID → always use locus endpoint
-          if (isRS(term)) {
-            url = '/api/locus';
-          } else if (term.length > 7) {
-            // long free-text → trait search
-            url = '/api/traits';
-          } else {
-            // short locus / gene / chr → locus endpoint
-            url = '/api/locus';
+
+          // rsID / coord / chrom always go to locus
+          if (isRS(term) || isCoord(term) || isChrom(term)) {
+            params.url = '/api/locus';
+            const req = $.ajax(params);
+            req.then(success).fail(failure);
+            return req;
           }
-          params.url = url;
-          const req = $.ajax(params);
-          req.then(success);
-          req.fail(failure);
-          return req;
+
+          // Otherwise: try locus first, then fallback to traits if empty
+          const dfd = $.Deferred();
+
+          // 1) try locus (genes etc.)
+          const p1 = $.ajax(Object.assign({}, params, { url: '/api/locus' }));
+
+          p1.then((data) => {
+            const results = (data && data.results) ? data.results : [];
+            if (results.length > 0) {
+              success(data);
+              dfd.resolve(data);
+              return;
+            }
+
+            // 2) fallback to traits
+            const p2 = $.ajax(Object.assign({}, params, { url: '/api/traits' }));
+            p2.then((data2) => {
+              success(data2);
+              dfd.resolve(data2);
+            }).fail((err) => {
+              failure(err);
+              dfd.reject(err);
+            });
+
+          }).fail((err) => {
+            failure(err);
+            dfd.reject(err);
+          });
+
+          return dfd.promise();
         },
         url: '/api/locus',
         dataType: 'json',
