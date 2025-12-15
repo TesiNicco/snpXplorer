@@ -497,39 +497,42 @@ function downloadGWASTable() {
         transport: function (params, success, failure) {
           const term = $.trim(params.data.q || '');
 
-          // rsID / coord / chrom always go to locus
+          function tagResults(data, type) {
+            if (!data || !Array.isArray(data.results)) return data;
+            data.results = data.results.map(r => Object.assign({}, r, { type }));
+            return data;
+          }
+
+          // rsID / coord / chrom → locus
           if (isRS(term) || isCoord(term) || isChrom(term)) {
             params.url = '/api/locus';
             const req = $.ajax(params);
-            req.then(success).fail(failure);
+            req.then(d => success(tagResults(d, 'locus'))).fail(failure);
             return req;
           }
 
-          // Otherwise: try locus first, then fallback to traits if empty
+          // free text: locus first, traits fallback
           const dfd = $.Deferred();
 
-          // 1) try locus (genes etc.)
           const p1 = $.ajax(Object.assign({}, params, { url: '/api/locus' }));
 
-          p1.then((data) => {
+          p1.then(data => {
             const results = (data && data.results) ? data.results : [];
             if (results.length > 0) {
-              success(data);
+              success(tagResults(data, 'gene'));
               dfd.resolve(data);
               return;
             }
 
-            // 2) fallback to traits
             const p2 = $.ajax(Object.assign({}, params, { url: '/api/traits' }));
-            p2.then((data2) => {
-              success(data2);
+            p2.then(data2 => {
+              success(tagResults(data2, 'trait'));
               dfd.resolve(data2);
-            }).fail((err) => {
+            }).fail(err => {
               failure(err);
               dfd.reject(err);
             });
-
-          }).fail((err) => {
+          }).fail(err => {
             failure(err);
             dfd.reject(err);
           });
@@ -549,13 +552,14 @@ function downloadGWASTable() {
     });
 
     $browse.on('select2:select', function (e) {
-      const val = $.trim(e.params.data.id || '');
-      let kind = 'trait';
+      const item = e.params.data || {};
+      const val  = $.trim(item.id || item.text || '');
+
+      let kind = item.type || 'trait';
 
       if (isCoord(val)) kind = 'locus';
       else if (isChrom(val)) kind = 'chromosome';
       else if (isRS(val)) kind = 'rsid';
-      else if (val.length <= 7 && /^[A-Za-z0-9_]+$/.test(val)) kind = 'gene';
 
       $('#browse_type').val(kind);
     });
