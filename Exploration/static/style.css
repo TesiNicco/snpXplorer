@@ -189,6 +189,18 @@ th {
   margin-left: 10px; /* Add space to the left of column 2 */
 }
 
+#column5 {
+  background-color: #B39DDB; /* soft purple */
+  margin-top: 10px;
+  margin-right: 10px;
+}
+
+#column6 {
+  background-color: #9FA8DA; /* muted blue-lavender */
+  margin-top: 10px;
+  margin-left: 10px;
+}
+
 .image-container-foot {
   display: flex; /* Use flexbox to create a horizontal layout */
   justify-content: space-between; /* Distribute images evenly */

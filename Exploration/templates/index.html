@@ -8,7 +8,7 @@
         </div>
         <!-- logo with info -->
         <div class="centered-container-mainImage">
-            <img class="scaled-image" src="{{ url_for('static', filename='images/graph_abstract_hq.png') }}" alt="Image">
+            <img class="scaled-image" src="{{ url_for('static', filename='images/snpxplorer_land.png') }}" alt="Image">
         </div>
         <!-- Brief description -->
         <h3>snpXplorer is a web-server to explore GWAS datasets (Exploration tab) and annotate set of SNPs (Annotation tab).</h3>
@@ -16,26 +16,34 @@
         <div class="container-main">
             <div class="column" id="column1">
                 <h2>Exploration</h2>
-                <p>The <a href="{{ url_for('exploration') }}#exploration_sec">Exploration</a> tab allows you to explore association statistics from published Genome-Wide Association Studies (GWAS). You can search for your favourite SNP or gene, and overlay multiple GWAS statistics on top of each other, allowing comparison between them.</p>
-                <p>GWAS summary statistics are shown in the context of the closest genes, recombination rates, and structural variations (SV). Gene expression per-tissue from GTEx is shown for the genes in the window. A side panel reports GWAS statistics and SV statistics, and allows to download data as a table.</p>
+                <p>The <a href="{{ url_for('exploration') }}#exploration_sec">Exploration</a> tab allows you to dynamically and interactively browse regional association landscape from more than 10,000 Genome-Wide Association Studies (GWAS) available in OpenGWAS. You can search for your favourite SNP or gene, and overlay multiple GWAS studies on top of each other, allowing comparison between them.</p>
+                <p>Customize your plot by showing recombination rates, structural variations (SV), Linkage Disequilibrium (LD) patterns or haplotypes. Compare effect sizes and inspect the expression of the genes in the region in >40 tissues from GTEx. And of course, you can download the data for your own analyses.</p>
             </div>
             <div class="column" id="column2">
-                <h2>Annotation</h2>
-                <p>The <a href="{{ url_for('annotation') }}#annotation_sec">Annotation</a> tab allows you to annotate a set of SNPs and/or perform gene-set enrichment analysis. Annotation is performed integrating public QTL datasets (eQTLs, sQTLs), variant pathogenicity (CADD), and genomic position, and reportsa list of likely affected genes.</p>
-                <p>If gene-set enrichment analysis is requested, the list of genes associated with the SNPs is used in a sampling-based framework to test for the pathways significantly enriched in the list of genes. This procedure allows multiple genes to be associated with each variant.</p>
+                <h2>Single Annotation</h2>
+                <p>The <a href="{{ url_for('snpbot.index') }}#single_sex">Single Annotation</a> tab allows you quickly query a single variant to find all about it: predicted consequences from CADD, SIFT, or PolyPhen, expression- and splicing-QTL, and GWAS-associations from the OpenGWAS. And this for the query variant, and for all variants in Linkage Disequilibrium (LD) with it. All, within seconds. All information can be browsed and downloaded, and behind the hoods we integrate everything to provide the most likely affected gene. No magic, just snpXplorer.</p>
+            </div>
+        </div>
+            <div class="container-main">
+            <div class="column" id="column3">
+                <h2>Batch Annotation</h2>
+                <p>The <a href="{{ url_for('annotation') }}#annotation_sec">Batch Annotation</a> tab is the natural extension of the Single Annotation tab, allowing you to submit a list of variants for annotation in one go. This is particularly useful for large-scale studies where you need to analyze multiple variants simultaneously. The procedure can be used to perform variant annotation only, or can be coupled with gene-set enrichment analysis to identify the biological mechanisms associated with the query SNPs.</p>
+                <p>When gene-set enrichment analysis is selected, the list of genes associated with the variants is used in a sampling-based framework to test for the pathways significantly enriched in the list of genes. This procedure allows multiple genes to be associated with each variant. Just add the variants of interest, dump your email so we can send the results, and give it a go!</p>
+            </div>
+            <div class="column" id="column4">
+                <h2>Haplotypes</h2>
+                <p>The <a href="{{ url_for('haplotypes') }}#haplotypes_sec">Haplotypes</a> tab allows you to explore haplotype structures and their associations with traits. This is becoming a new trend in genetic research, where instead of looking at individual variants only, a more contextual approach is taken. You can search for your favourite variant or gene, and explore the haplotypes in that region. Or, you can search for a trait of interest, and explore the haplotypes associated with it. Traits from OpenGWAS can be highly repetitive, but AI comes to help: through semantic-similarity and large language models, we have made this huge number of GWAS digestible!</p>
             </div>
         </div>
         <!-- More info -->
         <div class="container-main">
-            <div class="column" id="column3">
+            <div class="column" id="column5">
                 <h2>About</h2>
-                <p>The <a href="{{ url_for('about') }}#about">About</a> tab gives you more information about snpXplorer. You can check out the publication in <a href="https://pubmed.ncbi.nlm.nih.gov/34048563/">Nucleic Acid Research</a> or download the PDF of the paper. Please do not forget to cite us if you find snpXplorer useful for your research.<br>
-                Here you can also check the references snpXplorer uses and the studies included.</p>
+                <p>The <a href="{{ url_for('prs.index') }}#prs">PRS</a> tab gives you access to variant-sets for the costruction of Polygenic Risk Score (PRS). We have made them based on the OpenGWAS studies, and we applied a simple clumping and thresholding approach to keep independent variants. Linkage Disequilibrium is from TopMed. Once again you can browse a trait of interest and get related traits and all SNP list to contruct your PRSs. While we would be super excited to put online our tools so that you upload your genotype data and calculate PRS, we would go to jail if we do so. But, you can still use our tools jordan and polygenius to calculate PRS if you like.</p>
             </div>
-            <div class="column" id="column4">
-                <h2>Help and contacts</h2>
-                <p>The <a href="{{ url_for('help') }}#help">Help</a> tab guides you through snpXplorer functionalities with vignettes, for both the Exploration and Annotation sections.<br>
-                snpXplorer was developed by Niccolò Tesi at Amsterdam UMC and TU Delft. <br>
+            <div class="column" id="column6">
+                <h2>Help, About and contacts</h2>
+                <p>The <a href="{{ url_for('help') }}#help">Help, About and contacts</a> tabs guide you through snpXplorer functionalities for all sections. Here you can also check the references snpXplorer uses and the studies included. You can check out our original publication in <a href="https://pubmed.ncbi.nlm.nih.gov/34048563/">Nucleic Acid Research</a> or download the PDF of the paper. If if you find snpXplorer useful for your research, do not forget to cite us, and you will be blessed by karma.<br>
                 Your feedbacks are very precious: for more information, collaborations, or feedbacks <a href="mailto:n.tesi@amsterdamumc.nl">Reach us!</a></p>
             </div>
         </div>

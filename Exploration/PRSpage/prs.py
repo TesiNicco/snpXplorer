@@ -300,40 +300,46 @@ def index():
 # Route to handle trait search
 @prs_bp.route("/traits", methods=["GET", "POST"])
 def trait_search():
-    # Load GWAS metadata from app config
     meta = current_app.config["GWAS_META"]
-    query = ""
-    matches = []
+    # Remember last selection ---
     if request.method == "POST":
         query = (request.form.get("trait") or "").strip()
         if query:
-            q = query.lower()
-            # get trait info
-            clusters_of_interest, all_indices, trait_list, cluster_index_map, umap, cluster_representatives, browse_resolved, sim_mat, names_sub, cluster_labels_for_index, cluster_traits, traits_interest, idx_trait, all_cluster_representatives = guide_haplotypes_traits(DATA_PATH, q, 100000, 'hg38', trait_names)
-            # Plot UMAP + heatmap
-            plot_html = plot_haplotype_traits(clusters_of_interest, all_indices, trait_list, cluster_index_map, umap, cluster_representatives, browse_resolved, sim_mat, names_sub, cluster_labels_for_index, cluster_traits, idx_trait, all_cluster_representatives)
-            
-            # traspose meta for easier access
-            meta_sb = meta.loc[:, meta.loc['trait'].isin(traits_interest['name'])].copy()
-            meta_subset_long = meta_sb.T.reset_index(drop=False)
-            # Rename columns of meta_subset_long
-            meta_subset_long = meta_subset_long.rename(columns={'trait': 'Trait', 'author': 'Author', 'year': 'Year', 'pmid': 'PMID', 'sample_size': 'Sample Size', 'population': 'Population', 'doi': 'DOI','id': 'ID'})
-            # Subset of these columns of interest
-            meta_sb = meta_subset_long[['Trait', 'ID', 'Author', 'Year', 'PMID', 'Sample Size', 'Population']].copy()
-            # Get cluster representatives info
-            cluster_rep = cluster_representatives['Final Representative file'].replace('_hits_p5e-5.txt.gz', '', regex=True).values[0]
-            # Add a column to meta_sb indicating if the trait is the cluster representative otherwise None
-            meta_sb['Cluster Representative'] = meta_sb['ID'].apply(lambda x: 'Yes' if x == cluster_rep else 'No')
-            
-            # Then read the PRS of interest
-            prs_info = getPRSinfo(meta_sb, cluster_rep, browse_resolved)
-            # Add download url
-            prs_info["download_url"] = prs_info["file_name"].apply(lambda fn: url_for("prs.download_prs_file", filename=fn) if fn else "")
-            prs_info = prs_info.drop(columns=["file_name"], errors="ignore")
+            session["prs_last_trait"] = query
+        else:
+            session.pop("prs_last_trait", None)
+    else:
+        query = (session.get("prs_last_trait") or "").strip()
 
-            # Convert objects to dictionaries
-            meta_rows = meta_sb.to_dict(orient="records")
-            prs_rows = prs_info.to_dict(orient="records")
+    # Initialize variables
+    plot_html = None
+    meta_rows = []
+    prs_rows = []
+
+    # If we have a query (POST or remembered GET), compute page content
+    if query:
+        q = query.lower()
+        # Get all relevant info
+        clusters_of_interest, all_indices, trait_list, cluster_index_map, umap, cluster_representatives, browse_resolved, sim_mat, names_sub, cluster_labels_for_index, cluster_traits, traits_interest, idx_trait, all_cluster_representatives = guide_haplotypes_traits(DATA_PATH, q, 100000, "hg38", trait_names)
+        # Generate plots
+        plot_html = plot_haplotype_traits(clusters_of_interest, all_indices, trait_list, cluster_index_map, umap, cluster_representatives, browse_resolved, sim_mat, names_sub, cluster_labels_for_index, cluster_traits, idx_trait, all_cluster_representatives)
+        # Subset metadata
+        meta_sb = meta.loc[:, meta.loc["trait"].isin(traits_interest["name"])].copy()
+        meta_subset_long = meta_sb.T.reset_index(drop=False)
+        meta_subset_long = meta_subset_long.rename(columns={"trait": "Trait", "author": "Author", "year": "Year", "pmid": "PMID", "sample_size": "Sample Size", "population": "Population", "doi": "DOI", "id": "ID"})
+        meta_sb = meta_subset_long[["Trait", "ID", "Author", "Year", "PMID", "Sample Size", "Population"]].copy()
+        # Get cluster representative
+        cluster_rep = cluster_representatives["Final Representative file"].replace("_hits_p5e-5.txt.gz", "", regex=True).values[0]
+        # Flag cluster representative
+        meta_sb["Cluster Representative"] = meta_sb["ID"].apply(lambda x: "Yes" if x == cluster_rep else "No")
+        # Get PRS info
+        prs_info = getPRSinfo(meta_sb, cluster_rep, browse_resolved)
+        prs_info["download_url"] = prs_info["file_name"].apply(lambda fn: url_for("prs.download_prs_file", filename=fn) if fn else "")
+        prs_info = prs_info.drop(columns=["file_name"], errors="ignore")
+        # Prepare tables
+        meta_rows = meta_sb.to_dict(orient="records")
+        prs_rows = prs_info.to_dict(orient="records")
+
     return render_template("prs.html", trait_list=TRAIT_LIST, query=query, plot_html=plot_html, meta_rows=meta_rows, prs_rows=prs_rows)
 
 # Serve PRS files

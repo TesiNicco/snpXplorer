@@ -487,4 +487,25 @@ $(function () {
 });
 </script>
 
+<script>
+const TRAITS = {{ trait_list|tojson }};
+const LAST_TRAIT = {{ (query or "")|tojson }};
+
+$(function () {
+  const $sel = $('#trait-input').select2({
+    placeholder: "e.g. Alzheimer's disease, Longevity, Hypertension",
+    allowClear: true,
+    width: '100%',
+    minimumInputLength: 2,
+    data: TRAITS.map(t => ({ id: t, text: t }))
+  });
+
+  // restore last selection (memory)
+  if (LAST_TRAIT) {
+    const opt = new Option(LAST_TRAIT, LAST_TRAIT, true, true);
+    $sel.append(opt).trigger('change');
+  }
+});
+</script>
+
 {% endblock %}
