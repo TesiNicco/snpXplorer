@@ -198,7 +198,7 @@ def getPRSinfo(meta_sb, cluster_rep, browse_resolved):
     for prs in prs_interest:
         try:
             tmp_path = prs_path / f"{prs}_hits_p5e-5_clumped_reformatted.txt.gz"
-            tmp_dic = {'id' : prs, 'file_name' : str(tmp_path)}
+            tmp_dic = {'id' : prs, 'file_name' : tmp_path.name}
             tmp_prs = pd.read_csv(tmp_path, sep="\t")
             tmp_prs['P'] = tmp_prs['P'].astype(float)
             # Save all snps
@@ -250,7 +250,7 @@ def curatedPRS():
         tmp_path = DATA_PATH / f"databases/PRS/{tr_path}"
         # Read PRS
         tmp_prs = pd.read_csv(tmp_path, sep="\t")
-        curated.append({'id': f"curated-{counter}", "file_name": str(tmp_path), "Author": tr_author, "Year": tr_year, "PMID": tr_pmid, "Trait": tr, 'all': tmp_prs.shape[0], '5e-05': 0, '5e-06': 0, '5e-07': 0, '5e-08': tmp_prs.shape[0], 'representative': 'Yes', 'curated': 'Yes'})
+        curated.append({'id': f"curated-{counter}", "file_name": tmp_path.name, "Author": tr_author, "Year": tr_year, "PMID": tr_pmid, "Trait": tr, 'all': tmp_prs.shape[0], '5e-05': 0, '5e-06': 0, '5e-07': 0, '5e-08': tmp_prs.shape[0], 'representative': 'Yes', 'curated': 'Yes'})
         counter += 1
     return pd.DataFrame(curated)
 
@@ -341,4 +341,5 @@ def trait_search():
 def download_prs_file(filename):
     if not filename:
         abort(404)
+    filename = Path(filename).name
     return send_from_directory(PRS_DIR, filename, as_attachment=True)

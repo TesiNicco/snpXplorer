@@ -226,6 +226,7 @@ body{
   overflow-y: auto;
   border: 1px solid #e5e7eb;
   border-radius: 16px;
+  margin: 0 auto;
 }
 
 .table-wrap.ten-rows{
@@ -233,8 +234,9 @@ body{
 }
 
 .data-table{
-  width: 100%;
-  min-width: 900px;   /* enables horizontal scroll for many cols */
+  width: max-content;
+  min-width: 100%;   /* enables horizontal scroll for many cols */
+  margin: 0 auto;
   border-collapse: collapse;
   font-size: 12px;
 }
@@ -248,6 +250,14 @@ body{
   padding: 8px 10px;
   border-bottom: 1px solid #eee;
   white-space: nowrap;
+}
+
+.data-table tbody tr:nth-child(even){
+  background: #f9fafb;
+}
+
+.data-table tbody tr:hover{
+  background: #f3f4f6;
 }
 
 .data-table td{
@@ -360,7 +370,8 @@ body{
           </thead>
           <tbody>
             {% for row in prs_rows %}
-              <tr>
+              {% set make_bold = (row.get('Suggested') == 'Yes') or (row.get('Curated') == 'Yes') %}
+              <tr {% if make_bold %}style="font-weight:600;"{% endif %}>
                 {% for col, val in row.items() %}
                   {% if col != 'download_url' %}
                     <td>{{ val }}</td>
@@ -369,8 +380,8 @@ body{
                 <td>
                   {% if row.download_url %}
                     <a class="search-button"
-                       style="padding:6px 10px; font-size:12px; text-decoration:none;"
-                       href="{{ row.download_url }}">
+                      style="padding:6px 10px; font-size:12px; text-decoration:none;"
+                      href="{{ row.download_url }}">
                       Download
                     </a>
                   {% else %}

@@ -53,7 +53,7 @@
             border-spacing: 5px;
             font-size: 13px;
             text-align: center;
-            max-width: 400px;
+            max-width: 100%;
             width: 100%;
         }
         th, td {
@@ -142,6 +142,61 @@
       @keyframes global-spin {
         to { transform: rotate(360deg); }
       }
+
+      /* ===== Top navigation (light theme) ===== */
+      .top-nav{
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 18px;
+        background: #ffffff;
+        border-bottom: 1px solid #e5e7eb;
+      }
+
+      /* links */
+      .top-nav a{
+        color: #111827;
+        text-decoration: none;
+        font-size: 14px;
+        padding: 8px 10px;
+        border-radius: 999px;
+        line-height: 1;
+        transition: background 0.15s ease, color 0.15s ease;
+      }
+
+      .top-nav a:hover{
+        background: #f3f4f6;
+      }
+
+      /* "active" tab if you want it later (optional)       */
+      .top-nav a.active{
+        background:#111827;
+        color:#ffffff;
+      }
+
+      .nav-brand{
+        padding: 0;
+        margin-right: 6px;
+        display: inline-flex;
+        align-items: center;
+      }
+
+      .nav-brand img{
+        height: 34px;        /* tweak */
+        width: auto;
+        display: block;
+      }
+
+      /* allow links to wrap on small screens */
+      @media (max-width: 900px){
+        .top-nav{
+          flex-wrap: wrap;
+          gap: 6px;
+        }
+      }
     </style>
 </head>
 <body>
@@ -157,18 +212,20 @@
     </div>
 
     <!-- Navigation bar -->
-    <nav>
-        <a href="{{ url_for('index') }}">Homepage</a>
-        <a href="{{ url_for('exploration') }}">Exploration</a>
-        <a href="{{ url_for('snpbot.index') }}">Single Annotation</a>
-        <a href="{{ url_for('annotation') }}">Batch Annotation</a>
-        <a href="{{ url_for('download') }}">Download</a>
-        <a href="{{ url_for('haplotypes') }}">Haplotypes</a>
-        <a href="{{ url_for('prs.index') }}">PRS</a>
-        <!-- <a href="{{ url_for('user') }}">Log In</a> -->
-        <a href="{{ url_for('help') }}">Help</a>
-        <a href="{{ url_for('about') }}">About</a>
-      </nav>
+    <nav class="top-nav">
+      <a class="nav-brand" href="{{ url_for('index') }}">
+          <img src="{{ url_for('static', filename='images/snpxplorer_logo.png') }}" alt="snpXplorer logo">
+      </a>
+      <a href="{{ url_for('index') }}">Homepage</a>
+      <a href="{{ url_for('exploration') }}">Exploration</a>
+      <a href="{{ url_for('snpbot.index') }}">Single Annotation</a>
+      <a href="{{ url_for('annotation') }}">Batch Annotation</a>
+      <a href="{{ url_for('download') }}">Download</a>
+      <a href="{{ url_for('haplotypes') }}">Haplotypes</a>
+      <a href="{{ url_for('prs.index') }}">PRS</a>
+      <a href="{{ url_for('help') }}">Help</a>
+      <a href="{{ url_for('about') }}">About</a>
+    </nav>
     
     <!-- Page content -->
     <div class="container">
