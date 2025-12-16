@@ -199,6 +199,12 @@
         justify-content: center;
         gap: 10px; /* or keep your spacing */
       }
+      
+      .nav-left img{
+        height: 38px;
+        width: auto;
+        display: block;
+      }
 
       /* Right spacer balances layout so center is true center */
       .nav-spacer{
@@ -229,7 +235,7 @@
     <!-- Navigation bar -->
     <nav class="top-nav">
       <!-- LEFT: logo -->
-      <div class="nav-left">
+      <div class="nav-brand">
         <img src="{{ url_for('static', filename='images/snpxplorer_logo.png') }}" alt="snpXplorer logo">
       </div>
 
