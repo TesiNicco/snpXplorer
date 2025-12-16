@@ -15,6 +15,7 @@ import sys
 import numpy as np
 import os
 import time
+from collections import defaultdict
 import pickle
 import random
 from functools import reduce
@@ -1371,6 +1372,40 @@ def append_df(path: str, df: pd.DataFrame):
     df.to_csv(path, sep="\t", index=False, mode="a", header=write_header, na_rep="NA")
 
 # ---------------------------------------------------------
+# Function to clean redundant files
+# ---------------------------------------------------------
+def cleanRedundantFiles(output_folder):
+    # Container
+    pnginfo = {}
+    # List files .png and their sizes
+    for p in Path(f"{output_folder}/gene_set_enrichment/").glob("*.png"):
+        size = p.stat().st_size
+        pnginfo[p] = size
+    # Group files by size
+    by_size = defaultdict(list)
+    for path, size in pnginfo.items():
+        by_size[size].append(path)
+    # Helper to extract the number
+    def extract_max_n(path: Path) -> int:
+        m = re.search(r'clustering_max_(\d+)', path.name)
+        return int(m.group(1)) if m else float("inf")
+    # Select files to keep
+    files_to_keep = []
+    for size, paths in by_size.items():
+        if len(paths) == 1:
+            files_to_keep.append(paths[0])
+        else:
+            # keep the one with the smallest clustering_max_N
+            keep = min(paths, key=extract_max_n)
+            files_to_keep.append(keep)
+    # Remove the other files
+    for path in pnginfo:
+        if path not in files_to_keep:
+            tspath = Path(str(path).replace('dendrogram_clusters.png', 'clusters.tsv'))
+            path.unlink()
+            tspath.unlink()    
+
+# ---------------------------------------------------------
 # CLI entrypoint
 # ---------------------------------------------------------
 def main():
@@ -1585,12 +1620,14 @@ def main():
             cmd = f"Rscript {PATH_SCRIPT}/standalone_annotation.R -d {output_folder}/gene_set_enrichment/semantic_similarity_matrix.tsv -o {output_folder}/gene_set_enrichment"
             os.system(cmd)
             clustered_go_terms_list = guide_wordclouds(output_folder, enrichment_df)
-        
+            cleanRedundantFiles(output_folder)
+            
         # Rename columns of enrichment_df for consistency
         enrichment_df = enrichment_df.rename(columns={"native": "Enrichment Term ID", "name": "Enrichment Term Name", "source": "Enrichment Source", "p_value": "Enrichment P-value", "term_size": "Enrichment Term Size", "query_size": "Enrichment Query Size", "precision": "Enrichment Precision", "recall": "Enrichment Recall", "description": "Enrichment Term Description", "intersections": "Enrichment intersections"}).reset_index(drop=True)
         # Convert intersections to comma-separated strings
         enrichment_df['Enrichment intersections'] = enrichment_df['Enrichment intersections'].apply(lambda x: ','.join(x) if isinstance(x, list) else x)
-        
+        # Write to disk
+        enrichment_df.to_csv(f"{output_folder}/gene_set_enrichment/gene_set_enrichment_results.tsv", sep="\t", index=False)
     else:
         enrichment_df = pd.DataFrame()
         dist_mt = pd.DataFrame()
