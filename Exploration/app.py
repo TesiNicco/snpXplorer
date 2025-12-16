@@ -49,6 +49,7 @@ from scipy.cluster.hierarchy import dendrogram, linkage
 
 # Import Blueprint
 from SNPbot.routes import snpbot_bp
+from PRSpage.prs import prs_bp
 
 # Import all functions from snpxplorer_functions.py
 from snpxplorer_functions import *
@@ -85,6 +86,7 @@ def make_session_permanent():
 CONSOLE_QUEUES = {}
 # Register Blueprint
 app.register_blueprint(snpbot_bp, url_prefix='/snpbot')
+app.register_blueprint(prs_bp, url_prefix='/prs')
 
 # Function to manage the publishing of messages
 def publish(msg, console_id="default"):
@@ -94,6 +96,8 @@ def publish(msg, console_id="default"):
 
 # Read IEU Open GWAS database
 meta = pd.DataFrame(query.gwasinfo())
+# Make it accessible in blueprints
+app.config["GWAS_META"] = meta
 # function to make a search row for the IEU Open GWAS database
 def build_search_row(meta: pd.DataFrame, fields=('id','trait','author','population', 'pmid')) -> None:
     """Create a new row '_search' that concatenates colname + selected rows per column."""
@@ -886,7 +890,7 @@ def haplotype_detail():
     cadd_df = cadd_df.merge(snps_df[['rsid', 'position_hg38']], left_on='pos', right_on='position_hg38', how='outer')
 
     # create plotly figure
-    fig = fig = make_subplots(
+    fig = make_subplots(
         rows=3,
         cols=2,
         shared_xaxes=True,              # still share X for col=1 (rows 2 & 3)
@@ -976,7 +980,7 @@ def haplotype_detail():
                 mode='markers',
                 marker=dict(
                     color=palette[i % len(palette)],
-                    size=8,
+                    size=6,
                     line=dict(width=1, color="black")
                 ),
                 name=f'{trait} (n={count})',
@@ -1222,21 +1226,21 @@ def haplotype_detail():
     
     # Subtitles
     fig.add_annotation(
-        text="<b>LD Heatmap</b>",
+        text="<b></b>",
         x=0.5, y=1.05,
         xref="paper", yref="paper",
         showarrow=False,
         font=dict(size=18, color="darkgrey")
     )
     fig.add_annotation(
-        text="<b>SNP Associations</b>",
+        text="<b></b>",
         x=0.15, y=0.55,
         xref="paper", yref="paper",
         showarrow=False,
         font=dict(size=18, color="darkgrey")
     )
     fig.add_annotation(
-        text="<b>Trait–Trait Correlation</b>",
+        text="<b></b>",
         x=0.75, y=0.55,
         xref="paper", yref="paper",
         showarrow=False,
@@ -1257,6 +1261,9 @@ def haplotype_detail():
     # SNPs table
     snps_df = snps_df[['rsid', 'position', 'position_hg38', 'trait', 'ea', 'nea', 'eaf', 'beta', 'se', 'p', 'n', 'id']].copy()
     snps_df.rename(columns={'position':'Pos (hg19)', 'position_hg38':'Pos (hg38)', 'rsid':'RsID', 'trait':'Trait', 'ea':'Effect', 'nea':'Other', 'eaf':'EAF', 'beta':'Beta', 'se':'SE', 'p':'P-value', 'n':'N', 'id':'Study ID'}, inplace=True)
+    # sort by pvalue
+    snps_df['P-value'] = snps_df['P-value'].astype(float)
+    snps_df = snps_df.sort_values(by='P-value', ascending=True)
     snps_table_html = snps_df.to_html(
         classes="detail-table",
         index=False,
@@ -1269,6 +1276,9 @@ def haplotype_detail():
     cadd_df = cadd_df[['rsid', 'pos', 'position_hg38', 'ref', 'alt', 'phred_max', 'genes', 'annotypes', 'consequences', 'cpg_max', 'gc_max', 'h3k27ac_max', 'h3k4me3_max', 'dnase_max', 'spliceai_acc_loss_max', 'spliceai_don_loss_max', 'siftval_max', 'polyphenval_max', 'gerprs_max', 'priphyloP_max']].copy()
     cadd_df.rename(columns={'pos':'Pos (hg19)', 'position_hg38':'Pos (hg38)', 'rsid':'RsID', 'ref':'Ref', 'alt':'Alt', 'phred_max':'Phred score', 'genes':'Gene', 'annotypes':'Annotypes', 'consequences':'Consequences', 'cpg_max':'CpG', 'gc_max':'GC', 'h3k27ac_max':'H3K27ac', 'h3k4me3_max':'H3K4me3', 'dnase_max':'DNase', 'spliceai_acc_loss_max':'SpliceAI (acceptor)', 'spliceai_don_loss_max':'SpliceAI (donor)', 'siftval_max':'SIFT', 'polyphenval_max':'PolyPhen', 'gerprs_max':'GERP', 'priphyloP_max':'PhyloP'}, inplace=True)
     cadd_df = cadd_df.drop_duplicates()
+    # sort by phred score
+    cadd_df['Phred score'] = cadd_df['Phred score'].astype(float)
+    cadd_df = cadd_df.sort_values(by='Phred score', ascending=False)
     snps_cadd_table_html = cadd_df.to_html(
         classes="detail-table",
         index=False,

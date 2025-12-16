@@ -1,0 +1,479 @@
+{% extends 'base.html' %}
+
+{% block title %} PRS {% endblock %}
+
+{% block content %}
+
+<!-- Select2 -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.full.min.js"></script>
+
+<style>
+* { box-sizing: border-box; }
+
+body{
+  margin:0;
+  padding:0;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
+  background:#fff;
+  color:#111827;
+}
+
+.main-container{
+  width:100%;
+  margin:32px auto 40px;
+  padding:0 24px;
+}
+
+.header{ margin-bottom:16px; }
+
+.header-title{
+  margin:0 0 4px 0;
+  font-size:22px;
+  font-weight:600;
+}
+
+/* ===== code blocks ===== */
+.prs-tools{
+  width:100%;
+  margin: 18px auto 0;
+  padding: 0 24px;
+}
+
+.tool-card{
+  border:1px solid #e5e7eb;
+  border-radius:16px;
+  background:#fff;
+  box-shadow:0 6px 18px rgba(15,23,42,0.06);
+  padding:16px;
+}
+
+.tool-title{
+  margin:0 0 10px 0;
+  font-size:14px;
+  font-weight:600;
+}
+
+.codebox{
+  position: relative;
+  border:1px solid #e5e7eb;
+  border-radius:12px;
+  background:#0b1220;
+  color:#e5e7eb;
+  padding:14px 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font-size:12px;
+  line-height:1.45;
+  overflow-x:auto;
+}
+
+.codebox code{
+  white-space: pre;
+}
+
+.copy-btn{
+  position:absolute;
+  top:10px;
+  right:10px;
+  border:none;
+  border-radius:999px;
+  padding:6px 10px;
+  font-size:12px;
+  font-weight:500;
+  background:#2563eb;
+  color:#fff;
+  cursor:pointer;
+}
+
+.copy-btn:hover{ background:#1d4ed8; }
+
+.code-caption{
+  margin:10px 0 0 0;
+  font-size:12px;
+  color:#6b7280;
+}
+
+.code-caption a{
+  color:#2563eb;
+  text-decoration:none;
+}
+
+.code-caption a:hover{
+  text-decoration:underline;
+}
+
+.header-subtitle{
+  margin:0;
+  font-size:13px;
+  color:#6b7280;
+}
+
+/* ===== cards layout ===== */
+
+.top-section{
+  display:flex;
+  gap:20px;
+  align-items:stretch;
+}
+
+.search-card,
+.helper-card{
+  border-radius:16px;
+  border:1px solid #e5e7eb;
+  background:#fff;
+  box-shadow:0 6px 18px rgba(15,23,42,0.06);
+  display:flex;
+  flex-direction:column;
+}
+
+.search-card{
+  flex:1.4;
+  padding:14px 16px 16px;
+}
+
+.helper-card{
+  flex:1;
+  padding:12px 14px;
+  font-size:12px;
+}
+
+/* ===== search card ===== */
+
+.search-card-title{
+  margin:0 0 10px 0;
+  font-size:14px;
+  font-weight:600;
+}
+
+.search-row{
+  display:flex;
+  gap:8px;
+  margin-bottom:10px;
+  align-items:center;
+}
+
+.search-button{
+  border:none;
+  border-radius:999px;
+  padding:8px 18px;
+  font-size:13px;
+  font-weight:500;
+  background:#2563eb;
+  color:#fff;
+  cursor:pointer;
+  display:inline-flex;
+  gap:6px;
+}
+
+.search-button:hover{ background:#1d4ed8; }
+
+.search-help-text{
+  font-size:11px;
+  color:#6b7280;
+  margin-top:auto;
+}
+
+/* ===== helper card ===== */
+
+.helper-card h3{
+  margin:0 0 6px 0;
+  font-size:13px;
+  font-weight:600;
+}
+
+.helper-card p{
+  margin:0 0 6px 0;
+  line-height:1.35;
+}
+
+/* ===== Select2 ===== */
+
+.select2-container--default .select2-selection--single{
+  height:36px;
+  border-radius:999px;
+  border:1px solid #d1d5db;
+  padding:4px 10px;
+}
+
+.select2-selection__rendered{
+  font-size:13px;
+  line-height:26px !important;
+  color:#6b7280;
+}
+
+.select2-dropdown{
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:10px;
+  box-shadow:0 8px 20px rgba(0,0,0,.1);
+}
+
+.select2-results__option{
+  font-size:14px;
+  padding:8px 12px;
+}
+
+.select2-results__option--highlighted{
+  background:#f3f4f6;
+  color:#111827;
+}
+
+/* ===== tables (10 rows + scroll) ===== */
+.table-wrap{
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+}
+
+.table-wrap.ten-rows{
+  max-height: 360px; /* ~10 rows at 12px font */
+}
+
+.data-table{
+  width: 100%;
+  min-width: 900px;   /* enables horizontal scroll for many cols */
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.data-table th{
+  position: sticky;
+  top: 0;
+  background: #f4f6f8;
+  z-index: 1;
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid #eee;
+  white-space: nowrap;
+}
+
+.data-table td{
+  padding: 8px 10px;
+  border-bottom: 1px solid #eee;
+  vertical-align: top;
+  white-space: nowrap;
+}
+</style>
+
+<div class="snpbot-page">
+  <div class="centered-container">
+    <img class="centered-image" src="{{ url_for('static', filename='images/dna.png') }}">
+  </div>
+
+  <div class="main-container">
+    <div class="header">
+      <h1 class="header-title">Polygenic Risk Scores (PRS)</h1>
+      <p class="header-subtitle">Search traits of interest, get SNPs, make PRS. Easy.</p>
+    </div>
+
+    <div class="top-section">
+      <div class="search-card">
+        <h3 class="search-card-title">Search</h3>
+
+        <form id="trait-form" method="POST" action="{{ url_for('prs.trait_search') }}">
+          <div class="search-row">
+            <select id="trait-input" name="trait" style="width:100%">
+              <option></option>
+            </select>
+            <button class="search-button" type="submit">
+              <span>Search</span><span>⏎</span>
+            </button>
+          </div>
+        </form>
+
+        <div class="search-help-text">
+          Type to search and select one trait.
+        </div>
+      </div>
+
+      <div class="helper-card">
+        <h3>Helper</h3>
+        <p>
+          We have calculated lists of SNPs for each trait using publicly available GWAS summary statistics and publicly available LD patterns from TopMed. You may want to further filter the SNPs based on the p-value threshold or other criteria before using them in your analyses. You can then use jordan or polygenenius to calculate PRS in your own data.
+        </p>
+        <p style="font-size:12px; margin-top:12px;">
+          <strong>Note that SNP lists are not manually curated, largely based on individuals of European ancestry, and may result in a larger number of SNPs.</strong>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  {% if plot_html %}
+    <div class="main-container" style="margin-top:18px;">
+      <div style="border:1px solid #e5e7eb; border-radius:16px; padding:16px; box-shadow:0 6px 18px rgba(15,23,42,0.06);">
+        {{ plot_html|safe }}
+      </div>
+    </div>
+  {% endif %}
+
+  {% if meta_rows and meta_rows|length > 0 %}
+    <div class="main-container" style="margin-top:18px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <h4>GWAS metadata</h4>
+        <button class="search-button" type="button" onclick="downloadTableAsCSV('meta-table','meta_gwas.csv')">Download table (CSV)</button>
+      </div>
+
+      <div class="table-wrap ten-rows">
+        <table id="meta-table" class="data-table">
+          <thead>
+            <tr>
+              {% for col in meta_rows[0].keys() %}
+                <th>{{ col }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in meta_rows %}
+              <tr>
+                {% for col, val in row.items() %}
+                  <td>{{ val }}</td>
+                {% endfor %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% endif %}
+
+  {% if prs_rows and prs_rows|length > 0 %}
+    <div class="main-container" style="margin-top:18px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <h4>PRS SNP lists</h4>
+        <button class="search-button" type="button" onclick="downloadTableAsCSV('prs-table','prs_info.csv')">Download table (CSV)</button>
+      </div>
+
+      <div class="table-wrap ten-rows">
+        <table id="prs-table" class="data-table">
+          <thead>
+            <tr>
+              {% for col in prs_rows[0].keys() %}
+                {% if col != 'download_url' %}
+                  <th>{{ col }}</th>
+                {% endif %}
+              {% endfor %}
+              <th>Download</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in prs_rows %}
+              <tr>
+                {% for col, val in row.items() %}
+                  {% if col != 'download_url' %}
+                    <td>{{ val }}</td>
+                  {% endif %}
+                {% endfor %}
+                <td>
+                  {% if row.download_url %}
+                    <a class="search-button"
+                       style="padding:6px 10px; font-size:12px; text-decoration:none;"
+                       href="{{ row.download_url }}">
+                      Download
+                    </a>
+                  {% else %}
+                    —
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% endif %}
+
+  <div class="prs-tools">
+    <!-- PRS with Jordan -->
+    <div class="tool-card" style="margin-top:18px;">
+      <h4 class="tool-title">PRS with Jordan</h4>
+
+      <div class="codebox" id="jordan-codebox">
+        <button class="copy-btn" type="button" onclick="copyCode('jordan-cmd')">Copy</button>
+        <code id="jordan-cmd">jordan --genotype {your genotype data} --snplist {individual SNP list as downloaded above} --outname {output folder} [options: --dosages --keepDos --maf 0.01]</code>
+      </div>
+
+      <p class="code-caption">
+        For more info, visit Jordan at
+        <a href="https://github.com/TesiNicco/jordan" target="_blank" rel="noopener noreferrer">GitHub</a>.
+      </p>
+    </div>
+
+    <!-- PRS with Polygenius -->
+    <div class="tool-card" style="margin-top:18px;">
+      <h4 class="tool-title">PRS with Polygenius</h4>
+
+      <p class="code-caption" style="margin-top:0;">
+        For more info visit Polygenius at
+        <a href="https://polygenius.holstegelab.eu" target="_blank" rel="noopener noreferrer">the Holstegelab page</a>.
+      </p>
+    </div>
+  </div>
+
+  <script>
+    function copyCode(codeId){
+      const el = document.getElementById(codeId);
+      if (!el) return;
+      const text = el.innerText || el.textContent || '';
+      navigator.clipboard.writeText(text).catch(() => {
+        // fallback for older browsers
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      });
+    }
+  
+    function downloadTableAsCSV(tableId, filename) {
+    const table = document.getElementById(tableId);
+    if (!table) return;
+
+    const rows = table.querySelectorAll("tr");
+    let csv = [];
+
+    rows.forEach(row => {
+      const cols = row.querySelectorAll("th, td");
+      let rowData = [];
+      cols.forEach(col => {
+        let text = (col.innerText || "").replace(/"/g, '""');
+        rowData.push('"' + text + '"');
+      });
+      csv.push(rowData.join(","));
+    });
+
+    const blob = new Blob([csv.join("\n")], {type:"text/csv;charset=utf-8;"});
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+  </script>
+
+  <div class="image-container-foot">
+    <img src="{{ url_for('static', filename='images/amstUMC.jpg') }}">
+    <img src="{{ url_for('static', filename='images/tudelft1.png') }}">
+    <img src="{{ url_for('static', filename='images/github.png') }}">
+  </div>
+</div>
+
+<script>
+const TRAITS = {{ trait_list|tojson }};
+
+$(function () {
+  $('#trait-input').select2({
+    placeholder: "e.g. Alzheimer's disease, Longevity, Hypertension",
+    allowClear: true,
+    width: '100%',
+    minimumInputLength: 2,
+    data: TRAITS.map(t => ({ id: t, text: t }))
+  });
+});
+</script>
+
+{% endblock %}
