@@ -17,9 +17,23 @@
             <div style="display:flex;">
                 <!-- Textarea for the input SNPs -->
                 <div style="padding: 10px; background-color: #9FD8C6; margin: 20px; width: 22.5%;">
-                <h4>List of variants</h4>
-                <textarea name="SNPlist" placeholder="Paste variants of interest. &#10;&#13; The format will be derived. Please paste 1 variant per line, no commas or colons. &#10;&#13; Paste up to 1,000 SNPs if Analysis type is 'Gene-set enrichment analysis' and up to 10,000 SNPs in case of 'SNP-gene annotation'. &#10;&#13;&#10;&#13; Example: &#10;&#13; rs7412 &#xA; rs123484" rows="20" cols="30" style="font-size: 16px;">{{ request.form.get('SNPlist', '') }}</textarea>
-                </div> 
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <h4 style="margin:0;">List of variants</h4>
+                        <button type="button"
+                                onclick="fillDefaultSNPs()"
+                                style="background:#2563eb; color:#fff; border:none; border-radius:999px; padding:6px 10px; font-weight:600; cursor:pointer;">
+                        Use example
+                        </button>
+                    </div>
+
+                    <textarea id="SNPlist" name="SNPlist"
+                        placeholder="Paste variants of interest. &#10;&#13; The format will be derived. Please paste 1 variant per line, no commas or colons. &#10;&#13; Paste up to 1,000 SNPs if Analysis type is 'Gene-set enrichment analysis' and up to 10,000 SNPs in case of 'SNP-gene annotation'. &#10;&#13;&#10;&#13; Example: &#10;&#13; rs7412 &#xA; rs123484"
+                        rows="20" cols="30" style="font-size: 16px;">{{ request.form.get('SNPlist', '') }}</textarea>
+
+                    <small style="display:block; margin-top:6px; opacity:0.85;">
+                        Tip: click “Use example” to load a default set.
+                    </small>
+                </div>
         
                 <!-- Next column: input type and analysis type -->
                 <div style="display:flex;flex-direction:column; width: 70%; margin-right: 20px;">
@@ -188,6 +202,71 @@
                 </div>
             </div>
         </form>
+        
+        <script>
+            const DEFAULT_SNPS = `rs141749679
+            rs143080277
+            rs6733839
+            rs139643391
+            rs3822030
+            rs6846529
+            rs2245466
+            rs112403360
+            rs6605556
+            rs10947943
+            rs143332484
+            rs785129
+            rs6943429
+            rs10952097
+            rs76928645
+            rs7384878
+            rs11771145
+            rs1065712
+            rs6586028
+            rs1582763
+            rs12590654
+            rs7157106
+            rs10131280
+            rs8025980
+            rs602602
+            rs889555
+            rs4985556
+            rs450674
+            rs12446759
+            rs72824905
+            rs7225151
+            rs616338
+            rs12151021
+            rs149080927
+            rs7412
+            rs9304690
+            rs12459419
+            rs587709
+            rs1358782
+            rs6014724
+            rs2830489`;
+
+            function fillDefaultSNPs(){
+                const ta = document.getElementById("SNPlist");
+                if (!ta) return;
+
+                // optional: ask before overwriting
+                if (ta.value.trim() && !confirm("Replace current list with the example SNP list?")) return;
+
+                ta.value = DEFAULT_SNPS;
+                ta.focus();
+            }
+
+            // Make validateForm use the textarea by id (safer)
+            function validateForm() {
+                const snpList = document.getElementById("SNPlist").value;
+                if (snpList.trim() === "") {
+                alert("Please enter the SNPs to annotate in List of variants");
+                return false;
+                }
+                return true;
+            }
+            </script>
 
         <!-- Footnote images -->
         <div class="image-container-foot">
