@@ -81,13 +81,13 @@ WORKDIR /Exploration
 # Start Redis + Flask
 # -------------------------------------------------------------------
 # Original execution with dev server (not for production)
-#CMD service redis-server start && python3 -m flask run --host=82.165.237.220 -p 8007
+CMD service redis-server start && python3 -m flask run --host=82.165.237.220 -p 8007
 
 # Use the following line for deployment with gunicorn
 #CMD service redis-server start && gunicorn -w 1 --threads 4 -b 0.0.0.0:8007 --timeout 300 app:app
 
 # Gunicorn plus gthreaded workers -- 2 workers, 4 threads each
-CMD service redis-server start && gunicorn -k gthread -w 2 --threads 4 --timeout 300 -b 0.0.0.0:8007 app:app
+#CMD service redis-server start && gunicorn -k gthread -w 2 --threads 4 --timeout 300 -b 0.0.0.0:8007 app:app
 
 # Gunicorn plus gevent for better performances -- 2 workers
 #CMD service redis-server start && gunicorn -k gevent -w 2 --worker-connections 1000 --timeout 300 -b 0.0.0.0:8007 app:app
