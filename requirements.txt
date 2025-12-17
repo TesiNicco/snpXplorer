@@ -22,4 +22,5 @@ wordcloud
 plotly
 networkx
 psutil
+gunicorn
 git+https://github.com/mojaie/pygosemsim
