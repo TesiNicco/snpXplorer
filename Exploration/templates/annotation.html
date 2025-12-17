@@ -14,194 +14,170 @@
         <h3>Performs annotation analysis or gene-set enrichment analysis using your SNPs as input. You just need to paste the SNPs of interest in the text area below, provide your email and you will receive the results by email.</h3>
         
         <form id="annotationForm" method="post" onsubmit="return validateForm()">
-            <div style="display:flex;">
-                <!-- Textarea for the input SNPs -->
-                <div style="padding: 10px; background-color: #9FD8C6; margin: 20px; width: 22.5%;">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <h4 style="margin:0;">List of variants</h4>
-                        <button type="button"
-                                onclick="fillDefaultSNPs()"
-                                style="background:#2563eb; color:#fff; border:none; border-radius:999px; padding:6px 10px; font-weight:600; cursor:pointer;">
-                        Use example
-                        </button>
-                    </div>
+            <div class="annotation-grid">
 
-                    <textarea id="SNPlist" name="SNPlist"
-                        placeholder="Paste variants of interest. &#10;&#13; The format will be derived. Please paste 1 variant per line, no commas or colons. &#10;&#13; Paste up to 1,000 SNPs if Analysis type is 'Gene-set enrichment analysis' and up to 10,000 SNPs in case of 'SNP-gene annotation'. &#10;&#13;&#10;&#13; Example: &#10;&#13; rs7412 &#xA; rs123484"
-                        rows="20" cols="30" style="font-size: 16px;">{{ request.form.get('SNPlist', '') }}</textarea>
-
-                    <small style="display:block; margin-top:6px; opacity:0.85;">
-                        Tip: click “Use example” to load a default set.
-                    </small>
+                <!-- COLUMN 1: List of variants (spans both rows by grid) -->
+                <div class="col-list card green" style="margin: 20px;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <h4 style="margin:0;">List of variants</h4>
+                    <button type="button"
+                            onclick="fillDefaultSNPs()"
+                            style="background:#2563eb; color:#fff; border:none; border-radius:999px;
+                                padding:4px 8px; font-size:10px; cursor:pointer; line-height:1;">
+                    Use example
+                    </button>
                 </div>
-        
-                <!-- Next column: input type and analysis type -->
-                <div style="display:flex;flex-direction:column; width: 70%; margin-right: 20px;">
-                    <!-- Input type -->
-                    <!--<div style="padding: 10px; background-color: #E0E5F0; margin: 20px; width: 100%;">
-                        <h4>Input type</h4>
-                        <input type="radio" name="inputType" id="RsID" value="RsID" checked > RsID (rs7412) </input><br>
-                        <input type="radio" name="inputType" id="Colon" value="Colon"> Chr:Position (1:12475693) </input><br>
-                        <input type="radio" name="inputType" id="Tab" value="Tab"> Chr  Position (1 12475693) </input>
-                    </div> -->
-        
-                    <!-- In case input type is not rsid, choose the reference genome version -->
-                    <div style="padding: 10px; background-color: #FDB59A; margin: 20px; width: 100%;">
-                        <h4>Reference Genome</h4>
-                        <input type="radio" name="annotRefGen" id="GRCh37" value="GRCh37" checked > GRCh37 (hg19) </input><br>
-                        <input type="radio" name="annotRefGen" id="GRCh38" value="GRCh38"> GRCh38 (hg38) </input>
-                    </div>
-                    
-                    <!-- Analysis type -->
-                    <div style="padding: 10px; background-color: #8EAFAA; margin: 20px; width: 100%;">
-                        <h4>Analysis type</h4>
-                        <input type="radio" name="analType" id="Annot" value="Annot" checked > Annotation </input><br>
-                        <input type="radio" name="analType" id="GSEA" value="GSEA"> Gene-set Enrichment Analysis </input>
-                    </div>
 
-                    <!-- In case analysis type is gsea, need to choose the sources for enrichment -->
-                    <div id="annot_gseaSources" style="display:none; padding: 10px; background-color: #EEE; margin: 20px; width: 100%;">
-                        <h6>Enrichment Gene-sets</h6>
-                        <input type="checkbox" name="EnrichSource" value="Default" checked > Default (GO:BP) <br>
-                        <input type="checkbox" name="EnrichSource" value="KEGG" > KEGG <br>
-                        <input type="checkbox" name="EnrichSource" value="Reactome" > Reactome <br>
-                        <input type="checkbox" name="EnrichSource" value="Wiki" > Wiki Pathways <br>
-                        <br><small>By default, Biological Processes from Gene Ontology (GO:BP) are used because of their tree-like structure which facilitates downstream analyses. Hovewer, you can also use other gene-sets such as KEGG pathways, Reactome pathways and Wiki pathways.</small>
-                    </div>
-                    <!-- Javascript to handle the conditional appearance of sources of enrichment checkbox -->
-                    <script>
-                        // Get the input type radio buttons
-                        var analTypeRadios = document.getElementsByName('analType');
-                        // Attach an event listener to each input type radio button to show/hide extra input type field
-                        for (var i = 0; i < analTypeRadios.length; i++) {
-                            analTypeRadios[i].addEventListener('change', function() {
-                                if (this.value !== 'Annot') {
-                                    document.getElementById('annot_gseaSources').style.display = 'block';
-                                } else {
-                                    document.getElementById('annot_gseaSources').style.display = 'none';
-                                }
-                            });
+                <textarea id="SNPlist" name="SNPlist"
+                    placeholder="Paste variants of interest. &#10;&#13; The format will be derived. Please paste 1 variant per line, no commas or colons. &#10;&#13; Paste up to 1,000 SNPs if Analysis type is 'Gene-set enrichment analysis' and up to 10,000 SNPs in case of 'SNP-gene annotation'. &#10;&#13;&#10;&#13; Example: &#10;&#13; rs7412 &#xA; rs123484"
+                    rows="20" cols="28" style="font-size: 14px;">{{ request.form.get('SNPlist', '') }}</textarea>
+
+                <small style="display:block; margin-top:6px; opacity:0.85;">
+                    Tip: click “Use example” to load a default set.
+                </small>
+                </div>
+
+                <!-- COLUMN 2: Reference + Analysis + conditional GSEA (stacked, stays in its own column) -->
+                <div class="col-settings" style="margin: 20px; display:flex; flex-direction:column; gap:20px;">
+
+                <div class="card orange" style="width:100%;">
+                    <h4>Reference Genome</h4>
+                    <input type="radio" name="annotRefGen" id="GRCh37" value="GRCh37" checked> GRCh37 (hg19) </input><br>
+                    <input type="radio" name="annotRefGen" id="GRCh38" value="GRCh38"> GRCh38 (hg38) </input>
+                </div>
+
+                <div class="card teal" style="width:100%;">
+                    <h4>Analysis type</h4>
+                    <input type="radio" name="analType" id="Annot" value="Annot" checked> Annotation </input><br>
+                    <input type="radio" name="analType" id="GSEA" value="GSEA"> Gene-set Enrichment Analysis </input>
+                </div>
+
+                <!-- In case analysis type is gsea, need to choose the sources for enrichment -->
+                <div id="annot_gseaSources" class="card" style="display:none; width:100%;">
+                    <h6>Enrichment Gene-sets</h6>
+                    <input type="checkbox" name="EnrichSource" value="Default" checked> Default (GO:BP) <br>
+                    <input type="checkbox" name="EnrichSource" value="KEGG"> KEGG <br>
+                    <input type="checkbox" name="EnrichSource" value="Reactome"> Reactome <br>
+                    <input type="checkbox" name="EnrichSource" value="Wiki"> Wiki Pathways <br>
+                    <br><small>By default, Biological Processes from Gene Ontology (GO:BP) are used because of their tree-like structure which facilitates downstream analyses. Hovewer, you can also use other gene-sets such as KEGG pathways, Reactome pathways and Wiki pathways.</small>
+                </div>
+
+                <!-- Javascript to handle the conditional appearance of sources of enrichment checkbox -->
+                <script>
+                    var analTypeRadios = document.getElementsByName('analType');
+                    for (var i = 0; i < analTypeRadios.length; i++) {
+                    analTypeRadios[i].addEventListener('change', function() {
+                        if (this.value !== 'Annot') {
+                        document.getElementById('annot_gseaSources').style.display = 'block';
+                        } else {
+                        document.getElementById('annot_gseaSources').style.display = 'none';
                         }
-                    </script>
+                    });
+                    }
+                </script>
+
                 </div>
 
-                <!-- Next column: GTEx tissues -->
-                <div style="display:flex;flex-direction:column; margin-left: 20px; margin-right: 0px; width: 100%;">
-                    <!-- GTEx tissues -->
-                    <div style="padding: 10px; background-color: #EEE; margin: 20px; width: 90%;">
-                        <h4>GTEx tissues</h4>
-                        <select name="QTLtissuesAnnot" multiple class="form-control">                
-                            <option value=""></option>
-                            <optgroup label="Tissues">
-                                <option value="all_tissues">All_tissues</option>
-                                <option value="Adipose_Subcutaneous">Adipose Subcutaneous</option>
-                                <option value="Adipose_Visceral_Omentum">Adipose Visceral Omentum</option>
-                                <option value="Adrenal_Gland">Adrenal Gland</option>
-                                <option value="Artery_Aorta">Artery Aorta</option>
-                                <option value="Artery_Tibial">Artery Tibial</option>
-                                <option value="Brain_Amygdala">Brain Amygdala</option>
-                                <option value="Brain_Anterior_cingulate_cortex_BA24">Brain Anterior cingulate cortex</option>
-                                <option value="Brain_Caudate_basal_ganglia">Brain Caudate basal ganglia</option>
-                                <option value="Brain_Cerebellar_Hemisphere">Brain Cerebellar Hemisphere</option>
-                                <option value="Brain_Cerebellum">Brain Cerebellum</option>
-                                <option value="Brain_Cortex">Brain Cortex</option>
-                                <option value="Brain_Frontal_Cortex_BA9">Brain Frontal Cortex</option>
-                                <option value="Brain_Hippocampus">Brain Hippocampus</option>
-                                <option value="Brain_Hypothalamus">Brain Hypothalamus</option>
-                                <option value="Brain_Nucleus_accumbens_basal_ganglia">Brain Nucleus accumbens basal ganglia</option>
-                                <option value="Brain_Spinal_cord_cervical_c-1">Brain Spinal cord cervical</option>
-                                <option value="Brain_Substantia_nigra">Brain Substantia nigra</option>
-                                <option value="Breast_Mammary_Tissue">Breast Mammary Tissue</option>
-                                <option value="Cells_Cultured_fibroblasts">Cells Cultured fibroblasts</option>
-                                <option value="Cells_EBV-transformed_lymphocytes">EBV-transformed lymphocytes</option>
-                                <option value="Colon_Sigmoid">Colon Sigmoid</option>
-                                <option value="Colon_Transverse">Colon Transverse</option>
-                                <option value="Esophagus_Gastroesophageal_Junction">Esophagus Gastroesophageal Junction</option>
-                                <option value="Esophagus_Mucosa">Esophagus Mucosa</option>
-                                <option value="Esophagus_Muscularis">Esophagus Muscularis</option>
-                                <option value="Heart_Atrial_Appendage">Heart Atrial Appendage</option>
-                                <option value="Heart_Left_Ventricle">Heart Left Ventricle</option>
-                                <option value="Kidney_Cortex">Kidney Cortex</option>
-                                <option value="Liver">Liver</option>
-                                <option value="Lung">Lung</option>
-                                <option value="Minor_Salivary_Gland">Minor Salivary Gland</option>
-                                <option value="Muscle_Skeletal">Muscle Skeletal</option>
-                                <option value="Nerve_Tibial">Nerve Tibial</option>
-                                <option value="Ovary">Ovary</option>
-                                <option value="Pancreas">Pancreas</option>
-                                <option value="Pituitary">Pituitary</option>
-                                <option value="Prostate">Prostate</option>
-                                <option value="Skin_Not_Sun_Exposed_Suprapubic">Skin Suprapubic (Not Sun Exposed)</option>
-                                <option value="Skin_Sun_Exposed_Lower_leg">Skin Lower leg (Sun Exposed)</option>
-                                <option value="Small_Intestine_Terminal_Ileum">Small Intestine Terminal Ileum</option>
-                                <option value="Spleen">Spleen</option>
-                                <option value="Stomach">Stomach</option>
-                                <option value="Testis">Testis</option>
-                                <option value="Thyroid">Thyroid</option>
-                                <option value="Uterus">Uterus</option>
-                                <option value="Vagina">Vagina</option>
-                                <option value="Skin_Not_Sun_Exposed_Suprapubic">Skin Suprapubic (Not Sun Exposed)</option>
-                                <option value="Skin_Not_Sun_Exposed_Suprapubic">Skin Suprapubic (Not Sun Exposed)</option>
-                                <option value="Whole_Blood" selected >Whole Blood</option>
-                            </optgroup>
-                        </select>
-                        <br><small>By default, only Blood is considered. Adding multiple tissues may impact your analysis as a larger number of genes may be associated with each SNP.</small>
-                    </div>
-                    <script>
-                        $(document).ready(function() {
-                            $('select').select2();
-                        });
-                    </script>
+                <!-- COLUMN 3: GTEx (will span both rows by grid) -->
+                <div class="col-gtex" style="margin: 20px;">
+                <div class="card" style="width:100%;">
+                    <h4>GTEx tissues</h4>
+                    <select name="QTLtissuesAnnot" multiple class="form-control">
+                    <option value=""></option>
+                    <optgroup label="Tissues">
+                        <option value="all_tissues">All_tissues</option>
+                        <option value="Adipose_Subcutaneous">Adipose Subcutaneous</option>
+                        <option value="Adipose_Visceral_Omentum">Adipose Visceral Omentum</option>
+                        <option value="Adrenal_Gland">Adrenal Gland</option>
+                        <option value="Artery_Aorta">Artery Aorta</option>
+                        <option value="Artery_Tibial">Artery Tibial</option>
+                        <option value="Brain_Amygdala">Brain Amygdala</option>
+                        <option value="Brain_Anterior_cingulate_cortex_BA24">Brain Anterior cingulate cortex</option>
+                        <option value="Brain_Caudate_basal_ganglia">Brain Caudate basal ganglia</option>
+                        <option value="Brain_Cerebellar_Hemisphere">Brain Cerebellar Hemisphere</option>
+                        <option value="Brain_Cerebellum">Brain Cerebellum</option>
+                        <option value="Brain_Cortex">Brain Cortex</option>
+                        <option value="Brain_Frontal_Cortex_BA9">Brain Frontal Cortex</option>
+                        <option value="Brain_Hippocampus">Brain Hippocampus</option>
+                        <option value="Brain_Hypothalamus">Brain Hypothalamus</option>
+                        <option value="Brain_Nucleus_accumbens_basal_ganglia">Brain Nucleus accumbens basal ganglia</option>
+                        <option value="Brain_Spinal_cord_cervical_c-1">Brain Spinal cord cervical</option>
+                        <option value="Brain_Substantia_nigra">Brain Substantia nigra</option>
+                        <option value="Breast_Mammary_Tissue">Breast Mammary Tissue</option>
+                        <option value="Cells_Cultured_fibroblasts">Cells Cultured fibroblasts</option>
+                        <option value="Cells_EBV-transformed_lymphocytes">EBV-transformed lymphocytes</option>
+                        <option value="Colon_Sigmoid">Colon Sigmoid</option>
+                        <option value="Colon_Transverse">Colon Transverse</option>
+                        <option value="Esophagus_Gastroesophageal_Junction">Esophagus Gastroesophageal Junction</option>
+                        <option value="Esophagus_Mucosa">Esophagus Mucosa</option>
+                        <option value="Esophagus_Muscularis">Esophagus Muscularis</option>
+                        <option value="Heart_Atrial_Appendage">Heart Atrial Appendage</option>
+                        <option value="Heart_Left_Ventricle">Heart Left Ventricle</option>
+                        <option value="Kidney_Cortex">Kidney Cortex</option>
+                        <option value="Liver">Liver</option>
+                        <option value="Lung">Lung</option>
+                        <option value="Minor_Salivary_Gland">Minor Salivary Gland</option>
+                        <option value="Muscle_Skeletal">Muscle Skeletal</option>
+                        <option value="Nerve_Tibial">Nerve Tibial</option>
+                        <option value="Ovary">Ovary</option>
+                        <option value="Pancreas">Pancreas</option>
+                        <option value="Pituitary">Pituitary</option>
+                        <option value="Prostate">Prostate</option>
+                        <option value="Skin_Not_Sun_Exposed_Suprapubic">Skin Suprapubic (Not Sun Exposed)</option>
+                        <option value="Skin_Sun_Exposed_Lower_leg">Skin Lower leg (Sun Exposed)</option>
+                        <option value="Small_Intestine_Terminal_Ileum">Small Intestine Terminal Ileum</option>
+                        <option value="Spleen">Spleen</option>
+                        <option value="Stomach">Stomach</option>
+                        <option value="Testis">Testis</option>
+                        <option value="Thyroid">Thyroid</option>
+                        <option value="Uterus">Uterus</option>
+                        <option value="Vagina">Vagina</option>
+                        <option value="Skin_Not_Sun_Exposed_Suprapubic">Skin Suprapubic (Not Sun Exposed)</option>
+                        <option value="Skin_Not_Sun_Exposed_Suprapubic">Skin Suprapubic (Not Sun Exposed)</option>
+                        <option value="Whole_Blood" selected>Whole Blood</option>
+                    </optgroup>
+                    </select>
+                    <br><small>By default, only Blood is considered. Adding multiple tissues may impact your analysis as a larger number of genes may be associated with each SNP.</small>
                 </div>
 
-                <!-- Next column: email and submit button -- as it was with the login option -->
-                <!--<div style="display:flex;flex-direction:column; margin-left: 10px; width: 100%;">
-                    Email field, or message if the user has logged in -->
-                    <!--<div style="padding: 10px; background-color: #EEE; margin: 20px;">
-                        <h4>Email or Account</h4>
-                        <p id="messageAnnotation">{{ messageAnnot }}</p>
-                        <p id="validEmail">{{ validEmail }}</p>
-                        <p id="email_user">{{ emailAnnot | safe }}</p>
-                    </div>
-
-                    Button to run analysis -->
-                    <!--<div style="padding: 10px; background-color: #EEE; margin: 20px; text-align: center">
-                        <h4>Submit your job here</h4>
-                        <input type="submit" value="Submit job!" onclick="showMessage()">
-                        <br>
-                        <p style="color: green">{{ messageSubmission }}</p>
-                    </div> --> 
-
-                <!-- Next column: email and submit button -- no login option -->
-                <div style="display:flex;flex-direction:column; margin-left: 10px; width: 100%;">
-                    <div style="padding: 10px; background-color: #EAE7D1; margin: 20px;">
-                        <h4>Email</h4>
-                        <small>Please enter your email address below. The results will be sent to you:</small>
-                        <textarea name="email" style="width: 100%; height: 30px; font-size: 16px;" placeholder="Enter your email here"></textarea>
-                    </div>
-                    
-                    <!-- Button to run analysis -->
-                    <div style="padding: 10px; background-color: #FDBAA1; margin: 20px; text-align: center">
-                        <h2>Click to submit</h2>
-                        <input type="submit" value="Submit your job here!" onclick="showMessage()" style="font-size: 28px; padding: 10px 20px;">
-                        <br>
-                        <p style="color: {{ 'red' if messageSubmission == 'Email is not correct. Please check!' else 'green' }}">{{ messageSubmission }}</p>
-                    </div>
-
-                    <!-- Javascript to check form was properly completed -->
-                    <script>
-                        function validateForm() {
-                            var snpList = document.getElementsByName("SNPlist")[0].value;
-                            if (snpList.trim() === "") {
-                                alert("Please enter the SNPs to annotate in List of variants");
-                                return false;
-                            }
-                            return true;
-                        }
-                    </script>
+                <script>
+                    $(document).ready(function() {
+                    $('select').select2();
+                    });
+                </script>
                 </div>
+
+                <!-- COLUMN 4: Email + Submit (stacked, stays in its own column) -->
+                <div class="col-submit" style="margin: 20px; display:flex; flex-direction:column; gap:20px;">
+
+                <div class="card sand" style="width:100%;">
+                    <h4>Email</h4>
+                    <small>Please enter your email address below. The results will be sent to you:</small>
+                    <textarea name="email" style="width: 100%; height: 30px; font-size: 16px;" placeholder="Enter your email here"></textarea>
+                </div>
+
+                <div class="card orange" style="width:100%; text-align:center;">
+                    <h2>Click to submit</h2>
+                    <input type="submit" value="Submit your job here!" onclick="showMessage()" style="font-size: 28px; padding: 10px 20px;">
+                    <br>
+                    <p style="color: {{ 'red' if messageSubmission == 'Email is not correct. Please check!' else 'green' }}">{{ messageSubmission }}</p>
+                </div>
+
+                <script>
+                    function validateForm() {
+                    var snpList = document.getElementsByName("SNPlist")[0].value;
+                    if (snpList.trim() === "") {
+                        alert("Please enter the SNPs to annotate in List of variants");
+                        return false;
+                    }
+                    return true;
+                    }
+                </script>
+
+                </div>
+
             </div>
-        </form>
+            </form>
         
         <script>
             const DEFAULT_SNPS = `rs141749679
@@ -250,10 +226,19 @@
                 const ta = document.getElementById("SNPlist");
                 if (!ta) return;
 
-                // optional: ask before overwriting
                 if (ta.value.trim() && !confirm("Replace current list with the example SNP list?")) return;
 
-                ta.value = DEFAULT_SNPS;
+                // normalize tabs + line endings + trailing spaces
+                const normalized = DEFAULT_SNPS
+                .replace(/\t+/g, "")        // remove any tabs
+                .replace(/\r\n/g, "\n")     // windows -> unix newlines
+                .replace(/\r/g, "\n")       // old mac -> unix newlines
+                .split("\n")
+                .map(s => s.trim())         // trim each line
+                .filter(Boolean)            // drop empty lines
+                .join("\n");
+
+                ta.value = normalized;
                 ta.focus();
             }
 

@@ -150,56 +150,80 @@ th {
 /* styles.css */
 .container-main {
   display: flex;
+  gap: 18px;
+  margin-top: 12px;
 }
 
 .column {
   flex: 1;
-  padding: 20px;
-  color: white;
+  padding: 22px 22px;
+  color: rgba(255,255,255,0.95);
   text-align: justify; /* Justify alignment */
   min-height: 100px; /* Adjust as needed */
   display: flex;
   flex-direction: column;
   justify-content: space-between; /* Vertical separation */
+  border-radius: 18px;
+  box-shadow: 0 10px 24px rgba(15,23,42,0.14);
+  border: 1px solid rgba(255,255,255,0.18);
+  background-size: 100% 100%;
 }
 
-#column1 {
-  background-color: #66C2A5; /* Green background */
-  margin-right: 10px; /* Add space to the right of column 1 */
+/* reusable cards for forms (annotation, etc.) */
+.card{
+  padding: 22px 22px;
+  border-radius: 18px;
+  box-shadow: 0 10px 24px rgba(15,23,42,0.14);
+  border: 1px solid rgba(255,255,255,0.18);
+  background: #ffffff;
 }
 
-#column2 {
-  background-color: #8DA0CB; /* Blue background */
-  margin-left: 10px; /* Add space to the left of column 2 */
+.card h4, .card h6{
+  margin: 0 0 10px 0;
 }
 
-.column p {
-  font-size: 18px; /* Adjust the size as needed */
+.card small{
+  opacity: 0.9;
 }
 
-#column3 {
-  background-color: #FC8D62; /* Green background */
-  margin-top: 10px;
-  margin-right: 10px; /* Add space to the right of column 1 */
+.column h2{
+  margin: 0 0 10px 0;
+  font-size: 28px;
+  text-align: left;
+  letter-spacing: -0.5px;
 }
 
-#column4 {
-  background-color: #4C837A; /* Blue background */
-  margin-top: 10px;
-  margin-left: 10px; /* Add space to the left of column 2 */
+.column p{
+  font-size: 16px;
+  line-height: 1.45;
+  margin: 0 0 10px 0;
 }
 
-#column5 {
-  background-color: #B39DDB; /* soft purple */
-  margin-top: 10px;
-  margin-right: 10px;
+.column p:last-child{
+  margin-top: auto; /* pushes last paragraph down → more even layout */
 }
 
-#column6 {
-  background-color: #9FA8DA; /* muted blue-lavender */
-  margin-top: 10px;
-  margin-left: 10px;
+/* ✅ gradients (soft, consistent palette) */
+#column1{ background: linear-gradient(135deg, #2fb69b 0%, #1f8e87 100%); }
+#column2{ background: linear-gradient(135deg, #6f86d6 0%, #4b5fbf 100%); }
+#column3{ background: linear-gradient(135deg, #ff9a6a 0%, #e86b51 100%); }
+#column4{ background: linear-gradient(135deg, #3b8b82 0%, #245c58 100%); }
+#column5{ background: linear-gradient(135deg, #b48ce6 0%, #8e6ccf 100%); }
+#column6{ background: linear-gradient(135deg, #8892e6 0%, #606ad6 100%); }
+
+.card.green { background: linear-gradient(135deg, #2fb69b 0%, #1f8e87 100%); color: #fff; }
+.card.orange{ background: linear-gradient(135deg, #ff9a6a 0%, #e86b51 100%); color: #fff; }
+.card.teal  { background: linear-gradient(135deg, #3b8b82 0%, #245c58 100%); color: #fff; }
+.card.sand  { background: linear-gradient(135deg, #eae7d1 0%, #d8d0b3 100%); color: #111827; }
+
+/* links inside cards */
+.column a{
+  color: #ffffff;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
+.column a:hover{ opacity: 0.9; }
 
 .image-container-foot {
   display: flex; /* Use flexbox to create a horizontal layout */
@@ -210,3 +234,196 @@ th {
 .image-container-foot img {
   max-height: 90px; /* Adjust the value to control the size of the images */
 }
+
+.annot-grid{
+  display: flex;
+  flex-wrap: wrap;          /* ✅ allows columns to drop under instead of overlapping */
+  align-items: flex-start;
+  gap: 18px;
+  margin: 0 20px;           /* keep your spacing */
+}
+
+.annot-col-variants{ flex: 0 0 22.5%; min-width: 260px; }
+.annot-col-middle  { flex: 1 1 520px; min-width: 420px; }
+.annot-col-gtex    { flex: 0 0 320px; min-width: 280px; }
+.annot-col-email   { flex: 0 0 320px; min-width: 280px; }
+
+.annotation-grid{
+  display: grid;
+  grid-template-columns: 22.5% 15% 25% 30%;
+  grid-template-areas:
+    "list settings gtex submit"
+    "list settings gtex submit";
+  gap: 20px;
+  align-items: start;
+}
+
+.col-list    { grid-area: list; }
+.col-settings{ grid-area: settings; }
+.col-gtex    { grid-area: gtex; }
+.col-submit  { grid-area: submit; }
+
+/* grid spacing is handled here (NOT margins on items) */
+.annotation-grid{
+  display: grid;
+  gap: 18px;          /* tweak to taste */
+  align-items: start;
+}
+
+/* Safari/overflow safety for form controls */
+.card textarea{
+  width: 100%;
+  box-sizing: border-box;
+  max-width: 100%;
+  display: block;
+}
+
+/* optional: stop grid items from overflowing */
+.annotation-grid > * { min-width: 0; }
+
+/* About layout helpers */
+.about-two { align-items: stretch; }
+.about-half { flex: 1; }
+
+.about-card{
+  /* reusing your .column look but works outside the homepage grid */
+  border-radius: 18px;
+  box-shadow: 0 10px 24px rgba(15,23,42,0.14);
+  border: 1px solid rgba(255,255,255,0.18);
+  padding: 22px 22px;
+  color: rgba(255,255,255,0.95);
+}
+
+/* give About cards friendly gradients (match your palette) */
+#about-info     { background: linear-gradient(135deg, #6f86d6 0%, #4b5fbf 100%); }
+#about-timeline { background: linear-gradient(135deg, #3b8b82 0%, #245c58 100%); }
+#about-next     { background: linear-gradient(135deg, #ff9a6a 0%, #e86b51 100%); }
+#about-data     { background: linear-gradient(135deg, #b48ce6 0%, #8e6ccf 100%); }
+#about-feedback { background: linear-gradient(135deg, #2fb69b 0%, #1f8e87 100%); }
+
+#about a{
+  color: #ffffff;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Timeline */
+.timeline{
+  margin-top: 10px;
+  position: relative;
+  padding-left: 18px;
+}
+.timeline:before{
+  content:"";
+  position:absolute;
+  left: 6px;
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  background: rgba(255,255,255,0.35);
+  border-radius: 2px;
+}
+.tl-item{
+  position: relative;
+  display: flex;
+  gap: 14px;
+  padding: 10px 0;
+}
+.tl-dot{
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.95);
+  position: absolute;
+  left: 0px;
+  top: 18px;
+}
+.tl-content{
+  margin-left: 18px;
+}
+.tl-title{
+  font-weight: 800;
+  letter-spacing: -0.2px;
+}
+.tl-text{
+  opacity: 0.95;
+  line-height: 1.45;
+  margin-top: 3px;
+}
+
+/* Lists & mini cards */
+.nice-list{
+  margin: 10px 0 0 18px;
+  line-height: 1.6;
+}
+.mini-cards{
+  display: grid;
+  gap: 12px;
+  margin-top: 10px;
+}
+.mini-card{
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+.mini-title{
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+.mini-text{
+  line-height: 1.45;
+  opacity: 0.95;
+}
+
+/* Feedback form */
+.feedback-form{ margin-top: 12px; }
+.fb-row{ margin: 12px 0; }
+.fb-label{ display:block; font-weight: 800; margin-bottom: 6px; }
+.fb-input, .fb-textarea{
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.25);
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+  outline: none;
+}
+.fb-input::placeholder, .fb-textarea::placeholder{ color: rgba(255,255,255,0.7); }
+
+.fb-submit{
+  border: none;
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-weight: 800;
+  cursor: pointer;
+  background: rgba(255,255,255,0.95);
+  color: #0f172a;
+}
+.fb-submit:hover{ opacity: 0.95; }
+
+/* Stars (CSS-only, simple) */
+.star-rating{
+  display: inline-flex;
+  flex-direction: row-reverse;
+  gap: 6px;
+  font-size: 22px;
+}
+.star-rating input{ display:none; }
+.star-rating label{
+  cursor: pointer;
+  color: rgba(255,255,255,0.35);
+}
+.star-rating input:checked ~ label{ color: rgba(255,255,255,0.95); }
+.star-rating label:hover,
+.star-rating label:hover ~ label{ color: rgba(255,255,255,0.8); }
+
+.flash-ok{
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.18);
+  padding: 10px 12px;
+  border-radius: 12px;
+}
+

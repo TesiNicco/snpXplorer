@@ -1,4 +1,5 @@
-from flask import Flask, request, render_template, send_file, session, make_response, redirect, url_for, jsonify, Response, stream_with_context, Blueprint
+from flask import Flask, request, render_template, send_file, session, make_response, redirect, url_for, jsonify, Response, stream_with_context, Blueprint, flash
+from datetime import datetime, timezone
 from queue import Queue, Empty
 from uuid import uuid4
 import json
@@ -717,9 +718,32 @@ def download_gtex_plot():
     return 'Data not available. Please go back and generate a plot before downloading.'
 
 # About tab
-@app.route('/about/')
+@app.route("/about")
 def about():
-    return render_template('about.html')
+    return render_template("about.html")
+
+@app.post("/submit-feedback")
+def submit_feedback():
+    name = (request.form.get("name") or "").strip()
+    message = (request.form.get("message") or "").strip()
+    rating = (request.form.get("rating") or "").strip()
+    # require at least message or rating
+    if not message and not rating:
+        flash("Please enter a message or a rating.")
+        return redirect(url_for("about"))
+    record = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "name": name if name else "Anonymous",
+        "rating": int(rating) if rating.isdigit() else None,
+        "message": message
+    }
+    # store feedback safely
+    os.makedirs(app.instance_path, exist_ok=True)
+    out_file = os.path.join(app.instance_path, "feedback.jsonl")
+    with open(out_file, "a", encoding="utf-8") as f:
+        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+    flash("Thanks! Your feedback has been submitted.")
+    return redirect(url_for("about"))
 
 # User tab
 @app.route('/user/')

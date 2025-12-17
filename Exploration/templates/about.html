@@ -1,100 +1,265 @@
 {% extends 'base.html' %}
 
 {% block content %}
-    <body id="about">
-        <!-- DNA image at the top -->
-        <div class="centered-container">
-            <img class="centered-image" src="{{ url_for('static', filename='images/dna.png') }}" alt="Image">
+<body id="about">
+
+  <!-- DNA image at the top -->
+  <div class="centered-container">
+    <img class="centered-image" src="{{ url_for('static', filename='images/dna.png') }}" alt="DNA">
+  </div>
+
+  <h2>{% block title %} About {% endblock %}</h2>
+  <h3>Project info, updates, and how to cite snpXplorer.</h3>
+
+  <!-- TOP INFO (no timeline here) -->
+  <div class="container-main">
+    <div class="column about-card" id="about-info">
+      <h2>Project info</h2>
+
+      <p>
+        snpXplorer is a web-server built with
+        <a href="https://flask.palletsprojects.com/en/2.3.x/" target="_blank" rel="noopener">Flask</a>
+        and written in Python, HTML, and JavaScript.
+        The source code is available on
+        <a href="https://github.com/TesiNicco/snpXplorer" target="_blank" rel="noopener">GitHub</a>.
+      </p>
+
+      <p>
+        License:
+        <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="noopener">
+          CC BY-NC-SA 4.0
+        </a>.
+      </p>
+
+      <p>
+        If you find snpXplorer useful, please cite:
+        <a href="https://pubmed.ncbi.nlm.nih.gov/34048563/" target="_blank" rel="noopener">
+          Tesi et al., 2021
+        </a>.
+      </p>
+
+      <p>
+        PRS tool:
+        <a href="https://github.com/TesiNicco/jordan" target="_blank" rel="noopener">Jordan</a>.
+      </p>
+
+      <p>
+        Questions / collaborations:
+        <a href="mailto:n.tesi@amsterdamumc.nl">reach us</a>.
+      </p>
+    </div>
+  </div>
+
+    <!-- FEEDBACK + RATING -->
+  <div class="container-main">
+    <div class="column about-card" id="about-feedback">
+      <h2>Feedback</h2>
+
+      <p style="opacity:0.95;">
+        You can <b>send a message</b>, <b>leave a star rating</b>, or <b>do both</b>.
+        If you only want to rate snpXplorer, just select stars and leave the message empty.
+        If you only want to send feedback, leave the stars empty.
+        You can also submit anonymously.
+      </p>
+
+      <!-- optional flash message -->
+      {% if feedback_message %}
+        <p class="flash-ok">{{ feedback_message }}</p>
+      {% endif %}
+
+      <form method="post" action="{{ url_for('submit_feedback') }}" class="feedback-form">
+        <div class="fb-row">
+          <label class="fb-label" for="fb_name">Name (optional)</label>
+          <input id="fb_name" name="name" type="text" class="fb-input" placeholder="Anonymous">
         </div>
 
-        <!-- Title -->
-        <h2>{% block title %} About {% endblock %}</h2>
-        
-        <!-- Code -->
-        <div class="container-main">
-            <div class="column" id="column1">
-                <h2>Data and references</h2>
-                <p>snpXplorer is a web-server application based on <a href="https://flask.palletsprojects.com/en/2.3.x/"Flask</a> and written in Python, HTML and Javascript. The source code is freely available on our  <a href="https://github.com/TesiNicco/snpXplorer">Github</a> page.<br>
-                snpXplorer is <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/">licensed</a> under CC BY-NC-SA 4.0.
-                The application can potentially be cloned on your local computer and executed. However, many annotation datasets as well as the GWAS summary statistics are not available in the package and should be downloaded separately. Therefore, we strongly recommend the online application.<br>
-                snpXplorer is under active development, please do not hesitate to <a href="mailto:n.tesi@amsterdamumc.nl">reach us</a> for questions, comments, feedbacks or collaboration opportunities.<br>
-                Take a look at our tool to calculate Polygenic Risk Scores (PRS) at <a href="https://github.com/TesiNicco/jordan">Jordan</a>.<br>
-                If you find snpXplorer or Jordan useful, please consider citing our paper: <a href="https://pubmed.ncbi.nlm.nih.gov/34048563/">Tesi et al., 2021</a>.</p>
-                <p>Log history:
-                    <ul>
-                        <li>August 2023: snpXplorer has been completely re-written based on Flask, providing huge improvements in stability and speed.</li>
-                        <li>March 2022: snpXplorer has been re-designed while keeping the old Shiny implementation.</li>
-                        <li>February 2022: Added sQTL to the Annotation section.</li>
-                        <li>December 2021: GWAS catalog release was updated to the latest available.</li>
-                        <li>November 2021: New GWAS summary statistics added (Largest GWAS of Alzheimer's disease, Multivariate analysis of Longevity, Healthspan and Lifespan), and new Annotation analysis available, which allows to annotate up to 10,000 SNPs without performing gene-set enrichment analysis.</li>
-                        <li>August 2021: CADD v1.6 (most updated) is now used for SNP annotation. Also, more support for rarer variants based on 1000Genome population.</li>
-                        <li>May 2021: snpXplorer was born! </li>
-                    </ul>
-                </p>
+        <div class="fb-row">
+          <label class="fb-label">Rating (optional)</label>
+          <div class="star-rating" aria-label="Rate snpXplorer">
+            <input type="radio" id="star5" name="rating" value="5"><label for="star5" title="5 stars">★</label>
+            <input type="radio" id="star4" name="rating" value="4"><label for="star4" title="4 stars">★</label>
+            <input type="radio" id="star3" name="rating" value="3"><label for="star3" title="3 stars">★</label>
+            <input type="radio" id="star2" name="rating" value="2"><label for="star2" title="2 stars">★</label>
+            <input type="radio" id="star1" name="rating" value="1"><label for="star1" title="1 star">★</label>
+          </div>
+          <small style="display:block; margin-top:6px; opacity:0.9;">
+            Tip: to clear a rating, refresh the page (or click a different star).
+          </small>
+        </div>
 
-                <p>What's next:
-                    <ul>
-                        <li>GWAS catalog summary statistics integration</li>
-                        <li>Increase number of SNPs considered for Annotation analysis</li>
-                        <li>Implement Linkage viewer</li>
-                        <li>Implement upload of own GWAS datasets</li>
-                        <li>More support for structural variations</li>
-                    </ul>
-                </p>
+        <div class="fb-row">
+          <label class="fb-label" for="fb_msg">Message (optional)</label>
+          <textarea id="fb_msg" name="message" class="fb-textarea" rows="5"
+                    placeholder="Tell us what worked well, what didn’t, or what you’d like to see next..."></textarea>
+        </div>
+
+        <button type="submit" class="fb-submit">Send</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- TIMELINE -->
+  <div class="container-main">
+    <div class="column about-card" id="about-timeline">
+      <h2>Updates timeline</h2>
+
+      <div class="timeline">
+        <div class="tl-item">
+          <div class="tl-dot"></div>
+          <div class="tl-content">
+            <div class="tl-title">November 2025</div>
+            <div class="tl-text">
+              snpXplorer v2 is live: more robust, OpenGWAS integration, new Haplotypes, Single-annotation and PRS tabs.
             </div>
+          </div>
         </div>
 
-        <!-- Data and references -->
-        <div class="container-main">
-            <div class="column" id="column3">
-                <h2>Data and references</h2>
-                <p>GWAS studies included:
-                    <ul>
-                        <li><a href="https://doi.org/10.1038/s41588-021-00921-z">Wightman et al., 2021 (Alzheimer's Disease)</a></li>
-                        <li><a href="https://doi.org/10.1038/s41467-021-22491-8">De Rojas et al., 2021 (Alzheimer's Disease)</a></li>
-                        <li><a href="https://doi.org/10.1038/s41588-019-0358-2">Kunkle et al., 2019 (Alzheimer's Disease)</a></li>
-                        <li><a href="https://doi.org/10.1038/s41588-018-0311-9">Jansen et al., 2019 (Alzheimer's Disease)</a></li>
-                        <li><a href="https://doi.org/10.1038/s41398-020-00953-9">Matoba et al., 2019 (Autism)</a></li>
-                        <li><a href="https://doi.org/10.1038/s41588-020-0594-5">Cai et al., 2020 (Depression)</a></li>
-                        <li><a href="https://doi.org/10.1161/CIRCRESAHA.117.312086">Van der Harst et al., 2017 (Coronary Artery Disease)</a></li>
-                        <li><a href="https://doi.org/10.1007/s00125-018-4686-z">Fall et al., 2018 (Coronary Artery Disease in Diabetes)</a></li>
-                        <li><a href="https://doi.org/10.1038/s41467-018-06234-w">Vojinovic et al., 2018 (Lateral Ventricular Volume)</a></li>
-                        <li><a href="https://doi.org/10.1038/s41588-018-0205-x">Evangelou et al., 2018 (Systolic Blood Pressure)</a></li>
-                        <li><a href="https://doi.org/10.1093/hmg/ddy271">Yengo et al., 2018 (Body Mass Index)</a></li>
-                        <li><a href="https://doi.org/10.2337/db19-0831">Forgetta et al., 2020 (Type-1 Diabetes)</a></li>
-                        <li><a href="https://doi.org/10.1038/s41586-020-03065-y">Erola Pairo-Castineira et al., 2020 (COVID-19 critical illness)</a></li>
-                        <li><a href="https://doi.org/10.1038/s41467-021-21049-y">Yong-Fei Wang et al., 2021 (Systemic Lupus)</a></li>
-                        <li><a href="https://doi.org/10.1038/s41431-020-00730-8">Ruotsalainen et al., 2020 (Inflammatory Biomarkers)</a></li>
-                        <li><a href="https://doi.org/10.1038/s41467-020-15649-3">Han et al., 2020 (Asthma)</a></li>
-                        <li><a href="https://doi.org/10.1038/s41588-020-0609-2">Zhang et al., 2020 (Breast Cancer)</a></li>
-                        <li><a href="https://doi.org/10.1038/s41586-020-2786-7">Bao et al., 2020 (Myeloproliferative Neoplasm)</a></li>
-                        <li><a href="https://doi.org/10.1371/journal.pone.0236209">Fiorica et al., 2020 (Prostate Cancer)</a></li>
-                        <li><a href="https://doi.org/10.1038/s41467-020-18246-6">Rashkin et al., 2020 (Lung Cancer)</a></li>
-                        <li><a href="https://doi.org/10.1038/s41467-020-18246-6">Rashkin et al., 2020 (Lymphocytic Leukemia)</a></li>
-                        <li><a href="https://doi.org/10.1038/s41467-020-17312-3">Timmers et al., 2020 (Longevity/Lifespan/Healthspan)</a></li>
-                        <li><a href="https://doi.org/10.7554/eLife.39856">Timmers et al., 2019 (Parental Longevity)</a></li>
-                        <li><a href="https://doi.org/10.1093/hmg/ddy271">Yengo et al., 2018 (Height)</a></li>
-                        <li><a href="https://doi.org/10.1038/s41588-020-00754-2">Demange et al., 2021 (Education)</a></li>
-                        <li><a href="https://doi.org/10.1038/s41467-020-17315-0">Surakka et al., 2020 (Bone Density and fracture risk)</a></li>
-                        <li><a href="https://doi.org/10.1016/j.ajhg.2020.01.017">Manousaki et al., 2020 (Vitamin D)</a></li>
-                    </ul>
-                </p>
-                <p>Structural Variants datasets included:
-                    <ul>
-                        <li><a href="https://doi.org/10.1038/s41398-020-01060-5">Linthrost et al., 2021</a></li>
-                        <li><a href="https://doi.org/10.1016/j.cell.2018.12.019">Audano et al., 2019</a></li>
-                        <li><a href="https://doi.org/10.1038/s41467-018-08148-z">Chaisson et al., 2019</a></li>
-                    </ul>
-                </p>
-
+        <div class="tl-item">
+          <div class="tl-dot"></div>
+          <div class="tl-content">
+            <div class="tl-title">August 2023</div>
+            <div class="tl-text">
+              Complete rewrite in Flask: major stability and speed improvements.
             </div>
+          </div>
         </div>
 
-        <!-- Footnote images -->
-        <div class="image-container-foot">
-            <img src="{{ url_for('static', filename='images/amstUMC.jpg') }}" alt="ams">
-            <img src="{{ url_for('static', filename='images/tudelft1.png') }}" alt="tud">
-            <img src="{{ url_for('static', filename='images/github.png') }}" alt="gith">
+        <div class="tl-item">
+          <div class="tl-dot"></div>
+          <div class="tl-content">
+            <div class="tl-title">March 2022</div>
+            <div class="tl-text">
+              Redesign while keeping the older Shiny implementation.
+            </div>
+          </div>
         </div>
-    </body>
+
+        <div class="tl-item">
+          <div class="tl-dot"></div>
+          <div class="tl-content">
+            <div class="tl-title">February 2022</div>
+            <div class="tl-text">
+              Added sQTL to the Annotation section.
+            </div>
+          </div>
+        </div>
+
+        <div class="tl-item">
+          <div class="tl-dot"></div>
+          <div class="tl-content">
+            <div class="tl-title">December 2021</div>
+            <div class="tl-text">
+              Updated GWAS Catalog release to the latest available.
+            </div>
+          </div>
+        </div>
+
+        <div class="tl-item">
+          <div class="tl-dot"></div>
+          <div class="tl-content">
+            <div class="tl-title">November 2021</div>
+            <div class="tl-text">
+              Added major GWAS summary statistics and new annotation mode (up to 10,000 SNPs without GSEA).
+            </div>
+          </div>
+        </div>
+
+        <div class="tl-item">
+          <div class="tl-dot"></div>
+          <div class="tl-content">
+            <div class="tl-title">August 2021</div>
+            <div class="tl-text">
+              Switched to CADD v1.6 and improved support for rarer variants (1000G).
+            </div>
+          </div>
+        </div>
+
+        <div class="tl-item">
+          <div class="tl-dot"></div>
+          <div class="tl-content">
+            <div class="tl-title">May 2021</div>
+            <div class="tl-text">
+              snpXplorer was born.
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- WHAT'S NEXT + DATA -->
+  <div class="container-main about-two">
+    <div class="column about-card about-half" id="about-next">
+      <h2>What’s next</h2>
+      <ul class="nice-list">
+        <li>Improve Linkage for PRS and haplotypes</li>
+        <li>Increase number of SNPs for Annotation analysis</li>
+        <li>Enable upload of your own GWAS datasets</li>
+        <li>More support for structural variations</li>
+        <li>AI center</li>
+      </ul>
+      <h2>Stay tuned for amazing news!</h2>
+    </div>
+
+    <div class="column about-card about-half" id="about-data">
+      <h2>Data & references</h2>
+      <div class="mini-cards">
+
+        <div class="mini-card">
+          <div class="mini-title">OpenGWAS</div>
+          <div class="mini-text">
+            GWAS studies are based on OpenGWAS (regularly updated). Full dataset list:
+            <a href="https://gwas.mrcieu.ac.uk/" target="_blank" rel="noopener">gwas.mrcieu.ac.uk</a>.
+          </div>
+        </div>
+
+        <div class="mini-card">
+          <div class="mini-title">Structural variants</div>
+          <div class="mini-text">
+            Structural variants datasets based on our publication in Genome Research:
+            <a href="https://genome.cshlp.org/content/34/11/1942" target="_blank" rel="noopener">link</a>.
+          </div>
+        </div>
+
+        <div class="mini-card">
+          <div class="mini-title">Linkage disequilibrium (LD)</div>
+          <div class="mini-text">
+            LD information is derived from TOPMed, enabling LD-based proxy and regional context analyses.
+          </div>
+        </div>
+
+        <div class="mini-card">
+          <div class="mini-title">LLM / semantic search</div>
+          <div class="mini-text">
+            Trait discovery and deduplication are supported by MiniLM embeddings and SapBERT-style semantic similarity.
+          </div>
+        </div>
+
+        <div class="mini-card">
+          <div class="mini-title">QTL & gene expression</div>
+          <div class="mini-text">
+            eQTL/sQTL and gene-expression tracks are integrated from GTEx across &gt;40 tissues.
+          </div>
+        </div>
+
+        <div class="mini-card">
+          <div class="mini-title">Variant effects (CADD)</div>
+          <div class="mini-text">
+            Functional effect predictions are annotated using CADD v1.7.
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Footnote images -->
+  <div class="image-container-foot">
+    <img src="{{ url_for('static', filename='images/amstUMC.jpg') }}" alt="ams">
+    <img src="{{ url_for('static', filename='images/tudelft1.png') }}" alt="tud">
+    <img src="{{ url_for('static', filename='images/github.png') }}" alt="gith">
+  </div>
+
+</body>
 {% endblock %}

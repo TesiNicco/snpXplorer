@@ -1,65 +1,328 @@
 {% extends 'base.html' %}
 
 {% block content %}
-    <body id="help">
-        <!-- DNA image at the top -->
-        <div class="centered-container">
-            <img class="centered-image" src="{{ url_for('static', filename='images/dna.png') }}" alt="Image">
-        </div>
+<body id="help">
+  <!-- DNA image at the top -->
+  <div class="centered-container">
+    <img class="centered-image" src="{{ url_for('static', filename='images/dna.png') }}" alt="Image">
+  </div>
 
-        <!-- Title -->
-        <h2>{% block title %} Help {% endblock %}</h2>
-        
-        <!-- Vignettes Exploration -->
-        <div class="container-main">
-            <div class="column" id="column2">
-                <h2>Exploration section</h2>
-                <p>In the Exploration section, you are required to:
-                    <ul>
-                        <li>Select one or more dataset(s) to visualize clicking on the textarea (GWAS datasets)</li>
-                        <li>Specify the reference genome version using the radio button</li>
-                        <li>Specify your target region by typing the SNP name, gene name or genomic region of interest in the textarea (Browse). Also, you can define the window around the SNP/Gene to show.</li>
-                        <li>Click on the Show region button</li>
-                    </ul>
-                    This represents the most basic visualization scheme, and will show GWAS summary statistics in the form of a regional plot. Dots are SNPs, with the x-axis showing the genomic position and the y-axis showing the p-value in negative logarithmic scale (the higher the dot, the more significant the association is). Additional plot windows show the gene(s) in the region of interest, the Structural variants (SV) in the region of interest, and the gene-expression of the genes in the region of interest as found in GTEx database, for all available tissues. The side panel allows to further characterize the plot(s):
-                    <ul>
-                        <li>Plot type: by default, each SNP is represented as a dot (Scatter). By clicking on Smooth, GWAS association statistics are smoothed with a kernel density function</li>
-                        <li>Exons: by default, exons are not shown. You can enable them by modifying this option</li>
-                        <li>Recombination: by default, recombination rates are not shown. You can enable it by modifying this option</li>
-                        <li>Structural variants: specify the dataset to use for Structural variants</li>
-                        <li>SNPs Table: will show the top associations, which can be downloaded</li>
-                        <li>Structural Variants Table: will show the SVs in the region, which can be downloaded</li>
-                        <li>GWAS Catalog Table: will show the match of the SNPs plotted with respect to the GWAS Catalog, which can be downloaded</li>
-                        <li>GTEx expression Table: will download the gene-expression from GTEx</li>
-                    </ul>
-                </p>
-            </div>
-        </div>
+  <!-- Title -->
+  <h2>{% block title %} Help {% endblock %}</h2>
+  <h3>Browse the vignettes (use arrows or swipe). Click an image to zoom.</h3>
 
-        <!-- Vignettes Annotation -->
-        <div class="container-main">
-            <div class="column" id="column4">
-                <h2>Annotation section</h2>
-                <p>In the Annotation section, you are required to:
-                    <ul>
-                        <li>Add a list of SNPs of interest that you want to annotate in the textarea. The maximum number of SNPs for annotation analysis is 10,000, while the maximum number of SNPs for gene-set enrichment analysis is 1,000</li>
-                        <li>Specify the input type of your SNPs using the radio button: rsID is preferred, however, genomic location will also work</li>
-                        <li>Specify the reference genome version using the radio button</li>
-                        <li>Specify the type of analysis to perform: Annotation will only annotate the SNPs of interest based on CADD score, QTLs (eQTL and sQTL) and position. Gene-set enrichment will first do annotation, and then gene-set enrichment analysis in sampling-based framework to allow multiple genes to be associated with a single SNP</li>
-                        <li>Specify the tissues to be used for QTL analysis</li>
-                        <li>Add your email address</li>
-                        <li>Submit your job</li>
-                    </ul>
-                    snpXplorer will run in the background and will report the output results of your analysis by email. Plots and Tables will be generated and shared with the user. Detailed documentation about how to interpret the results will also be provided in the outputs.
-                </p>
+  <!-- Horizontal gallery / carousel -->
+  <div class="help-carousel" aria-label="Help vignettes">
+    <button class="help-nav help-prev" type="button" aria-label="Previous vignette">‹</button>
+
+    <div class="help-viewport" tabindex="0">
+      <div class="help-track">
+
+        <!-- 1 -->
+        <figure class="help-slide">
+          <div class="help-thumb-wrap">
+            <img class="help-thumb"
+                 src="{{ url_for('static', filename='images/help_exploration.png') }}"
+                 alt="Exploration vignette"
+                 data-full="{{ url_for('static', filename='images/help_exploration.png') }}">
+          </div>
+          <figcaption>
+            <div class="cap-head">
+              <span class="cap-title">Exploration</span>
+              <span class="cap-pill">Regional plots</span>
             </div>
-        </div>
-        
-        <!-- Footnote images -->
-        <div class="image-container-foot">
-            <img src="{{ url_for('static', filename='images/amstUMC.jpg') }}" alt="ams">
-            <img src="{{ url_for('static', filename='images/tudelft1.png') }}" alt="tud">
-            <img src="{{ url_for('static', filename='images/github.png') }}" alt="gith">
-        </div>
-    </body>
+            <div class="cap-text">Pick GWAS datasets, search a SNP/gene/region, and explore signals with LD, SVs and GTEx.</div>
+          </figcaption>
+        </figure>
+
+        <!-- 2 -->
+        <figure class="help-slide">
+          <div class="help-thumb-wrap">
+            <img class="help-thumb"
+                 src="{{ url_for('static', filename='images/help_single.png') }}"
+                 alt="Single annotation vignette"
+                 data-full="{{ url_for('static', filename='images/help_single.png') }}">
+          </div>
+          <figcaption>
+            <div class="cap-head">
+              <span class="cap-title">Single Annotation</span>
+              <span class="cap-pill">One variant</span>
+            </div>
+            <div class="cap-text">Query one variant and see consequences, QTLs, GWAS links, and LD-proxy annotation.</div>
+          </figcaption>
+        </figure>
+
+        <!-- 3 -->
+        <figure class="help-slide">
+          <div class="help-thumb-wrap">
+            <img class="help-thumb"
+                 src="{{ url_for('static', filename='images/help_batch.png') }}"
+                 alt="Batch annotation vignette"
+                 data-full="{{ url_for('static', filename='images/help_batch.png') }}">
+          </div>
+          <figcaption>
+            <div class="cap-head">
+              <span class="cap-title">Batch Annotation</span>
+              <span class="cap-pill">Many variants</span>
+            </div>
+            <div class="cap-text">Submit a SNP list for annotation, with optional gene-set enrichment and emailed results.</div>
+          </figcaption>
+        </figure>
+
+        <!-- 4 -->
+        <figure class="help-slide">
+          <div class="help-thumb-wrap">
+            <img class="help-thumb"
+                 src="{{ url_for('static', filename='images/help_haplotype.png') }}"
+                 alt="Haplotypes vignette"
+                 data-full="{{ url_for('static', filename='images/help_haplotype.png') }}">
+          </div>
+          <figcaption>
+            <div class="cap-head">
+              <span class="cap-title">Haplotypes</span>
+              <span class="cap-pill">Context</span>
+            </div>
+            <div class="cap-text">Explore haplotype structure around loci and compare associations across related traits.</div>
+          </figcaption>
+        </figure>
+
+        <!-- 5 -->
+        <figure class="help-slide">
+          <div class="help-thumb-wrap">
+            <img class="help-thumb"
+                 src="{{ url_for('static', filename='images/help_prs.png') }}"
+                 alt="PRS vignette"
+                 data-full="{{ url_for('static', filename='images/help_prs.png') }}">
+          </div>
+          <figcaption>
+            <div class="cap-head">
+              <span class="cap-title">PRS</span>
+              <span class="cap-pill">Variant sets</span>
+            </div>
+            <div class="cap-text">Browse curated variant sets for PRS construction (clumping+thresholding) and download SNP lists.</div>
+          </figcaption>
+        </figure>
+
+      </div>
+    </div>
+
+    <button class="help-nav help-next" type="button" aria-label="Next vignette">›</button>
+  </div>
+
+  <!-- Lightbox (zoom) -->
+  <div id="lightbox" class="lightbox" aria-hidden="true">
+    <div class="lightbox-backdrop"></div>
+    <div class="lightbox-inner" role="dialog" aria-modal="true">
+      <button class="lightbox-close" type="button" aria-label="Close">✕</button>
+      <img id="lightbox-img" src="" alt="Zoomed vignette">
+    </div>
+  </div>
+
+  <style>
+    /* --- carousel layout --- */
+    .help-carousel{
+      width: 95%;
+      margin: 18px auto 24px auto;
+      display: grid;
+      grid-template-columns: 44px 1fr 44px;
+      gap: 10px;
+      align-items: center;
+    }
+    .help-nav{
+      height: 44px;
+      width: 44px;
+      border: none;
+      border-radius: 999px;
+      cursor: pointer;
+      background: rgba(0,0,0,0.08);
+      color: #111827;
+      font-size: 26px;
+      line-height: 1;
+    }
+    .help-nav:hover{ background: rgba(0,0,0,0.12); }
+
+    .help-viewport{
+      overflow: hidden;
+      border-radius: 18px;
+      background: rgba(0,0,0,0.03);
+      border: 1px solid rgba(0,0,0,0.06);
+      padding: 14px;
+    }
+
+    .help-track{
+      display: flex;
+      gap: 14px;
+      scroll-behavior: smooth;
+      overflow-x: auto;
+      scrollbar-width: none; /* firefox */
+      -ms-overflow-style: none; /* IE/Edge legacy */
+    }
+    .help-track::-webkit-scrollbar{ display:none; }
+
+    .help-slide{
+      flex: 0 0 auto;
+      width: 300px;              /* small cards */
+      border-radius: 18px;
+      background: #fff;
+      border: 1px solid rgba(0,0,0,0.06);
+      box-shadow: 0 10px 24px rgba(15,23,42,0.10);
+      padding: 12px;
+      margin: 0;
+    }
+
+    .help-thumb-wrap{
+        border-radius: 14px;
+        overflow: hidden;
+        border: 1px solid rgba(0,0,0,0.08);
+        background: #ffffff;   /* ← white behind transparent PNGs */
+        }
+    .help-thumb{
+      width: 100%;
+      height: 170px;             /* thumbnail height */
+      object-fit: cover;         /* crop nicely */
+      display: block;
+      cursor: zoom-in;
+      transform: scale(1.001);   /* avoids hairline gaps in some browsers */
+    }
+
+    .cap-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 10px;
+      margin-top: 10px;
+      margin-bottom: 6px;
+    }
+    .cap-title{
+      font-weight: 700;
+      color: #111827;
+      letter-spacing: -0.2px;
+    }
+    .cap-pill{
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(0,0,0,0.06);
+      color: #111827;
+      white-space: nowrap;
+    }
+    .cap-text{
+      font-size: 14px;
+      line-height: 1.35;
+      color: #4b5563;
+    }
+
+    @media (max-width: 520px){
+      .help-carousel{ grid-template-columns: 38px 1fr 38px; }
+      .help-nav{ width:38px; height:38px; font-size:22px; }
+      .help-slide{ width: 260px; }
+      .help-thumb{ height: 150px; }
+    }
+
+    /* --- lightbox --- */
+    .lightbox{ position: fixed; inset: 0; display: none; z-index: 9999; }
+    .lightbox.is-open{ display: block; }
+    .lightbox-backdrop{ position:absolute; inset:0; background: rgba(0,0,0,0.55); }
+    .lightbox-inner{
+      position: relative;
+      max-width: min(1100px, 92vw);
+      max-height: 88vh;
+      margin: 6vh auto;
+      background: #ffffff;
+      border-radius: 18px;
+      padding: 14px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.45);
+    }
+    .lightbox-inner img{
+      width: 100%;
+      height: auto;
+      max-height: 82vh;
+      object-fit: contain;
+      display:block;
+      border-radius: 12px;
+      background: #ffffff;
+    }
+    .lightbox-close{
+      position: absolute;
+      top: 10px;
+      right: 12px;
+      border: none;
+      background: rgba(255,255,255,0.14);
+      color: #fff;
+      border-radius: 999px;
+      padding: 6px 10px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+  </style>
+
+  <script>
+    (function(){
+      // --- carousel controls ---
+      const viewport = document.querySelector('.help-viewport');
+      const track = document.querySelector('.help-track');
+      const prevBtn = document.querySelector('.help-prev');
+      const nextBtn = document.querySelector('.help-next');
+
+      function getStep(){
+        const slide = track.querySelector('.help-slide');
+        if (!slide) return 300;
+        const gap = 14;
+        return slide.getBoundingClientRect().width + gap;
+      }
+
+      prevBtn.addEventListener('click', () => {
+        track.scrollBy({ left: -getStep(), behavior: 'smooth' });
+      });
+      nextBtn.addEventListener('click', () => {
+        track.scrollBy({ left: getStep(), behavior: 'smooth' });
+      });
+
+      // keyboard support when focused
+      viewport.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowLeft') prevBtn.click();
+        if (e.key === 'ArrowRight') nextBtn.click();
+      });
+
+      // --- lightbox (zoom) ---
+      const lb = document.getElementById('lightbox');
+      const lbImg = document.getElementById('lightbox-img');
+      const closeBtn = lb.querySelector('.lightbox-close');
+      const backdrop = lb.querySelector('.lightbox-backdrop');
+
+      function openLightbox(src, alt){
+        lbImg.src = src;
+        lbImg.alt = alt || "Zoomed vignette";
+        lb.classList.add('is-open');
+        lb.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+      }
+      function closeLightbox(){
+        lb.classList.remove('is-open');
+        lb.setAttribute('aria-hidden', 'true');
+        lbImg.src = '';
+        document.body.style.overflow = '';
+      }
+
+      document.querySelectorAll('.help-thumb').forEach(img => {
+        img.addEventListener('click', () => {
+          openLightbox(img.dataset.full || img.src, img.alt);
+        });
+      });
+
+      closeBtn.addEventListener('click', closeLightbox);
+      backdrop.addEventListener('click', closeLightbox);
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && lb.classList.contains('is-open')) closeLightbox();
+      });
+    })();
+  </script>
+
+  <!-- Footnote images -->
+  <div class="image-container-foot">
+    <img src="{{ url_for('static', filename='images/amstUMC.jpg') }}" alt="ams">
+    <img src="{{ url_for('static', filename='images/tudelft1.png') }}" alt="tud">
+    <img src="{{ url_for('static', filename='images/github.png') }}" alt="gith">
+  </div>
+</body>
 {% endblock %}
