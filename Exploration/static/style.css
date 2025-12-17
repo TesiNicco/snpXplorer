@@ -217,12 +217,18 @@ th {
 .card.sand  { background: linear-gradient(135deg, #eae7d1 0%, #d8d0b3 100%); color: #111827; }
 
 /* links inside cards */
-.column a{
+/* links inside the colored homepage columns only */
+#column1 a, #column2 a, #column3 a, #column4 a, #column5 a, #column6 a{
   color: #ffffff;
   font-weight: 700;
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+#column1 a:hover, #column2 a:hover, #column3 a:hover,
+#column4 a:hover, #column5 a:hover, #column6 a:hover{
+  opacity: 0.9;
+}
+
 .column a:hover{ opacity: 0.9; }
 
 .image-container-foot {
