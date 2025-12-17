@@ -78,7 +78,7 @@ h3 {
 /*
  * Formatting the navigation bar
  */
- nav {
+nav {
   display: flex;
   justify-content: center;
   align-items: left;
@@ -93,6 +93,7 @@ nav a {
   text-decoration: none;
   padding: 10px 20px;
   margin: 0 10px;
+  font-weight: 400; /* keep normal */
 }
 
 button {
@@ -287,12 +288,15 @@ th {
 /* optional: stop grid items from overflowing */
 .annotation-grid > * { min-width: 0; }
 
+/* =========================
+   ABOUT page styles
+   ========================= */
+
 /* About layout helpers */
 .about-two { align-items: stretch; }
 .about-half { flex: 1; }
 
 .about-card{
-  /* reusing your .column look but works outside the homepage grid */
   border-radius: 18px;
   box-shadow: 0 10px 24px rgba(15,23,42,0.14);
   border: 1px solid rgba(255,255,255,0.18);
@@ -307,12 +311,15 @@ th {
 #about-data     { background: linear-gradient(135deg, #b48ce6 0%, #8e6ccf 100%); }
 #about-feedback { background: linear-gradient(135deg, #2fb69b 0%, #1f8e87 100%); }
 
-#about a{
+/* IMPORTANT: only style links INSIDE about cards (NOT navbar) */
+#about .about-card a,
+#about .about-card a:visited{
   color: #ffffff;
   font-weight: 700;
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+#about .about-card a:hover{ opacity: 0.9; }
 
 /* Timeline */
 .timeline{
@@ -431,13 +438,4 @@ th {
   border: 1px solid rgba(255,255,255,0.18);
   padding: 10px 12px;
   border-radius: 12px;
-}
-
-/* About page cards should be dark text (not white like homepage columns) */
-#about .about-card{
-  color: #111827;
-}
-
-#about .about-card a{
-  color: #111827;
 }
