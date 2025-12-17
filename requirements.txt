@@ -23,4 +23,5 @@ plotly
 networkx
 psutil
 gunicorn
+gevent
 git+https://github.com/mojaie/pygosemsim
