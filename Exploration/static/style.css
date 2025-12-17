@@ -427,3 +427,11 @@ th {
   border-radius: 12px;
 }
 
+/* About page cards should be dark text (not white like homepage columns) */
+#about .about-card{
+  color: #111827;
+}
+
+#about .about-card a{
+  color: #111827;
+}
