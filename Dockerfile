@@ -82,7 +82,7 @@ WORKDIR /Exploration
 # -------------------------------------------------------------------
 #CMD service redis-server start && python3 -m flask run --host=82.165.237.220 -p 8007
 # Use the following line for deployment with gunicorn
-CMD service redis-server start && gunicorn -w 2 -b 0.0.0.0:8007 app:app
+CMD service redis-server start && gunicorn -w 1 --threads 4 -b 0.0.0.0:8007 --timeout 300 app:app
 
 # If you ever run this locally, usually you'd want:
 # CMD service redis-server start && python3 -m flask run --host=0.0.0.0 -p 8007
