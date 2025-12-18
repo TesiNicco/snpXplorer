@@ -290,8 +290,8 @@ def build_cluster_index_map(labels):
     return cluster_index_map
 
 # Function to monitor trait searches
-def add_search_to_file(q):
-    log_file = f"instance/prs_logs.txt"
+def add_search_to_file(DATA_PATH, q):
+    log_file = f"{DATA_PATH}/monitor/prs_logs.txt"
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     log_entry = f"{timestamp}\t{q}\n"
     with open(log_file, "a") as f:
@@ -328,7 +328,7 @@ def trait_search():
     if query:
         q = query.lower()
         # Monitoring: record search
-        add_search_to_file(q)
+        add_search_to_file(DATA_PATH, q)
         # Get all relevant info
         clusters_of_interest, all_indices, trait_list, cluster_index_map, umap, cluster_representatives, browse_resolved, sim_mat, names_sub, cluster_labels_for_index, cluster_traits, traits_interest, idx_trait, all_cluster_representatives = guide_haplotypes_traits(DATA_PATH, q, 100000, "hg38", trait_names)
         # Generate plots

@@ -2292,8 +2292,8 @@ def is_valid_email(email):
     return re.match(pattern, email) is not None
 
 # function to monitor exploration jobs
-def add_search_to_file(chrom, start_pos, end_pos, refGen, gwas, browse_type):
-    log_file = f"instance/exploration_logs.txt"
+def add_search_to_file(data_path, chrom, start_pos, end_pos, refGen, gwas, browse_type):
+    log_file = f"{data_path}/monitor/exploration_logs.txt"
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     gwas_str = ";".join(gwas) if isinstance(gwas, list) else str(gwas)
     log_entry = f"{timestamp}\t{chrom}\t{start_pos}\t{end_pos}\t{refGen}\t{gwas_str}\t{browse_type}\n"
@@ -2301,8 +2301,8 @@ def add_search_to_file(chrom, start_pos, end_pos, refGen, gwas, browse_type):
         f.write(log_entry)
 
 # function to monitor exploration jobs
-def add_haplo_to_file(browse, refGen, browse_type):
-    log_file = f"instance/haplotypes_logs.txt"
+def add_haplo_to_file(data_path, browse, refGen, browse_type):
+    log_file = f"{data_path}/monitor/haplotypes_logs.txt"
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     log_entry = f"{timestamp}\t{browse}\t{browse_type}\t{refGen}\n"
     with open(log_file, "a") as f:

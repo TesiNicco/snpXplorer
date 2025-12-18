@@ -560,8 +560,8 @@ def closest_gene(query_info):
 # ---------------------------------------------------------
 # Monitor single variant query
 # ---------------------------------------------------------
-def add_search_to_file(q, build):
-    log_file = f"instance/single_query_logs.txt"
+def add_search_to_file(q, build, DATA_PATH):
+    log_file = f"{DATA_PATH}/monitor/single_query_logs.txt"
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     log_entry = f"{timestamp}\t{q}\t{build}\n"
     with open(log_file, "a") as f:
@@ -578,7 +578,7 @@ def run_variant_query(q, build="hg38"):
         return {"error": "Query not recognized. Use rsID (rs123) or chr:pos."}, 400
 
     # Monitoring: record search
-    add_search_to_file(q, build)
+    add_search_to_file(q, build, DATA_PATH)
     
     # rsID path
     if parsed["type"] == "rsid":

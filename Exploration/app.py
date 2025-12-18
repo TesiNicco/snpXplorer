@@ -1,5 +1,4 @@
-from flask import Flask, request, render_template, send_file, session, make_response, redirect, url_for, jsonify, Response, stream_with_context, Blueprint, flash
-from datetime import datetime, timezone
+from flask import Flask, request, render_template, send_file, session, make_response, redirect, url_for, jsonify, Response, stream_with_context, Blueprint
 from queue import Queue, Empty
 from uuid import uuid4
 import json
@@ -16,6 +15,7 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap, to_hex
 import io
 from pathlib import Path
+from datetime import datetime, timezone
 from io import StringIO
 import subprocess
 import math
@@ -375,6 +375,9 @@ def run_pipeline(console_id, formdata):
         publish("Finding genomic location...", console_id)
         chrom, start_pos, end_pos, browse_type = readBrowseOption(data_path, browse, window, refGen)
         logging.info("All good with readBrowseOption")
+        
+        # Save search to file
+        add_search_to_file(data_path, chrom, start_pos, end_pos, refGen, gwas, browse_type)
 
         publish("Gathering data of interest...", console_id)
         df, df_info = get_data_plot(data_path=data_path, gwas=gwas, chrom=chrom, start_pos=start_pos, end_pos=end_pos, refGen=refGen, meta=meta, window=window)
@@ -718,32 +721,24 @@ def download_gtex_plot():
     return 'Data not available. Please go back and generate a plot before downloading.'
 
 # About tab
-@app.route("/about")
+@app.route('/about/')
 def about():
-    return render_template("about.html")
+    return render_template('about.html')
 
-@app.post("/submit-feedback")
+# Submit feedback
+@app.route("/submit_feedback", methods=["POST"])
 def submit_feedback():
-    name = (request.form.get("name") or "").strip()
-    message = (request.form.get("message") or "").strip()
-    rating = (request.form.get("rating") or "").strip()
-    # require at least message or rating
-    if not message and not rating:
-        flash("Please enter a message or a rating.")
-        return redirect(url_for("about"))
-    record = {
+    FEEDBACK_FILE = Path("instance/feedback.jsonl")  # adjust path if needed
+    obj = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "name": name if name else "Anonymous",
-        "rating": int(rating) if rating.isdigit() else None,
-        "message": message
+        "name": (request.form.get("name") or "Anonymous").strip() or "Anonymous",
+        "rating": int(request.form["rating"]) if request.form.get("rating") else None,
+        "message": (request.form.get("message") or "").strip(),
     }
-    # store feedback safely
-    os.makedirs(app.instance_path, exist_ok=True)
-    out_file = os.path.join(app.instance_path, "feedback.jsonl")
-    with open(out_file, "a", encoding="utf-8") as f:
-        f.write(json.dumps(record, ensure_ascii=False) + "\n")
-    flash("Thanks! Your feedback has been submitted.")
-    return redirect(url_for("about"))
+    FEEDBACK_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with FEEDBACK_FILE.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(obj, ensure_ascii=False) + "\n")
+    return redirect(url_for("about", sent=1))
 
 # User tab
 @app.route('/user/')
@@ -848,6 +843,8 @@ def haplotypes():
         browse_type = request.form.get("browse_type")
         window = 50000 if browse_type == 'gene' else 100000
         refGen = 'GRCh38'
+        # Monitor search
+        add_haplo_to_file(data_path, browse, refGen, browse_type)
         if browse_type == 'trait':
             # get info to plot umap and heatmap
             clusters_of_interest, all_indices, trait_list, cluster_index_map, umap, cluster_representatives, browse_resolved, sim_mat, names_sub, cluster_labels_for_index, cluster_traits, traits_interest, idx_trait, all_cluster_representatives = guide_haplotypes_traits(data_path, browse, window, refGen, trait_names)
