@@ -728,7 +728,7 @@ def about():
 # Submit feedback
 @app.route("/submit_feedback", methods=["POST"])
 def submit_feedback():
-    FEEDBACK_FILE = Path("instance/feedback.jsonl")  # adjust path if needed
+    FEEDBACK_FILE = Path(f"{data_path}/monitor/feedback.jsonl")  # adjust path if needed
     obj = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "name": (request.form.get("name") or "Anonymous").strip() or "Anonymous",
