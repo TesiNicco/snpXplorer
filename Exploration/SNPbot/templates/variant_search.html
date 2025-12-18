@@ -464,12 +464,14 @@
       <p>Accepted query formats (one variant at a time):</p>
       <ul>
         <li>By rsID: <code>rs7412</code></li>
-        <li>By coordinate (no "chr" needed): <code>19:45411941</code></li>
-        <li>With "chr": <code>chr19 45411941</code></li>
+        <li>By coordinate: <code>19:45411941 • 19 45411941 • chr19 45411941 • chr19:45511941</code></li>
       </ul>
       <p style="margin-top: 6px;">
         Choose genome build (<code>hg38</code> or <code>hg19</code>). For hg19,
         coordinates are lifted over internally to hg38.
+        <!-- Leave a Feedback -->
+        <br><br>
+        <a href="{{ url_for('about') }}#about">Tell us what you think!</a>
       </p>
     </div>
   </div>

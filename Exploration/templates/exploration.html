@@ -186,8 +186,8 @@
                     </button>
                 </div>
                 <!-- Small text explaining the console -->
-                <div style="text-align:center; font-size:12px; color:gray;">
-                    <em>Note: once you click "Show region!", the exploration will start in the background and you can monitor its progress in the console on the left. When the job is done, the page will reload automatically to show the results. If you selected multiple studies or a wide region to be displayed, it may table some time to render.</em>
+                <div style="text-align:center; font-size:14px; color:gray;">
+                    <em>Note: once you click "Show region!", the exploration will start in the background and you can monitor its progress in the console on the left. When the job is done, the page will reload automatically to show the results. If you selected multiple studies or a wide region to be displayed, it may take some time to render.</em>
                 </div>
 
                 <script>
@@ -723,7 +723,12 @@
                 <a href="{{ url_for('download_snp_plot') }}">Download Main SNP plot</a>
                 <br><br>
                 <a href="{{ url_for('download_gtex_plot') }}">Download GTEx plot</a>
-                </aside>
+                            
+                <!-- Leave a Feedback -->
+                <hr style="margin: 12px 0;">
+                <br><br>
+                <a href="{{ url_for('about') }}#about">Tell us what you think!</a>            
+            </aside>
 
                 <!-- ===== Main plot area (75%) ===== -->
                 <main class="main">
