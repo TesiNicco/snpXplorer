@@ -7,7 +7,7 @@ from liftover import get_lifter
 import io
 import os
 import subprocess
-from datetime import timedelta
+from datetime import timedelta, datetime
 import math
 from typing import Optional
 
@@ -558,6 +558,16 @@ def closest_gene(query_info):
     return [df.iloc[0]["gene_symbol"]]
 
 # ---------------------------------------------------------
+# Monitor single variant query
+# ---------------------------------------------------------
+def add_search_to_file(q, build):
+    log_file = f"instance/single_query_logs.txt"
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    log_entry = f"{timestamp}\t{q}\t{build}\n"
+    with open(log_file, "a") as f:
+        f.write(log_entry)
+
+# ---------------------------------------------------------
 # Core logic for querying a variant
 # ---------------------------------------------------------
 def run_variant_query(q, build="hg38"):
@@ -567,6 +577,9 @@ def run_variant_query(q, build="hg38"):
     if parsed["type"] == "invalid":
         return {"error": "Query not recognized. Use rsID (rs123) or chr:pos."}, 400
 
+    # Monitoring: record search
+    add_search_to_file(q, build)
+    
     # rsID path
     if parsed["type"] == "rsid":
         info = fetch_by_rsid(DB_FILE, parsed["rsid"])
@@ -597,6 +610,9 @@ def run_variant_query(q, build="hg38"):
             
             # CADD / eQTL / sQTL for all LD partners
             if info["ld"]:
+                # If there are >100 LD partners, limit to top 100 by r2
+                if len(info["ld"]) > 100:
+                    info["ld"] = sorted(info["ld"], key=lambda x: x.get("r2", 0), reverse=True)[:100]
                 ld_cadd, ld_eqtl, ld_sqtl = annotate_ld_partners(chr38, info["ld"])
                 info["ld_cadd"] = ld_cadd
                 info["ld_eqtl"] = ld_eqtl
@@ -667,6 +683,9 @@ def run_variant_query(q, build="hg38"):
             
             # CADD / eQTL / sQTL for all LD partners
             if info["ld"]:
+                # If there are >100 LD partners, limit to top 100 by r2
+                if len(info["ld"]) > 100:
+                    info["ld"] = sorted(info["ld"], key=lambda x: x.get("r2", 0), reverse=True)[:100]
                 ld_cadd, ld_eqtl, ld_sqtl = annotate_ld_partners(chr38, info["ld"])
                 info["ld_cadd"] = ld_cadd
                 info["ld_eqtl"] = ld_eqtl
@@ -740,6 +759,9 @@ def run_variant_query(q, build="hg38"):
             
             # CADD / eQTL / sQTL for all LD partners
             if info["ld"]:
+                # If there are >100 LD partners, limit to top 100 by r2
+                if len(info["ld"]) > 100:
+                    info["ld"] = sorted(info["ld"], key=lambda x: x.get("r2", 0), reverse=True)[:100]
                 ld_cadd, ld_eqtl, ld_sqtl = annotate_ld_partners(chr38, info["ld"])
                 info["ld_cadd"] = ld_cadd
                 info["ld_eqtl"] = ld_eqtl

@@ -14,7 +14,7 @@ import os
 from scipy.cluster.hierarchy import linkage, leaves_list
 from scipy.spatial.distance import squareform
 from ieugwaspy import api, query
-from datetime import timedelta
+from datetime import timedelta, datetime
 import sqlite3
 import plotly.graph_objs as go
 from plotly.subplots import make_subplots
@@ -289,6 +289,14 @@ def build_cluster_index_map(labels):
         cluster_index_map.setdefault(int(lab), []).append(i)
     return cluster_index_map
 
+# Function to monitor trait searches
+def add_search_to_file(q):
+    log_file = f"instance/prs_logs.txt"
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    log_entry = f"{timestamp}\t{q}\n"
+    with open(log_file, "a") as f:
+        f.write(log_entry)
+
 # ---------------------------------------------------------
 # Routes
 # ---------------------------------------------------------
@@ -319,6 +327,8 @@ def trait_search():
     # If we have a query (POST or remembered GET), compute page content
     if query:
         q = query.lower()
+        # Monitoring: record search
+        add_search_to_file(q)
         # Get all relevant info
         clusters_of_interest, all_indices, trait_list, cluster_index_map, umap, cluster_representatives, browse_resolved, sim_mat, names_sub, cluster_labels_for_index, cluster_traits, traits_interest, idx_trait, all_cluster_representatives = guide_haplotypes_traits(DATA_PATH, q, 100000, "hg38", trait_names)
         # Generate plots
