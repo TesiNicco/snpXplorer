@@ -170,7 +170,7 @@
                         </script>
                         Window <input type="range" min="1000" max="250000" step="1000" name="window" value="{{ window }}" oninput="updateValue(this.value)">
                         <p>Current value: <span id="slider-value">{{ window }}</span></p>
-                        <small style="color: blue;">Example: 1:1000000 / 1:1000000-1200000 / APOE / rs7412</small>
+                        <small style="color: blue;">Example: APOE / rs7412</small>
                     </div>
                     </div>
                 </div>
@@ -184,7 +184,7 @@
                 </div>
                 <!-- Small text explaining the console -->
                 <div style="text-align:center; font-size:12px; color:gray;">
-                    <em>Note: once you click "Show region!", the exploration will start in the background and you can monitor its progress in the console on the left. When the job is done, the page will reload automatically to show the results.</em>
+                    <em>Note: once you click "Show region!", the exploration will start in the background and you can monitor its progress in the console on the left. When the job is done, the page will reload automatically to show the results. If multiple datasets are selected and/or the size of the selected window is large, it may take some time.</em>
                 </div>
 
                 <script>
@@ -725,9 +725,11 @@
                 <!-- ===== Main plot area (75%) ===== -->
                 <main class="main">
                 {% if plot_url %}
-                <div class="plot-wrap square">
+                <div class="plot-wrap square plot-with-info">
+                    <button type="button" class="info-dot" aria-label="Info" title="This controls how many bp around the locus are shown."> ⓘ</button>
                     {{ plot_url|safe }}
                 </div>
+                {% endif %}
                 <script>
                     // Keep Plotly square & responsive to main column width
                     (function () {

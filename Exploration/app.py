@@ -359,7 +359,7 @@ def run_pipeline(console_id, formdata):
         refGen = formdata.get("refGenome")
         browse = formdata.get("browse", "")
         gwas = formdata.getlist('gwas_data')
-        window = int(formdata.get("window", 25000) or 25000)
+        window = int(formdata.get("window", 5000) or 5000)
         recomb = formdata.get("recomb", "No")
         exons = formdata.get("exons", "No")
         axestype = formdata.get("axestype", "manh")
@@ -528,7 +528,7 @@ def exploration():
             console_id=cid,
             # added
             refGenome=session.get("refGen", "GRCh37"),
-            window=session.get("window", 25000),
+            window=session.get("window", 5000),
             axestype=session.get("axestype", "manh"),
             plotype=session.get("plotype", "Scatter"),
             exons=session.get("exons", "No"),
@@ -604,7 +604,7 @@ def exploration():
             browse_value=browse, gwas=gwas,
             console_id=str(uuid4()),
             refGenome=session.get("refGen", "GRCh37"),
-            window=session.get("window", 25000),
+            window=session.get("window", 5000),
             axestype=session.get("axestype", "manh"),
             plotype=session.get("plotype", "Scatter"),
             exons=session.get("exons", "No"),
