@@ -184,7 +184,7 @@
                 </div>
                 <!-- Small text explaining the console -->
                 <div style="text-align:center; font-size:12px; color:gray;">
-                    <em>Note: once you click "Show region!", the exploration will start in the background and you can monitor its progress in the console on the left. When the job is done, the page will reload automatically to show the results. If multiple datasets are selected and/or the size of the selected window is large, it may take some time.</em>
+                    <em>Note: once you click "Show region!", the exploration will start in the background and you can monitor its progress in the console on the left. When the job is done, the page will reload automatically to show the results.</em>
                 </div>
 
                 <script>
@@ -725,11 +725,19 @@
                 <!-- ===== Main plot area (75%) ===== -->
                 <main class="main">
                 {% if plot_url %}
-                <div class="plot-wrap square plot-with-info">
-                    <button type="button" class="info-dot" aria-label="Info" title="This controls how many bp around the locus are shown."> ⓘ</button>
+                <div class="info-wrap">
+                    <span class="info-icon">ⓘ</span>
+                    <div class="info-tip">
+                    This plot shows GWAS association signals across the selected region.
+                    Genomic position is shown on the X-axis, and
+                    {% if axestype == 'manh' %}P-values{% else %}effect sizes (Beta){% endif %} on the
+                    Y-axis. Hover points for SNP-level details (only high significance).
+                    The panels below show the genes and structural variants (when selected) in the region.
+                    </div>
+                </div>
+                <div class="plot-wrap square">
                     {{ plot_url|safe }}
                 </div>
-                {% endif %}
                 <script>
                     // Keep Plotly square & responsive to main column width
                     (function () {
@@ -751,12 +759,26 @@
                 {% endif %}
 
                 {% if plot_beta %}
+                <div class="info-wrap">
+                    <span class="info-icon">ⓘ</span>
+                    <div class="info-tip">
+                    This plot shows Effect sizes (X-axis) and allele frequency (Y-axis) across the 
+                    selected region. Hover points for SNP-level details.
+                    </div>
+                </div>
                 <div style="width:100%; margin-top:24px; height:500px; overflow-y:auto;">
                     {{ plot_beta|safe }}
                 </div>
                 {% endif %}
 
                 {% if plot_gtex %}
+                <div class="info-wrap">
+                    <span class="info-icon">ⓘ</span>
+                    <div class="info-tip">
+                    This plot shows gene expression levels across different human tissues from 
+                    the GTEx project. Hover bars for tissue-level details.
+                    </div>
+                </div>
                 <div style="width:90%; margin-top:24px; height:800px; overflow-y:auto;">
                     {{ plot_gtex|safe }}
                 </div>

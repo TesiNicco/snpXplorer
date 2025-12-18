@@ -442,16 +442,66 @@ th {
 
 .plot-with-info { position: relative; }
 
-.info-dot{
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 9999;          /* sit above Plotly */
-  border: none;
-  background: rgba(255,255,255,0.85);
-  border-radius: 999px;
-  padding: 4px 8px;
-  cursor: help;
-  font-size: 14px;
-  line-height: 1;
+.info-icon{
+  position:relative;
+  cursor:help;
+  font-size:14px;
+  color:#2563eb;
 }
+
+.info-tooltip{
+  display:none;
+  position:absolute;
+  top:120%;
+  left:50%;
+  transform:translateX(-50%);
+  background:#111827;
+  color:#fff;
+  padding:6px 8px;
+  border-radius:6px;
+  font-size:12px;
+  white-space:nowrap;
+  z-index:1000;
+}
+
+.info-icon:hover .info-tooltip{
+  display:block;
+}
+
+/* wrapper that sits all the way right */
+.info-wrap{
+  position: relative;
+  align-self: flex-end;
+  margin-bottom: 6px;
+}
+
+/* the bubble */
+.info-wrap .info-tip{
+  position: absolute;
+  top: 100%;
+  right: 0;          /* key: keep inside right edge */
+  left: auto;
+  margin-top: 6px;
+
+  max-width: min(420px, calc(100vw - 24px)); /* never overflow viewport */
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  box-shadow: 0 8px 20px rgba(0,0,0,.12);
+
+  white-space: normal;      /* allow wrapping */
+  overflow-wrap: anywhere;  /* break long tokens */
+  z-index: 9999;
+
+  display: none;
+}
+
+.info-tip{
+  writing-mode: horizontal-tb;
+  white-space: normal;
+  width: max-content;
+  max-width: min(420px, calc(100vw - 24px));
+}
+
+.info-wrap:hover .info-tip{ display:block; }
