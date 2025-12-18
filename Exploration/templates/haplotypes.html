@@ -205,15 +205,24 @@
       </small>
 
       <div style="text-align:center; margin-top:16px;">
-        <button type="submit" style="background:#4C837A; color:white; padding:8px 14px; border-radius:8px; border:none;">
-          Show region
-        </button>
+        <div class="submit-container">
+          <button id="submit_button" class="submit-btn">
+            <span class="btn-icon">🚀</span>
+            <span class="btn-text">Show region!</span>
+          </button>
+        </div>
       </div>
     </div>
   </form>
 
   <!-- (1) TABLE WITH TRAIT SUMMARY IN THE REGION -->
   {% if table_traits %}
+    <div class="info-wrap">
+      <span class="info-icon">ⓘ</span>
+        <div class="info-tip">
+          This table summarizes the selected trait and all traits in the same cluster. Clusters were defined based on cosine similarity of traits, derived from their embeddings in large language models. Traits in the same cluster are likely to be related or share similar genetic architectures.
+        </div>
+    </div>
     <div class="haplo-card-table traits-card centered-card">
       <h3>Traits related to your query</h3>
 
@@ -248,6 +257,13 @@
 
   <!-- (1) HAPLOTYPE SUMMARY TABLE -->
   {% if haplo_summary and haplo_summary|length > 0 %}
+    <div class="info-wrap">
+      <span class="info-icon">ⓘ</span>
+        <div class="info-tip">
+          This table summarizes the haplotypes detected in the selected genomic region, including their index/ID, number of SNPs, genomic coordinates, 
+          number of associated traits, and a list of those traits. Click on a haplotype row to see a detailed plot and additional information below.
+        </div>
+    </div>
   <div class="haplo-card-table">
     <h3>Haplotypes in this region</h3>
 
@@ -299,6 +315,13 @@
 
   <!-- (2) PLOT WITH ALL HAPLOTYPES  -->
   {% if plot_url %}
+    <div class="info-wrap">
+        <span class="info-icon">ⓘ</span>
+          <div class="info-tip">
+            This plot shows the region of interest with the detected haplotypes. Each row is a haplotype, each dot is a SNP within that haplotype, positioned according to its genomic coordinate (x-axis)
+            and colored by the number of traits that haplotype is associated with.
+          </div>
+      </div>
     <div id="plotly-haplotypes" style="width:100%; margin:24px 0; height:auto;">
       {{ plot_url | safe }}
     </div>
@@ -647,8 +670,7 @@ function downloadGWASTable() {
               <div class="haplo-card-table">
                 <h3 style="margin-top:24px;">Haplotype plots</h3>
                 <p class="muted" style="margin-top:6px;">
-                  Interactive plot showing haplotype frequencies and their association signals. Hover over points for exact values, click legend
-                  entries to toggle traces, and use the Plotly modebar to zoom, pan, or download the figure as an image.
+                  Interactive plot showing haplotype structure and their association signals. The top heatmap displays LD between SNPs in the haplotype, the small regional plot below (left) shows SNP positions and association p-values colored by trait, and the heatmap (right) visualizes correlation of the SNP effects in the haplotype across traits.
                 </p>
                 <div id="haplo-detail-plot"></div>
               </div>

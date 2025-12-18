@@ -312,6 +312,12 @@ body{
   </div>
 
   {% if plot_html %}
+    <div class="info-wrap">
+      <span class="info-icon">ⓘ</span>
+        <div class="info-tip">
+          These plots shows the UMAP projection of traits based on their similarity in large language model embeddings. Your queried trait is highlighted with a star. Color codes for clusters. Traits that are closer together in the plot are more similar in terms of their genetic architecture and associated biological processes.
+        </div>
+    </div>
     <div class="main-container" style="margin-top:18px;">
       <div style="border:1px solid #e5e7eb; border-radius:16px; padding:16px; box-shadow:0 6px 18px rgba(15,23,42,0.06);">
         {{ plot_html|safe }}
@@ -320,6 +326,12 @@ body{
   {% endif %}
 
   {% if meta_rows and meta_rows|length > 0 %}
+    <div class="info-wrap">
+      <span class="info-icon">ⓘ</span>
+        <div class="info-tip">
+          This table shows the metadata for the GWAS studies related to your queried trait, including study name, sample size, ancestry, and other relevant information.
+        </div>
+    </div>
     <div class="main-container" style="margin-top:18px;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
         <h4>GWAS metadata</h4>
@@ -350,6 +362,12 @@ body{
   {% endif %}
 
   {% if prs_rows and prs_rows|length > 0 %}
+    <div class="info-wrap">
+      <span class="info-icon">ⓘ</span>
+        <div class="info-tip">
+          This table shows information about the PRS SNP lists available for your queried trait, including the number of SNPs, p-value threshold used, and a download link. Suggested or curated lists are highlighted in bold.
+        </div>
+    </div>
     <div class="main-container" style="margin-top:18px;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
         <h4>PRS SNP lists</h4>
@@ -401,9 +419,17 @@ body{
     <div class="tool-card" style="margin-top:18px;">
       <h4 class="tool-title">PRS with Jordan</h4>
 
-      <div class="codebox" id="jordan-codebox">
-        <button class="copy-btn" type="button" onclick="copyCode('jordan-cmd')">Copy</button>
-        <code id="jordan-cmd">jordan --genotype {your genotype data} --snplist {individual SNP list as downloaded above} --outname {output folder} [options: --dosages --keepDos --maf 0.01]</code>
+      <div class="code-row">
+        <div class="code-col">
+          <div class="codebox" id="jordan-codebox">
+            <button class="copy-btn" type="button" onclick="copyCode('jordan-cmd')">Copy</button>
+            <code id="jordan-cmd">jordan --genotype {your genotype data} --snplist {individual SNP list as downloaded above} --outname {output folder} [options: --dosages --keepDos --maf 0.01]</code>
+          </div>
+        </div>
+
+        <div class="logo-col">
+          <img class="tool-logo" src="{{ url_for('static', filename='images/jordan.png') }}" alt="Jordan">
+        </div>
       </div>
 
       <p class="code-caption">
@@ -414,9 +440,12 @@ body{
 
     <!-- PRS with Polygenius -->
     <div class="tool-card" style="margin-top:18px;">
-      <h4 class="tool-title">PRS with Polygenius</h4>
+      <div class="card-head">
+        <h4 class="tool-title" style="margin:0;">PRS with Polygenius</h4>
+        <img class="tool-logo" src="{{ url_for('static', filename='images/polygenius.png') }}" alt="Polygenius">
+      </div>
 
-      <p class="code-caption" style="margin-top:0;">
+      <p class="code-caption" style="margin-top:8px;">
         For more info visit Polygenius at
         <a href="https://polygenius.holstegelab.eu" target="_blank" rel="noopener noreferrer">the Holstegelab page</a>.
       </p>

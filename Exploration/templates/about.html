@@ -254,6 +254,15 @@
     </div>
   </div>
 
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("sent") === "1") {
+      alert("✅ Feedback submitted. Thank you!");
+      // optional: clean URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  </script>
+
   <!-- Footnote images -->
   <div class="image-container-foot">
     <img src="{{ url_for('static', filename='images/amstUMC.jpg') }}" alt="ams">

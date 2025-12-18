@@ -179,12 +179,15 @@
                 <input type="hidden" name="console_id" value="{{ console_id }}">
 
                 <!-- Submit button row -->
-                <div style="padding:10px; background:#9FD8C6; margin:20px; text-align:center; border-radius:12px;">
-                <button id="submit_button" style="background:#4C837A; color:white">Show region!</button>
+                <div class="submit-container">
+                    <button id="submit_button" class="submit-btn">
+                        <span class="btn-icon">🚀</span>
+                        <span class="btn-text">Show region!</span>
+                    </button>
                 </div>
                 <!-- Small text explaining the console -->
                 <div style="text-align:center; font-size:12px; color:gray;">
-                    <em>Note: once you click "Show region!", the exploration will start in the background and you can monitor its progress in the console on the left. When the job is done, the page will reload automatically to show the results.</em>
+                    <em>Note: once you click "Show region!", the exploration will start in the background and you can monitor its progress in the console on the left. When the job is done, the page will reload automatically to show the results. If you selected multiple studies or a wide region to be displayed, it may table some time to render.</em>
                 </div>
 
                 <script>

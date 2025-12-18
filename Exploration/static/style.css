@@ -468,21 +468,33 @@ th {
   display:block;
 }
 
-/* wrapper that sits all the way right */
+/* wrapper (make it take the full row so "right" actually means right) */
 .info-wrap{
   position: relative;
-  align-self: flex-end;
+  display: flex;
+  justify-content: flex-end; /* icon to the right */
+  width: 100%;
   margin-bottom: 6px;
+}
+
+/* the icon itself (optional polish) */
+.info-wrap .info-icon{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
 }
 
 /* the bubble */
 .info-wrap .info-tip{
   position: absolute;
   top: 100%;
-  right: 0;          /* key: keep inside right edge */
+  right: 0;          /* keep inside right edge */
   left: auto;
   margin-top: 6px;
 
+  width: max-content;
   max-width: min(420px, calc(100vw - 24px)); /* never overflow viewport */
   padding: 8px 10px;
   border-radius: 10px;
@@ -497,11 +509,60 @@ th {
   display: none;
 }
 
-.info-tip{
-  writing-mode: horizontal-tb;
-  white-space: normal;
-  width: max-content;
-  max-width: min(420px, calc(100vw - 24px));
+/* show on hover */
+.info-wrap:hover .info-tip{
+  display: block;
 }
 
-.info-wrap:hover .info-tip{ display:block; }
+.submit-container {
+    padding: 16px;
+    background: #9FD8C6;
+    margin: 20px;
+    text-align: center;
+    border-radius: 14px;
+}
+
+.submit-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+
+    background: linear-gradient(135deg, #4C837A, #3A6F66);
+    color: white;
+
+    border: none;
+    border-radius: 999px; /* pill-shaped */
+    padding: 12px 22px;
+
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+
+    box-shadow: 0 6px 16px rgba(0,0,0,0.18);
+    transition: all 0.2s ease;
+}
+
+.submit-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.22);
+}
+
+.submit-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.18);
+}
+
+.btn-icon {
+    font-size: 18px;
+    line-height: 1;
+}
+
+/* Jordan: code (75%) + logo (25%) inside full-width card */
+.code-row{ display:flex; gap:14px; align-items:center; }
+.code-col{ flex: 0 0 85%; min-width:0; }
+.logo-col{ flex: 0 0 15%; display:flex; justify-content:flex-end; align-items:center; }
+
+/* Polygenius: logo inside box on the right of the title */
+.card-head{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
+
+.tool-logo{ max-height:50px; width:auto; display:block; }
