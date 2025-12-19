@@ -37,11 +37,11 @@ import psutil
 # Configuration
 # ---------------------------------------------------------
 # Local data path
-DATA_PATH = Path("/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Data")
-PATH_SCRIPT = Path("/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Annotation/BIN/")
+#DATA_PATH = Path("/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Data")
+#PATH_SCRIPT = Path("/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Annotation/BIN/")
 # Server data path
-#DATA_PATH = Path("/Data")
-#PATH_SCRIPT = '/Annotation/BIN/'
+DATA_PATH = Path("/Data")
+PATH_SCRIPT = '/Annotation/BIN/'
 
 DB_FILE = DATA_PATH / "databases/Genes/variant_info.db"
 
