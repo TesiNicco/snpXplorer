@@ -61,7 +61,7 @@
                     <div class="option-box" id="gwas_option">
                     <div style="text-align:center;"><h1>GWAS to include</h1></div>
                     <div>
-                        <span class="muted">Search a GWAS by trait, author, ID, PMID…</span><br>
+                        <span class="muted">Search a GWAS by trait, author, ID (e.g., "Alzheimer", "Hypertension")</span><br>
                         <select id="gwas_select" name="gwas_data" multiple></select>
                     </div>
                     </div>
@@ -70,7 +70,7 @@
                         $(function () {
                             const $sel = $('#gwas_select');
                             $sel.select2({
-                                placeholder: 'Type here your trait or author (e.g., Alzheimer, Hypertension)',
+                                placeholder: 'Type here...',
                                 width: '100%',
                                 multiple: true,
                                 minimumInputLength: 2,
