@@ -1454,6 +1454,9 @@ def main():
     if not os.path.exists(output_folder):
         # Create output folder
         os.makedirs(output_folder)
+        # Add documentation to the output folder
+        cmd = f"cp {PATH_SCRIPT}/snpXplorer_output_description.pdf {output_folder}/"
+        os.system(cmd)
     else:
         print(f"Output folder {output_folder} already exists. Please remove it or provide a different random number.", file=sys.stderr, flush=True)
         sys.exit(1)
@@ -1612,7 +1615,7 @@ def main():
 
     # Gene-set enrichment analysis
     if analysis_type == "enrichment" and not most_likely_gene.empty:
-        enrichment_df = gene_set_enrichment_analysis(most_likely_gene, n_iterations=100, gsea_sets=gsea_sets)
+        enrichment_df = gene_set_enrichment_analysis(most_likely_gene, n_iterations=200, gsea_sets=gsea_sets)
         dist_mt, go_list = semantic_pygosemsim(enrichment_df, p_threshold=0.05, output_folder=output_folder)
 
         clustered_go_terms_list = []
