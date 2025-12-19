@@ -1326,6 +1326,52 @@ def send_email_error(email, q, output_folder):
     print("Error email sent successfully!")
 
 # ---------------------------------------------------------
+# Function to send email for errors when too many variants
+# ---------------------------------------------------------
+def send_email_error_toomany(email, q, output_folder):
+    # First read configuration file values for the emails
+    cfg = pd.read_table(f"{DATA_PATH}/../Annotation/config_email.txt")
+    sender = str(cfg['username'].values[0])
+    port = int(cfg['port'].values[0])
+    psw = str(cfg['psw'].values[0])
+    host = str(cfg['host'].values[0])
+    cc_add = 'snpxplorer@gmail.com'
+    # Send email to myself to notify a new request has been received
+    message_email = f"Dear user, \nThanks for using snpXplorer and its annotation procedure. \nUnfortunately, your run contained too many SNPs for the enrichment job, which is limited to 1000 SNPs at the moment. \nWe are working hard to make the gene-set enrichment to work with a larger number of SNPs, but it’s still currently not available. \nPlease get in touch with us for custom runs like this. \nBest wishes \nsnpXplorer Team"    
+    msg = MIMEMultipart()
+    msg["From"] = sender
+    msg["To"] = ", ".join(email) if isinstance(email, list) else email
+    msg["Cc"] = ", ".join(cc_add) if isinstance(cc_add, list) else cc_add
+    msg["Subject"] = 'snpXplorer request - ERROR'
+    # Add body
+    msg.attach(MIMEText(message_email, "plain"))
+    # Combine "to" and "cc" for sending
+    all_emails = []
+    if isinstance(email, list):
+        all_emails.extend(email)
+    else:
+        all_emails.append(email)
+    if cc_add:
+        if isinstance(cc_add, list):
+            all_emails.extend(cc_add)
+        else:
+            all_emails.append(cc_add)
+    # Send email using SSL
+    with smtplib.SMTP_SSL(host, port) as server:
+        server.login(sender, psw)
+        server.sendmail(sender, all_emails, msg.as_string())
+    # Move query file to error folder
+    cmd = f"mv {q} {output_folder}/"
+    os.system(cmd)
+    # Compress output folder
+    cmd = f"cd {os.path.dirname(output_folder)} && zip -r {os.path.basename(output_folder)}.zip {os.path.basename(output_folder)}"
+    os.system(cmd)
+    # Remove output folder
+    cmd = f"rm -rf {output_folder}"
+    os.system(cmd)
+    print("Error email sent successfully!")
+
+# ---------------------------------------------------------
 # Check resources before starting the process
 # ---------------------------------------------------------
 def wait_for_memory(analysis_type: str, poll_interval: int = 60):
@@ -1514,6 +1560,11 @@ def main():
 
     # Set ld threshold
     ld_threshold = 0.4
+    
+    # If gene-set enrichment analysis is requested and >1000 variants, stop execution and notify user
+    if analysis_type == "enrichment" and len(queries) > 1000:
+        send_email_error_toomany(email, query, output_folder)
+        sys.exit(1)
     
     # Iterate over elements in queries
     for q_line in queries:
