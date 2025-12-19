@@ -37,11 +37,11 @@ import psutil
 # Configuration
 # ---------------------------------------------------------
 # Local data path
-#DATA_PATH = Path("/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Data")
-#PATH_SCRIPT = Path("/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Annotation/BIN/")
+DATA_PATH = Path("/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Data")
+PATH_SCRIPT = Path("/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Annotation/BIN/")
 # Server data path
-DATA_PATH = Path("/Data")
-PATH_SCRIPT = '/Annotation/BIN/'
+#DATA_PATH = Path("/Data")
+#PATH_SCRIPT = '/Annotation/BIN/'
 
 DB_FILE = DATA_PATH / "databases/Genes/variant_info.db"
 
@@ -739,8 +739,11 @@ def identify_most_likely_gene(info: dict):
         coding_rows = coding_rows[~coding_rows["annotypes"].str.contains("noncoding", case=False, na=False)]
         cadd_genes = []
         if not coding_rows.empty:
-            genes = [x.split(';') for x in coding_rows["genes"].unique().tolist()]
-            genes = [gene for sublist in genes for gene in sublist]  # flatten
+            try:
+                genes = [x.split(';') for x in coding_rows["genes"].unique().tolist()]
+                genes = [gene for sublist in genes for gene in sublist]  # flatten
+            except Exception:
+                genes = []
             # unique genes
             genes = list(set(genes))
             if len(genes) >0:
@@ -756,8 +759,11 @@ def identify_most_likely_gene(info: dict):
             coding_ld_rows = ld_cadd_df[ld_cadd_df["annotypes"].str.contains("coding", case=False, na=False)]
             coding_ld_rows = coding_ld_rows[~coding_ld_rows["annotypes"].str.contains("noncoding", case=False, na=False)]
             if not coding_ld_rows.empty:
-                genes = [x.split(';') for x in coding_ld_rows["genes"].unique().tolist()]
-                genes = [gene for sublist in genes for gene in sublist]  # flatten
+                try:
+                    genes = [x.split(';') for x in coding_ld_rows["genes"].unique().tolist()]
+                    genes = [gene for sublist in genes for gene in sublist]  # flatten
+                except Exception:
+                    genes = []
                 # unique genes
                 genes = list(set(genes))
                 if len(genes) >0:
@@ -1429,13 +1435,13 @@ def main():
     qtl_tissues = args.qtl_tissues.split(",") if args.qtl_tissues != "all" else ["all"]
     gsea_sets = args.gsea_sets.split(",")
     email = args.email
-    # query = '/Users/nicco/Downloads/tmp_snps.txt'
+    # query = '/Users/nicco/Downloads/for_snpxplorer/snpXplorer_input_86821.txt'
     # build = 'hg38'
-    # random_number = 123456
+    # random_number = 86821
     # output_folder = '/Users/nicco/Downloads'
     # analysis_type = 'enrichment'
-    # qtl_tissues = ['Brain_Cortex', 'Brain_Hippocampus']
-    # gsea_sets = ['GO:BP', 'KEGG', 'REAC', 'WP']
+    # qtl_tissues = ['Whole_Blood']
+    # gsea_sets = ['GO:BP', 'KEGG', 'REAC', 'Wiki']
     # email = 'tesinicco@gmail.com'
     
     # Fix reference built
@@ -1513,19 +1519,15 @@ def main():
     for q_line in queries:
         # Run query
         info_single = run_variant_query(q_line, build, qtl_tissues, email, output_folder, ld_threshold)
-
         # Identify most likely gene
         most_likely_gene_single, info_single_filtered, invalid_queries_single = identify_most_likely_gene(info_single)
         if not most_likely_gene_single.empty:
             # Append to list
             most_likely_gene_list.append(most_likely_gene_single)
-            
             # Combine dictionaries by index across dictionary keys into dataframes (eg info[all_queries][0] + info[all_queries][1] + ...)
             info_df, cadd_df, eqtl_df, sqtl_df, ld_df, gwas_df, ld_cadd_df, ld_eqtl_df, ld_sqtl_df, sv_df = convert_info_dict_to_dfs(info_single_filtered)
-            
             # Merge tables
             cadd_df_m, eqtl_df_m, sqtl_df_m, merged_df_single, ld_cadd_df_m, ld_eqtl_df_m, ld_sqtl_df_m, ld_df_m, gwas_df_m, _, sv_df_m = merge_info(info_df, cadd_df, eqtl_df, sqtl_df, ld_df, gwas_df, ld_cadd_df, ld_eqtl_df, ld_sqtl_df, most_likely_gene_single, pd.DataFrame(), sv_df)
-            
             # Store in buffers
             buf_variant.append(merged_df_single)
             buf_cadd.append(cadd_df_m)
@@ -1538,7 +1540,6 @@ def main():
             buf_ld_sqtl.append(ld_sqtl_df_m)
             buf_sv.append(sv_df_m)
             processed_valid += 1
-            
             # Append partial results to disk
             if processed_valid % FLUSH_EVERY == 0:
                 if buf_variant:
