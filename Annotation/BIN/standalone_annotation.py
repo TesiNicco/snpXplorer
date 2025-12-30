@@ -676,8 +676,8 @@ def closest_gene(query_info):
     chrom = query_info["chrom"].values[0].lower()
     if 'chr' not in chrom:
         chrom = 'chr' + chrom
-    start_pos = query_info["pos"].values[0] - 500000
-    end_pos = query_info["pos"].values[0] + 500000
+    start_pos = query_info["pos"].values[0] - 1500000
+    end_pos = query_info["pos"].values[0] + 1500000
     # tabix command
     GENE_DB_FILE = DATA_PATH / "databases/Genes/genes_hg38.txt.gz"
     result = subprocess.run(["tabix", str(GENE_DB_FILE), f"{chrom}:{start_pos}-{end_pos}"], capture_output=True, check=True, text=True)
