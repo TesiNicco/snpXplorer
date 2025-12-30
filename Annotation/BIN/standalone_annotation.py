@@ -698,7 +698,11 @@ def closest_gene(query_info):
     # sort by distance
     df = df.sort_values(by="dist_to_variant", ascending=True)
     # return closest gene symbol
-    return [df.iloc[0]["gene_symbol"]]
+    try:
+        close_gene = [df.iloc[0]["gene_symbol"]]
+    except Exception:
+        close_gene = []
+    return close_gene
 
 # ---------------------------------------------------------
 # Identify most likely gene
