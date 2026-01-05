@@ -104,7 +104,10 @@ def fetch_by_position(DB_FILE, chrom, pos38):
         WHERE Chromosome = ?
           AND Position_hg38 = ?
     """
-    info = pd.read_sql_query(query, conn, params=(str(chrom), int(pos38))).to_dict(orient="records")[0]
+    try:
+        info = pd.read_sql_query(query, conn, params=(str(chrom), int(pos38))).to_dict(orient="records")[0]
+    except Exception:
+        info = {'Position_hg19': None, 'REF': None, 'ALT': None, 'rsID': None, 'AF': None}
     try:
         info['AF'] = round(float(info.get('AF')), 2)
     except Exception:
@@ -691,11 +694,11 @@ def info_to_dataframes(info: dict) -> List[pd.DataFrame]:
 # ---------------------------------------------------------
 def closest_gene(query_info):
     # get chromosome and position
-    chrom = query_info["chrom"].values[0].lower()
+    chrom = query_info["chr_hg38"].values[0].lower()
     if 'chr' not in chrom:
         chrom = 'chr' + chrom
-    start_pos = query_info["pos"].values[0] - 1500000
-    end_pos = query_info["pos"].values[0] + 1500000
+    start_pos = query_info["pos_hg38"].values[0] - 1500000
+    end_pos = query_info["pos_hg38"].values[0] + 1500000
     # tabix command
     GENE_DB_FILE = DATA_PATH / "databases/Genes/genes_hg38.txt.gz"
     result = subprocess.run(["tabix", str(GENE_DB_FILE), f"{chrom}:{start_pos}-{end_pos}"], capture_output=True, check=True, text=True)
@@ -711,7 +714,7 @@ def closest_gene(query_info):
     # remove duplicates based on gene_symbol, keeping the longest gene
     df = df.sort_values(by="gene_size", ascending=False).drop_duplicates(subset=["gene_symbol"])
     # add distance to variant from tx_start and tx_end, and keep minimum
-    variant_pos = query_info["pos"].values[0]
+    variant_pos = query_info["pos_hg38"].values[0]
     df["dist_to_variant"] = df.apply(lambda row: min(abs(row["tx_start"] - variant_pos), abs(row["tx_end"] - variant_pos)), axis=1)
     # sort by distance
     df = df.sort_values(by="dist_to_variant", ascending=True)
@@ -738,25 +741,30 @@ def identify_most_likely_gene(info: dict):
         info_df, cadd_df, eqtl_df, sqtl_df, ld_df, gwas_df, ld_cadd_df, ld_eqtl_df, ld_sqtl_df, sv_df = convert_info_dict_to_dfs({snp: info[snp]})
         # Get rsid
         rsid = info_df["rsid"].values[0]
+        if rsid is None:
+            rsid = info_df["chr_hg38"].values[0] + ":" + str(info_df["pos_hg38"].values[0])
         # First check if variant is coding in CADD
-        coding_rows = cadd_df[cadd_df["annotypes"].str.contains("coding", case=False, na=False)]
-        coding_rows = coding_rows[~coding_rows["annotypes"].str.contains("noncoding", case=False, na=False)]
-        cadd_genes = []
-        if not coding_rows.empty:
-            try:
-                genes = [x.split(';') for x in coding_rows["genes"].unique().tolist()]
-                genes = [gene for sublist in genes for gene in sublist]  # flatten
-            except Exception:
-                genes = []
-            # unique genes
-            genes = list(set(genes))
-            if len(genes) >0:
-                likely_genes[rsid] = {'genes': genes, 'source': 'coding'}
-                continue
+        try:
+            coding_rows = cadd_df[cadd_df["annotypes"].str.contains("coding", case=False, na=False)]
+            coding_rows = coding_rows[~coding_rows["annotypes"].str.contains("noncoding", case=False, na=False)]
+            cadd_genes = []
+            if not coding_rows.empty:
+                try:
+                    genes = [x.split(';') for x in coding_rows["genes"].unique().tolist()]
+                    genes = [gene for sublist in genes for gene in sublist]  # flatten
+                except Exception:
+                    genes = []
+                # unique genes
+                genes = list(set(genes))
+                if len(genes) >0:
+                    likely_genes[rsid] = {'genes': genes, 'source': 'coding'}
+                    continue
+                else:
+                    cadd_genes = cadd_df["genes"].dropna().unique().tolist()
             else:
                 cadd_genes = cadd_df["genes"].dropna().unique().tolist()
-        else:
-            cadd_genes = cadd_df["genes"].dropna().unique().tolist()
+        except Exception:
+            cadd_genes = []
         # Check variants in LD for coding impact
         coding_ld_rows = pd.DataFrame()
         if not ld_cadd_df.empty:
@@ -804,7 +812,7 @@ def identify_most_likely_gene(info: dict):
                 likely_genes[rsid] = {'genes': ld_qtl_combined, 'source': 'qtl_ld'}
                 continue
         # If none of the above, return closest gene (placeholder)
-        likely_genes[rsid] = {'genes': closest_gene(cadd_df), 'source': 'closest_gene'}
+        likely_genes[rsid] = {'genes': closest_gene(info_df), 'source': 'closest_gene'}
     # Convert to dataframe
     likely_genes_df = pd.DataFrame.from_dict(likely_genes, orient='index')
     likely_genes_df['query'] = likely_genes_df.index
@@ -1485,12 +1493,12 @@ def main():
     qtl_tissues = args.qtl_tissues.split(",") if args.qtl_tissues != "all" else ["all"]
     gsea_sets = args.gsea_sets.split(",")
     email = args.email
-    # query = '/Users/nicco/Downloads/for_snpxplorer/snpXplorer_input_86821.txt'
-    # build = 'hg38'
-    # random_number = 86821
+    # query = '/Users/nicco/Downloads/snpXplorer_input_58462.txt'
+    # build = 'grch37'
+    # random_number = 58462
     # output_folder = '/Users/nicco/Downloads'
-    # analysis_type = 'enrichment'
-    # qtl_tissues = ['Whole_Blood']
+    # analysis_type = 'annotation'
+    # qtl_tissues = ['Whole_Blood', 'Lung']
     # gsea_sets = ['GO:BP', 'KEGG', 'REAC', 'Wiki']
     # email = 'tesinicco@gmail.com'
     
