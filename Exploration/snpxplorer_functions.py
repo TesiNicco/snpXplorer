@@ -2307,3 +2307,29 @@ def add_haplo_to_file(data_path, browse, refGen, browse_type):
     log_entry = f"{timestamp}\t{browse}\t{browse_type}\t{refGen}\n"
     with open(log_file, "a") as f:
         f.write(log_entry)
+
+# function to get top n GWAS rows
+def top_gwas_rows(df: pd.DataFrame, n: int = 100) -> pd.DataFrame:
+    """Return top n most significant rows from GWAS assoc table."""
+    if df is None or df.empty:
+        return df
+    out = df.copy()
+    # Prefer raw p if present
+    if "p" in out.columns:
+        out["p"] = pd.to_numeric(out["p"], errors="coerce")
+        out = out.sort_values("p", ascending=True, na_position="last")
+        return out.head(n)
+    # Else prefer original -log10(p) if present (bigger = more significant)
+    if "orig_neg_log10_p" in out.columns:
+        out["orig_neg_log10_p"] = pd.to_numeric(out["orig_neg_log10_p"], errors="coerce")
+        out = out.sort_values("orig_neg_log10_p", ascending=False, na_position="last")
+        return out.head(n)
+    # Else fall back to neg_log10_p (depending on your scaling it might be negative)
+    if "neg_log10_p" in out.columns:
+        out["neg_log10_p"] = pd.to_numeric(out["neg_log10_p"], errors="coerce")
+        # If your scaled values are negative, "more significant" may be more negative.
+        # Safer: sort by absolute magnitude descending.
+        out = out.sort_values("neg_log10_p", ascending=True, na_position="last")
+        return out.head(n)
+    # Otherwise just take first n
+    return out.head(n)

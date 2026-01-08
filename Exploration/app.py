@@ -836,50 +836,55 @@ def haplotypes():
     trait_names = pd.read_csv(f"{data_path}/databases/haplotypes/trait_names_and_ids.txt", sep="\t")
     trait_list = trait_names['name'].values.tolist()
     if request.method == "POST":
-        # whenever the user submits the form, clear previous session data
+        # Clear previous detail state on new query
         session.pop('haplo_last_detail', None)
-        # get query
+        # Read inputs
         browse = (request.form.get("browse") or "").strip()
         browse_type = request.form.get("browse_type")
         window = 50000 if browse_type == 'gene' else 100000
         refGen = 'GRCh38'
-        # Monitor search
+        # Monitor searches
         add_haplo_to_file(data_path, browse, refGen, browse_type)
         if browse_type == 'trait':
             # get info to plot umap and heatmap
-            clusters_of_interest, all_indices, trait_list, cluster_index_map, umap, cluster_representatives, browse_resolved, sim_mat, names_sub, cluster_labels_for_index, cluster_traits, traits_interest, idx_trait, all_cluster_representatives = guide_haplotypes_traits(data_path, browse, window, refGen, trait_names)
-            # get table of traits info
+            clusters_of_interest, all_indices, trait_list, cluster_index_map, umap, cluster_representatives, browse_resolved, sim_mat, names_sub, cluster_labels_for_index, cluster_traits, traits_interest, idx_trait,all_cluster_representatives = guide_haplotypes_traits(data_path, browse, window, refGen, trait_names)
+            # get table of trait info and gwas associations
             traits_info_table, gwas_assoc_df, all_haplo_df = get_traits_info(data_path, traits_interest, cluster_representatives, meta)
             # get plot
             plot_url, gwas_assoc_df = plot_haplotype_traits(clusters_of_interest, all_indices, trait_list, cluster_index_map, umap, cluster_representatives, browse, sim_mat, names_sub, cluster_labels_for_index, cluster_traits, idx_trait, all_cluster_representatives, gwas_assoc_df, all_haplo_df)
-            
-            # persist in session for download details later
-            session['haplo_last'] = {"mode": "trait", "browse": browse_resolved, "browse_type": browse_type, "refGen": refGen, "window": window, "plot_url": plot_url, "haplo_summary": [], "chrom": None, "start_pos": None, "end_pos": None, "hap_id_interest": None, "table_traits": traits_info_table.to_dict(orient="records"), "gwas_assoc_table": gwas_assoc_df.to_dict(orient="records"), "all_haplo_table": all_haplo_df.to_dict(orient="records")}
-                        
-            return render_template("haplotypes.html", browse_value=browse_resolved, traits=trait_list, plot_url=plot_url, haplo_summary=[], chrom=None, start_pos=None, end_pos=None, hap_id_interest=None, table_traits=traits_info_table.to_dict(orient="records"), gwas_assoc_table=gwas_assoc_df.to_dict(orient="records"), all_haplo_table=all_haplo_df.to_dict(orient="records"))
+            # show only top rows in tables
+            MAX_ROWS = 100
+            gwas_assoc_df_show = top_gwas_rows(gwas_assoc_df, MAX_ROWS)
+            all_haplo_df_show = all_haplo_df.head(MAX_ROWS).copy()
+            # store full csvs in session for download
+            session["haplo_trait_full_csv"] = {"gwas_assoc": gwas_assoc_df.to_csv(index=False, sep=";"), "all_haplo": all_haplo_df.to_csv(index=False, sep=";"), "traits_info": traits_info_table.to_csv(index=False, sep=";")}
+            session.modified = True
+            # store last state in session
+            session['haplo_last'] = {"mode": "trait", "browse": browse_resolved, "browse_type": browse_type, "refGen": refGen, "window": window, "plot_url": plot_url, "haplo_summary": [], "chrom": None, "start_pos": None, "end_pos": None, "hap_id_interest": None, "table_traits": traits_info_table.to_dict(orient="records"), "gwas_assoc_table": gwas_assoc_df_show.to_dict(orient="records"), "all_haplo_table": all_haplo_df_show.to_dict(orient="records"), "gwas_assoc_total": int(len(gwas_assoc_df)), "all_haplo_total": int(len(all_haplo_df))}
+            return render_template("haplotypes.html", browse_value=browse_resolved, traits=trait_list, plot_url=plot_url, haplo_summary=[], chrom=None, start_pos=None, end_pos=None, hap_id_interest=None, table_traits=traits_info_table.to_dict(orient="records"), gwas_assoc_table=gwas_assoc_df_show.to_dict(orient="records"), all_haplo_table=all_haplo_df_show.to_dict(orient="records"), gwas_assoc_total=len(gwas_assoc_df), all_haplo_total=len(all_haplo_df))
         elif browse_type == 'chromosome':
-            # nothing heavy but do remember the browse for later
-            session['haplo_last'] = {"mode": "chromosome", "browse": browse, "browse_type": browse_type, "refGen": refGen, "window": window, "plot_url": None, "haplo_summary": [], "chrom": None, "start_pos": None, "end_pos": None, "hap_id_interest": None, "table_traits": None, "gwas_assoc_table": None, "all_haplo_table": None}
-            
+            session['haplo_last'] = {"mode": "chromosome", "browse": browse, "browse_type": browse_type, "refGen": refGen, "window": window, "plot_url": None, "haplo_summary": [], "chrom": None, "start_pos": None, "end_pos": None, "hap_id_interest": None, "table_traits": None, "gwas_assoc_table": None, "all_haplo_table": None, "gwas_assoc_total": None, "all_haplo_total": None}
             return render_template("haplotypes.html", browse_value=browse, traits=trait_list, plot_url=None, haplo_summary=[])
         else:
-            # get data and plots
             browse_resolved, plot_url, haplo_summary, chrom, start_pos, end_pos, hap_id_interest = guide_haplotypes_snps_genes(data_path, browse, window, refGen)
-            haplo_summary_records=haplo_summary.to_dict(orient="records")
-            
-            # persist in session for download details later
-            session['haplo_last'] = {"mode": "region", "browse": browse_resolved, "browse_type": browse_type, "refGen": refGen, "window": window, "plot_url": plot_url, "haplo_summary": haplo_summary_records,"chrom": chrom, "start_pos": start_pos, "end_pos": end_pos, "hap_id_interest": hap_id_interest, "table_traits": None, "gwas_assoc_table": None, "all_haplo_table": None}
-            
-            # return render
-            return render_template("haplotypes.html", browse_value=browse_resolved, traits=trait_list, plot_url=plot_url, haplo_summary=haplo_summary_records, chrom=chrom, start_pos=start_pos, end_pos=end_pos, hap_id_interest=hap_id_interest, table_traits=None, gwas_assoc_table=None, all_haplo_table=None)
-    
-    # Get restored from session if available
+            haplo_summary_records = haplo_summary.to_dict(orient="records")
+            session['haplo_last'] = {"mode": "region", "browse": browse_resolved, "browse_type": browse_type, "refGen": refGen, "window": window, "plot_url": plot_url, "haplo_summary": haplo_summary_records, "chrom": chrom, "start_pos": start_pos, "end_pos": end_pos, "hap_id_interest": hap_id_interest, "table_traits": None, "gwas_assoc_table": None, "all_haplo_table": None, "gwas_assoc_total": None,"all_haplo_total": None}
+            return render_template("haplotypes.html", browse_value=browse_resolved, traits=trait_list, plot_url=plot_url, haplo_summary=haplo_summary_records, chrom=chrom, start_pos=start_pos, end_pos=end_pos, hap_id_interest=hap_id_interest,table_traits=None, gwas_assoc_table=None, all_haplo_table=None)
+    # ---- Restore from session ----
     last = session.get('haplo_last')
     if last:
-        return render_template("haplotypes.html", traits=trait_list, browse_value=last.get("browse"), plot_url=last.get("plot_url"), haplo_summary=last.get("haplo_summary") or [], chrom=last.get("chrom"), start_pos=last.get("start_pos"), end_pos=last.get("end_pos"), hap_id_interest=last.get("hap_id_interest"), table_traits=last.get("table_traits"), gwas_assoc_table=last.get("gwas_assoc_table"), all_haplo_table=last.get("all_haplo_table"))
-
+        return render_template("haplotypes.html", traits=trait_list, browse_value=last.get("browse"), plot_url=last.get("plot_url"), haplo_summary=last.get("haplo_summary") or [], chrom=last.get("chrom"), start_pos=last.get("start_pos"), end_pos=last.get("end_pos"), hap_id_interest=last.get("hap_id_interest"), table_traits=last.get("table_traits"), gwas_assoc_table=last.get("gwas_assoc_table"), all_haplo_table=last.get("all_haplo_table"), gwas_assoc_total=last.get("gwas_assoc_total"), all_haplo_total=last.get("all_haplo_total"))
     # First load
-    return render_template("haplotypes.html", traits=trait_list, plot_url=None, haplo_summary=[], chrom=None, start_pos=None, end_pos=None, hap_id_interest=None, table_traits=None, gwas_assoc_table=None, all_haplo_table=None)
+    return render_template("haplotypes.html", traits=trait_list, plot_url=None, haplo_summary=[], chrom=None, start_pos=None, end_pos=None, hap_id_interest=None, table_traits=None, gwas_assoc_table=None, all_haplo_table=None, gwas_assoc_total=None, all_haplo_total=None)
+
+@app.get("/haplotype/download/<which>")
+def haplo_download(which):
+    blob = session.get("haplo_trait_full_csv", {})
+    csv_text = blob.get(which)
+    if not csv_text:
+        return ("No table available for download.", 404)
+    filename = f"{which}.csv"
+    return Response(csv_text, mimetype="text/csv", headers={"Content-Disposition": f"attachment; filename={filename}"})
 
 @app.route("/haplotypes/detail")
 def haplotype_detail():

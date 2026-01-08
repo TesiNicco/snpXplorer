@@ -153,6 +153,8 @@
       border:none;
       font-size:0.85rem;
       cursor:pointer;
+      text-decoration: none;
+      display: inline-block;
     }
 
     .btn-download:hover {
@@ -369,6 +371,11 @@
 {% if all_haplo_table %}
 <div class="haplo-card-table">
   <h3>Haplotype Associations for Selected Traits</h3>
+  {% if gwas_assoc_total %}
+    <small class="muted">
+      Showing top {{ gwas_assoc_table|length }} most significant rows (of {{ gwas_assoc_total }}). Download for full table.
+    </small>
+  {% endif %}
 
   <div class="haplo-detail-table">
     <table class="detail-table">
@@ -391,40 +398,20 @@
     </table>
   </div>
 
-  <button class="btn-download" onclick="downloadHaploTable()">
-    Download Haplotype associations (CSV)
-  </button>
+  <a class="btn-download" href="{{ url_for('haplo_download', which='all_haplo') }}">
+    Download full haplotype associations (CSV)
+  </a>
 </div>
-<script>
-function downloadHaploTable() {
-    const table = document.querySelector('#haplo_assoc_section table'); 
-    if (!table) return;
-
-    let csv = [];
-    const rows = table.querySelectorAll("tr");
-    rows.forEach(row => {
-        let cols = row.querySelectorAll("th, td");
-        let rowData = [];
-        cols.forEach(col => {
-            let text = (col.innerText || '').replace(/"/g, '""');
-            rowData.push('"' + text + '"');
-        });
-        csv.push(rowData.join(','));
-    });
-    const blob = new Blob([csv.join('\n')], {type:'text/csv;charset=utf-8;'});
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = 'haplotype_associations.csv';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-}
-</script>
 {% endif %}
 
 {% if gwas_assoc_table %}
 <div class="haplo-card-table">
   <h3>GWAS Associations for Selected Traits</h3>
+  {% if all_haplo_total %}
+    <small class="muted">
+      Showing first {{ all_haplo_table|length }} rows (of {{ all_haplo_total }}). Download for full table.
+    </small>
+  {% endif %}
 
   <div class="haplo-detail-table">
     <table class="detail-table">
@@ -447,36 +434,10 @@ function downloadHaploTable() {
     </table>
   </div>
 
-  <button class="btn-download" onclick="downloadGWASTable()">
-    Download GWAS associations (CSV)
-  </button>
+  <a class="btn-download" href="{{ url_for('haplo_download', which='gwas_assoc') }}">
+    Download full GWAS associations (CSV)
+  </a>
 </div>
-
-<script>
-function downloadGWASTable() {
-    const table = document.querySelector('#gwas_assoc_section table'); 
-    if (!table) return;
-
-    let csv = [];
-    const rows = table.querySelectorAll("tr");
-    rows.forEach(row => {
-        let cols = row.querySelectorAll("th, td");
-        let rowData = [];
-        cols.forEach(col => {
-            let text = (col.innerText || '').replace(/"/g, '""');
-            rowData.push('"' + text + '"');
-        });
-        csv.push(rowData.join(','));
-    });
-    const blob = new Blob([csv.join('\n')], {type:'text/csv;charset=utf-8;'});
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = 'gwas_associations.csv';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-}
-</script>
 {% endif %}
 
 <!-- FOOTER IMAGES (outside main wrapper, in normal flow)  -->
