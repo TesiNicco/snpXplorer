@@ -159,8 +159,6 @@ def query_eqtls(chrom, pos38):
         chrom_clean = str(chrom).upper().replace("CHR", "")
         EQTL_DB_FILE = DATA_PATH / f"databases/eQTLs/chr{chrom_clean}_eQTL.txt.gz"
         region = f"{chrom_clean}:{pos38}-{pos38}"
-        print(str(EQTL_DB_FILE))
-        print(region)
         result = subprocess.run(
             ["tabix", str(EQTL_DB_FILE), region],
             capture_output=True,
@@ -324,10 +322,31 @@ def query_ld(chrom, pos38):
         df_ld = df_ld[df_ld["r2"] >= 0.2]
         if df_ld.empty:
             return [], []
+        # otherwise add also query info
+        ld_query_alleles = query_ld_query(chrom_clean, pos38)
+        df_ld["query"] = chrom_clean + ':' + str(pos38) + ':' + ld_query_alleles
         return df_ld.to_dict(orient="records"), all_partner_positions
     except Exception as e:
         print("Error in query_ld:", e, flush=True)
         return [], []
+
+def query_ld_query(chrom, pos38):
+    """
+    Query query-SNP for given chromosome and position.
+    """
+    try:
+        db_path = DATA_PATH / f"databases/LD_db/ld_chr{chrom}.sqlite"
+        with _open_db_for_query(db_path) as conn:
+            rows = conn.execute("SELECT id, uniq FROM variants WHERE pos = ? ORDER BY uniq",(pos38,)).fetchall()
+        if not rows:
+            return ''
+        elif len(rows) == 1:
+            return rows[0][1].split(':')[1] + ':' + rows[0][1].split(':')[2]
+        else:
+            # return the first one (should not happen)
+            return rows[0][1].split(':')[1] + ':' + rows[0][1].split(':')[2]
+    except:
+        return ''
 
 #---------------------------------------------------------
 # Query GWAS associations
@@ -379,8 +398,11 @@ def annotate_ld_partners(chrom, ld_rows):
         rsid = rec.get("rsid")
         r2 = rec.get("r2")
         dist = rec.get("dist_bp")
+        a1, a2 = rec["partner_uniq"].split(":")[1::]
         # CADD for partner
         cadd_rows = query_cadd_score(chrom_clean, partner_pos)
+        # keep only hits where the alleles match the query
+        cadd_rows = [x for x in cadd_rows if ( (x['ref'] == a1 and x['alt'] == a2) or (x['ref'] == a2 and x['alt'] == a1) )]
         for row in cadd_rows:
             r = dict(row)
             r["ld_partner_pos"] = partner_pos
@@ -390,6 +412,8 @@ def annotate_ld_partners(chrom, ld_rows):
             ld_cadd.append(r)
         # eQTL for partner
         eqtl_rows = query_eqtls(chrom_clean, partner_pos)
+        # keep only hits where the alleles match the query
+        eqtl_rows = [x for x in eqtl_rows if ( (x['ref'] == a1 and x['alt'] == a2) or (x['ref'] == a2 and x['alt'] == a1) )]
         for row in eqtl_rows:
             r = dict(row)
             r["ld_partner_pos"] = partner_pos
@@ -399,6 +423,8 @@ def annotate_ld_partners(chrom, ld_rows):
             ld_eqtl.append(r)
         # sQTL for partner
         sqtl_rows = query_sqtls(chrom_clean, partner_pos)
+        # keep only hits where the alleles match the query
+        sqtl_rows = [x for x in sqtl_rows if ( (x['ref'] == a1 and x['alt'] == a2) or (x['ref'] == a2 and x['alt'] == a1) )]
         for row in sqtl_rows:
             r = dict(row)
             r["ld_partner_pos"] = partner_pos
@@ -611,8 +637,9 @@ def run_variant_query(q, build="hg38"):
             # CADD / eQTL / sQTL for all LD partners
             if info["ld"]:
                 # If there are >100 LD partners, limit to top 100 by r2
-                if len(info["ld"]) > 100:
-                    info["ld"] = sorted(info["ld"], key=lambda x: x.get("r2", 0), reverse=True)[:100]
+                #if len(info["ld"]) > 100:
+                #    info["ld"] = sorted(info["ld"], key=lambda x: x.get("r2", 0), reverse=True)[:100]
+                info["ld"] = sorted(info["ld"], key=lambda x: x.get("r2", 0), reverse=True)
                 ld_cadd, ld_eqtl, ld_sqtl = annotate_ld_partners(chr38, info["ld"])
                 info["ld_cadd"] = ld_cadd
                 info["ld_eqtl"] = ld_eqtl

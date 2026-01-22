@@ -365,10 +365,31 @@ def query_ld(chrom, pos38, ld_threshold):
         df_ld['query_pos'] = int(pos38)
         if df_ld.empty:
             return [], []
+        # otherwise add also query info
+        ld_query_alleles = query_ld_query(chrom_clean, pos38)
+        df_ld["query"] = chrom + ':' + str(pos38) + ':' + ld_query_alleles
         return df_ld.to_dict(orient="records"), all_partner_positions
     except Exception as e:
         print("Error in query_ld:", e, file=sys.stderr, flush=True)
         return [], []
+
+def query_ld_query(chrom, pos38):
+    """
+    Query query-SNP for given chromosome and position.
+    """
+    try:
+        db_path = DATA_PATH / f"databases/LD_db/ld_chr{chrom}.sqlite"
+        with _open_db_for_query(db_path) as conn:
+            rows = conn.execute("SELECT id, uniq FROM variants WHERE pos = ? ORDER BY uniq",(pos38,)).fetchall()
+        if not rows:
+            return ''
+        elif len(rows) == 1:
+            return rows[0][1].split(':')[1] + ':' + rows[0][1].split(':')[2]
+        else:
+            # return the first one (should not happen)
+            return rows[0][1].split(':')[1] + ':' + rows[0][1].split(':')[2]
+    except:
+        return ''
 
 # ---------------------------------------------------------
 # Query GWAS associations
@@ -429,8 +450,11 @@ def annotate_ld_partners(chrom, ld_rows, pos38, qtl_tissues):
         rsid = rec.get("rsid")
         r2 = rec.get("r2")
         dist = rec.get("dist_bp")
+        a1, a2 = rec["partner_uniq"].split(":")[1::]
         # CADD for partner
         cadd_rows = query_cadd_score(chrom_clean, partner_pos)
+        # keep only hits where the alleles match the query
+        cadd_rows = [x for x in cadd_rows if ( (x['ref'] == a1 and x['alt'] == a2) or (x['ref'] == a2 and x['alt'] == a1) )]
         for row in cadd_rows:
             r = dict(row)
             r["ld_partner_pos"] = partner_pos
@@ -441,6 +465,8 @@ def annotate_ld_partners(chrom, ld_rows, pos38, qtl_tissues):
             ld_cadd.append(r)
         # eQTL for partner
         eqtl_rows = query_eqtls(chrom_clean, partner_pos, qtl_tissues)
+        # keep only hits where the alleles match the query
+        eqtl_rows = [x for x in eqtl_rows if ( (x['ref'] == a1 and x['alt'] == a2) or (x['ref'] == a2 and x['alt'] == a1) )]
         for row in eqtl_rows:
             r = dict(row)
             r["ld_partner_pos"] = partner_pos
@@ -451,6 +477,8 @@ def annotate_ld_partners(chrom, ld_rows, pos38, qtl_tissues):
             ld_eqtl.append(r)
         # sQTL for partner
         sqtl_rows = query_sqtls(chrom_clean, partner_pos, qtl_tissues)
+        # keep only hits where the alleles match the query
+        sqtl_rows = [x for x in sqtl_rows if ( (x['ref'] == a1 and x['alt'] == a2) or (x['ref'] == a2 and x['alt'] == a1) )]
         for row in sqtl_rows:
             r = dict(row)
             r["ld_partner_pos"] = partner_pos
@@ -932,7 +960,7 @@ def merge_info(info_df, cadd_df, eqtl_df, sqtl_df, ld_df, gwas_df, ld_cadd_df, l
         ld_sqtl_df_renamed = ld_sqtl_df.rename(columns={"ref": "LD sQTL Reference", "alt": "LD sQTL Alternative", "ensemble": "LD sQTL ensemble", "gene": "LD sQTL Gene", "tissue": "LD sQTL Tissue", "tss_distance": "LD sQTL TSS Distance", "pval_nominal": "LD sQTL P-value", "slope": "LD sQTL Slope", "maf": "LD sQTL MAF", "chrom": "Chromosome", "pos": "Position (hg38)"}).reset_index(drop=True)
     # Check if ld_df is empty
     if ld_df.empty:
-        ld_df_renamed = pd.DataFrame(columns=["Query position", "LD Partner Position (hg38)", "LD Partner RsID", "LD R2", "LD Distance (bp)", "Chromosome", "Position (hg38)"])
+        ld_df_renamed = pd.DataFrame(columns=["Query position", "LD Partner Position (hg38)", "LD Partner RsID", "LD R2", "LD Distance (bp)", "Chromosome", "Position (hg38)", "Partner ID", "Query ID"])
     else:
         # Rename ld_df columns
         ld_df_renamed = ld_df.rename(columns={"query_pos": "Query position", "partner_pos": "LD Partner Position (hg38)", "rsid": "LD Partner RsID", "r2": "LD R2", "dist_bp": "LD Distance (bp)", "chr": "Chromosome", "pos": "Position (hg38)"}).reset_index(drop=True)
