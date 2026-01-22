@@ -960,10 +960,10 @@ def merge_info(info_df, cadd_df, eqtl_df, sqtl_df, ld_df, gwas_df, ld_cadd_df, l
         ld_sqtl_df_renamed = ld_sqtl_df.rename(columns={"ref": "LD sQTL Reference", "alt": "LD sQTL Alternative", "ensemble": "LD sQTL ensemble", "gene": "LD sQTL Gene", "tissue": "LD sQTL Tissue", "tss_distance": "LD sQTL TSS Distance", "pval_nominal": "LD sQTL P-value", "slope": "LD sQTL Slope", "maf": "LD sQTL MAF", "chrom": "Chromosome", "pos": "Position (hg38)"}).reset_index(drop=True)
     # Check if ld_df is empty
     if ld_df.empty:
-        ld_df_renamed = pd.DataFrame(columns=["Query position", "LD Partner Position (hg38)", "LD Partner RsID", "LD R2", "LD Distance (bp)", "Chromosome", "Position (hg38)", "Partner ID", "Query ID"])
+        ld_df_renamed = pd.DataFrame(columns=["Query position", "LD Partner Position (hg38)", "LD Partner RsID", "LD R2", "LD Distance (bp)", "Chromosome", "Partner ID", "Query ID"])
     else:
         # Rename ld_df columns
-        ld_df_renamed = ld_df.rename(columns={"query_pos": "Query position", "partner_pos": "LD Partner Position (hg38)", "rsid": "LD Partner RsID", "r2": "LD R2", "dist_bp": "LD Distance (bp)", "chr": "Chromosome", "pos": "Position (hg38)"}).reset_index(drop=True)
+        ld_df_renamed = ld_df.rename(columns={"query_pos": "Query position", "partner_pos": "LD Partner Position (hg38)", "rsid": "LD Partner RsID", "r2": "LD R2", "dist_bp": "LD Distance (bp)", "chr": "Chromosome", "query": "Query ID", "partner_uniq": "Partner ID"}).reset_index(drop=True)
     # Check if gwas_df is empty
     if gwas_df.empty:
         gwas_df_renamed = pd.DataFrame(columns=["GWAS Trait", "Effect Allele", "Non-effect Allele", "GWAS Beta", "GWAS SE", "GWAS P-value", "GWAS ID", "Sample size", "RsID"])
