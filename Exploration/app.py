@@ -913,7 +913,9 @@ def haplotype_detail():
     cadd_df = query_cadd_score(snps, data_path)
     cadd_df['pos'] = cadd_df['pos'].astype(int)
     snps_df['position_hg38'] = snps_df['position_hg38'].astype(int)
-    cadd_df = cadd_df.merge(snps_df[['rsid', 'position_hg38']], left_on='pos', right_on='position_hg38', how='outer')
+    cadd_df = cadd_df.merge(snps_df[['rsid', 'position_hg38', 'ea', 'nea']], left_on='pos', right_on='position_hg38', how='outer')
+    # restrict to rows where the ref and alt matches with ea and nea
+    cadd_df = cadd_df[((cadd_df['ref'] == cadd_df['ea']) & (cadd_df['alt'] == cadd_df['nea'])) | ((cadd_df['ref'] == cadd_df['nea']) & (cadd_df['alt'] == cadd_df['ea']))]
 
     # create plotly figure
     fig = make_subplots(
