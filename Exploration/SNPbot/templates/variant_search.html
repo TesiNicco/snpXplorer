@@ -426,21 +426,25 @@
     }
 
     .af-plot-card {
-      flex: 0 0 58%;
-      max-width: 58%;
+      flex: 1.2;
+      width: 100%;
       min-width: 0;
       overflow-x: auto;
+      text-align: center;
     }
 
     .af-table-card {
-      flex: 0 0 42%;
-      max-width: 42%;
+      flex: 0.9;
+      width: 100%;
       min-width: 0;
     }
 
     .af-plot-card svg {
       display: block;
-      min-width: 520px;
+      max-width: none !important;
+      max-height: none !important;
+      width: 620px;
+      margin: 0 auto;
     }
 
     .af-link {
@@ -465,7 +469,7 @@
       .af-plot-card,
       .af-table-card {
         flex: 1 1 auto;
-        max-width: 100%;
+        width: 100%;
       }
     }
   </style>
@@ -776,7 +780,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const gap = step * 0.42;
 
     let svg = `
-      <svg width="${chartWidth}" height="${chartHeight}" viewBox="0 0 ${chartWidth} ${chartHeight}" role="img" aria-label="Allele frequency across populations">
+      <svg viewBox="0 0 ${chartWidth} ${chartHeight}" role="img" aria-label="Allele frequency across populations">
         <line x1="${leftPad}" y1="${topPad + plotHeight}" x2="${chartWidth - rightPad}" y2="${topPad + plotHeight}" stroke="#cbd5e1" stroke-width="1.5"></line>
     `;
 
