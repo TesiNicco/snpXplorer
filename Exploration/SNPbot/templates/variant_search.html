@@ -776,7 +776,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const gap = step * 0.42;
 
     let svg = `
-      <svg viewBox="0 0 ${chartWidth} ${chartHeight}" role="img" aria-label="Allele frequency across populations">
+      <svg width="${chartWidth}" height="${chartHeight}" viewBox="0 0 ${chartWidth} ${chartHeight}" role="img" aria-label="Allele frequency across populations">
         <line x1="${leftPad}" y1="${topPad + plotHeight}" x2="${chartWidth - rightPad}" y2="${topPad + plotHeight}" stroke="#cbd5e1" stroke-width="1.5"></line>
     `;
 
