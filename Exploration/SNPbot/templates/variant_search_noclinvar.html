@@ -410,64 +410,6 @@
       max-height: none !important;
       width: 1100px;                /* or 900, etc. */
     }
-
-    .af-section {
-      display: flex;
-      gap: 18px;
-      align-items: flex-start;
-    }
-
-    .af-plot-card,
-    .af-table-card {
-      background: #ffffff;
-      border-radius: 12px;
-      padding: 12px 14px;
-      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
-    }
-
-    .af-plot-card {
-      flex: 0 0 58%;
-      max-width: 58%;
-      min-width: 0;
-      overflow-x: auto;
-    }
-
-    .af-table-card {
-      flex: 0 0 42%;
-      max-width: 42%;
-      min-width: 0;
-    }
-
-    .af-plot-card svg {
-      display: block;
-      min-width: 520px;
-    }
-
-    .af-link {
-      margin-top: 10px;
-      font-size: 12px;
-    }
-
-    .af-link a {
-      color: #2563eb;
-      text-decoration: none;
-    }
-
-    .af-link a:hover {
-      text-decoration: underline;
-    }
-
-    @media (max-width: 960px) {
-      .af-section {
-        flex-direction: column;
-      }
-
-      .af-plot-card,
-      .af-table-card {
-        flex: 1 1 auto;
-        max-width: 100%;
-      }
-    }
   </style>
 
 <div class="snpbot-page">
@@ -536,6 +478,13 @@
 
   <!-- RESULT SECTION BELOW (no box) -->
   <section class="result-section" id="result-section">
+    <!-- Variant info header + download -->
+    <div class="result-header-row">
+      <h3 class="result-subtitle">Variant information</h3>
+      <button class="download-button" id="download-btn" onclick="downloadVariantTable()" disabled>
+        ⬇ Download variant CSV
+      </button>
+    </div>
     <div id="result-container"></div>
   </section>
 </div>
@@ -590,8 +539,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   let lastLdSqtlData = null;       // LD-partner sQTL
   let lastGwasData = null;        // GWAS download
   let lastSvData = null;          // SV download
-  let lastClinvarData = null;     // ClinVar download
-  let lastAfData = null;          // AF table/plot download
   const SNPBOT_API_URL = "{{ url_for('snpbot.variant_query') }}";
 
   function setLoading(isLoading) {
@@ -626,8 +573,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     lastLdSqtlData = null;
     lastGwasData = null;
     lastSvData = null;
-    lastClinvarData = null;
-    lastAfData = null;
+    document.getElementById("download-btn").disabled = true;
   }
 
   function showError(message) {
@@ -644,221 +590,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     lastLdCaddData = null;
     lastLdEqtlData = null;
     lastLdSqtlData = null;
-    lastClinvarData = null;
-    lastAfData = null;
-  }
-
-  function escapeHtml(value) {
-    return String(value ?? "")
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#39;");
-  }
-
-  function buildClinvarTable(gnomadClinvar) {
-    const clinvar = gnomadClinvar && gnomadClinvar.clinvar ? gnomadClinvar.clinvar : null;
-    const hasClinvar = clinvar && clinvar.variation_id;
-
-    if (!hasClinvar) {
-      lastClinvarData = null;
-      return `
-        <div class="result-header-row">
-          <h3 class="result-subtitle">ClinVar information</h3>
-        </div>
-        <p class="no-result-title">No ClinVar annotation found for this variant.</p>
-      `;
-    }
-
-    const refAlt = [clinvar.ref, clinvar.alt].filter(Boolean).join(" / ");
-    const conditions = (clinvar.conditions && clinvar.conditions.length)
-      ? clinvar.conditions.join(", ")
-      : "";
-    const clinvarLink = gnomadClinvar.links && gnomadClinvar.links.clinvar
-      ? `<a href="${escapeHtml(gnomadClinvar.links.clinvar)}" target="_blank" rel="noopener noreferrer">ClinVar entry</a>`
-      : "";
-    lastClinvarData = {
-      headers: ["Variation ID", "Ref / Alt", "Conditions", "Link"],
-      row: [
-        clinvar.variation_id,
-        refAlt,
-        conditions,
-        (gnomadClinvar.links && gnomadClinvar.links.clinvar) ? gnomadClinvar.links.clinvar : ""
-      ]
-    };
-
-    return `
-      <div class="result-header-row">
-        <h3 class="result-subtitle">ClinVar information</h3>
-        <button class="download-button" onclick="downloadClinvarTable()">
-          ⬇ Download ClinVar CSV
-        </button>
-      </div>
-      <div class="result-table-wrapper">
-        <table class="result-table">
-          <thead>
-            <tr>
-              <th>Variation ID</th>
-              <th>Ref / Alt</th>
-              <th>Conditions</th>
-              <th>Link</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>${escapeHtml(clinvar.variation_id)}</td>
-              <td>${escapeHtml(refAlt)}</td>
-              <td>${escapeHtml(conditions)}</td>
-              <td>${clinvarLink}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    `;
-  }
-
-  function buildAncestryAfPlot(gnomadClinvar) {
-    const ancestry = gnomadClinvar && gnomadClinvar.ancestry_af ? gnomadClinvar.ancestry_af : {};
-    const totalAf = gnomadClinvar && gnomadClinvar.total_af;
-    const gnomadLink = gnomadClinvar && gnomadClinvar.links ? gnomadClinvar.links.gnomad : "";
-    const labels = [
-      ["total", "Total"],
-      ["african", "African"],
-      ["european_non_finnish", "European non-Finnish"],
-      ["east_asian", "East Asian"],
-      ["middle_east", "Middle East"],
-      ["finnish", "Finnish"],
-      ["south_asian", "South Asian"],
-      ["admixed_american", "Admixed American"]
-    ];
-    const colors = [
-      "#111827",
-      "#2563eb",
-      "#0f766e",
-      "#dc2626",
-      "#d97706",
-      "#7c3aed",
-      "#0891b2",
-      "#4f46e5"
-    ];
-
-    const rows = labels
-      .map(([key, label], index) => ({
-        key,
-        label,
-        value: key === "total" ? totalAf : ancestry[key],
-        color: colors[index]
-      }))
-      .filter(row => row.value !== null && row.value !== undefined && !Number.isNaN(Number(row.value)));
-
-    if (!rows.length) {
-      lastAfData = null;
-      return `
-        <div class="result-header-row">
-          <h3 class="result-subtitle">Allele frequency across populations</h3>
-        </div>
-        <p class="no-result-title">No allele frequency data found for this variant.</p>
-      `;
-    }
-
-    const maxValue = Math.max(...rows.map(row => Number(row.value)), 0);
-    const chartWidth = 620;
-    const chartHeight = 230;
-    const leftPad = 44;
-    const rightPad = 18;
-    const topPad = 18;
-    const bottomPad = 72;
-    const plotWidth = chartWidth - leftPad - rightPad;
-    const plotHeight = chartHeight - topPad - bottomPad;
-    const step = plotWidth / rows.length;
-    const barWidth = step * 0.58;
-    const gap = step * 0.42;
-
-    let svg = `
-      <svg viewBox="0 0 ${chartWidth} ${chartHeight}" role="img" aria-label="Allele frequency across populations">
-        <line x1="${leftPad}" y1="${topPad + plotHeight}" x2="${chartWidth - rightPad}" y2="${topPad + plotHeight}" stroke="#cbd5e1" stroke-width="1.5"></line>
-    `;
-
-    rows.forEach((row, index) => {
-      const value = Number(row.value);
-      const barHeight = maxValue > 0 ? (value / maxValue) * plotHeight : 0;
-      const x = leftPad + index * step + gap / 2;
-      const y = topPad + plotHeight - barHeight;
-      const labelLines = row.label.split(" ");
-
-      svg += `
-        <rect x="${x}" y="${y}" width="${barWidth}" height="${barHeight}" rx="5" fill="${row.color}"></rect>
-        <text x="${x + barWidth / 2}" y="${y - 6}" text-anchor="middle" font-size="10" fill="#1f2937">${value.toFixed(4)}</text>
-      `;
-
-      labelLines.forEach((line, lineIndex) => {
-        svg += `
-          <text x="${x + barWidth / 2}" y="${topPad + plotHeight + 16 + lineIndex * 12}" text-anchor="middle" font-size="10" fill="#4b5563">${escapeHtml(line)}</text>
-        `;
-      });
-    });
-
-    svg += `
-        <text x="16" y="${topPad + plotHeight / 2}" transform="rotate(-90 16 ${topPad + plotHeight / 2})" text-anchor="middle" font-size="11" fill="#4b5563">Allele frequency</text>
-      </svg>
-    `;
-
-    let tableRows = ``;
-
-    rows.forEach(row => {
-      tableRows += `
-        <tr>
-          <td>
-            <span style="display:inline-block;width:10px;height:10px;border-radius:999px;background:${row.color};margin-right:8px;vertical-align:middle;"></span>
-            ${escapeHtml(row.label)}
-          </td>
-          <td>${Number(row.value).toFixed(4)}</td>
-        </tr>
-      `;
-    });
-
-    lastAfData = {
-      rows: rows.map(row => ({ population: row.label, af: Number(row.value).toFixed(6) })),
-      headers: ["Population", "AF"]
-    };
-
-    return `
-      <div class="result-header-row">
-        <h3 class="result-subtitle">Allele frequency across populations</h3>
-        <div style="display:flex; gap:8px; flex-wrap:wrap;">
-          <button class="download-button" onclick="downloadAfTable()">
-            ⬇ Download AF CSV
-          </button>
-          <button class="download-button" onclick="downloadAfSvg()">
-            ⬇ Download AF SVG
-          </button>
-        </div>
-      </div>
-      <div class="af-section">
-        <div class="af-plot-card">
-          <div id="af-plot">
-            ${svg}
-          </div>
-        </div>
-        <div class="af-table-card">
-          <div class="result-table-wrapper">
-            <table class="result-table">
-              <thead>
-                <tr>
-                  <th>Population</th>
-                  <th>AF</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${tableRows}
-              </tbody>
-            </table>
-          </div>
-          ${gnomadLink ? `<div class="af-link"><a href="${escapeHtml(gnomadLink)}" target="_blank" rel="noopener noreferrer">Open in gnomAD</a></div>` : ""}
-        </div>
-      </div>
-    `;
+    document.getElementById("download-btn").disabled = true;
   }
 
   /* ---------- CADD TABLE ---------- */
@@ -912,7 +644,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // use (possibly truncated) caddRows for display
     let html = `
       <div class="result-header-row">
-        <h3 class="result-subtitle">CADD annotation (only reporting SNPs)</h3>
+        <h3 class="result-subtitle">CADD annotation</h3>
         <button class="download-button" onclick="downloadCaddTable()">
           ⬇ Download CADD CSV
         </button>
@@ -1894,8 +1626,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     showResultSection();
     const resultContainer = document.getElementById("result-container");
 
-    const gnomadClinvar = data.gnomad_clinvar || {};
-
     // Variant annotation table (no Liftover column)
     const headerColumns = [
       "Query type",
@@ -1932,14 +1662,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       headerColumns,
       rowValues
     };
+    document.getElementById("download-btn").disabled = false;
 
     let html = `
-      <div class="result-header-row">
-        <h3 class="result-subtitle">Variant information</h3>
-        <button class="download-button" onclick="downloadVariantTable()">
-          ⬇ Download variant CSV
-        </button>
-      </div>
       <div class="result-table-wrapper">
         <table class="result-table">
           <thead>
@@ -1968,16 +1693,6 @@ document.addEventListener('DOMContentLoaded', async () => {
           </tbody>
         </table>
       </div>
-    `;
-
-    const clinvarHtml = buildClinvarTable(gnomadClinvar);
-    const variantHtml = html;
-    const afHtml = buildAncestryAfPlot(gnomadClinvar);
-
-    html = `
-      ${clinvarHtml}
-      ${variantHtml}
-      ${afHtml}
     `;
 
     // CADD table
@@ -2113,27 +1828,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     URL.revokeObjectURL(url);
   }
 
-  function downloadClinvarTable() {
-    if (!lastClinvarData) return;
-
-    const { headers, row } = lastClinvarData;
-    const csv = [
-      headers.map(escapeCell).join(","),
-      row.map(escapeCell).join(",")
-    ].join("\n");
-
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "clinvar_information.csv";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
-
   function downloadCaddTable() {
     if (!lastCaddData) return;
 
@@ -2244,29 +1938,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const a = document.createElement("a");
     a.href = url;
     a.download = `sv_annotation.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
-
-  function downloadAfTable() {
-    if (!lastAfData) return;
-
-    const { rows, headers } = lastAfData;
-    const lines = [headers.map(escapeCell).join(",")];
-
-    rows.forEach(row => {
-      lines.push([row.population, row.af].map(escapeCell).join(","));
-    });
-
-    const csv = lines.join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "allele_frequency.csv";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -2496,22 +2167,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const a = document.createElement("a");
     a.href = url;
     a.download = "ld_heatmap.svg";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
-
-  function downloadAfSvg() {
-    const svg = document.querySelector("#af-plot svg");
-    if (!svg) return;
-
-    const blob = new Blob([svg.outerHTML], { type: "image/svg+xml;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "allele_frequency.svg";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

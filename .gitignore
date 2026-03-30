@@ -1,0 +1,17 @@
+.DS_Store
+Data/databases/
+Data/monitor/
+Exploration/__pycache__/
+Annotation/.DS_Store
+Exploration/.DS_Store
+Exploration/PRSpage/__pycache__/
+Exploration/PRSpage/.DS_Store
+Exploration/SNPbot/__pycache__/
+Exploration/SNPbot/.DS_Store
+Exploration/static/.DS_Store
+Annotation/.DS_Store
+Annotation/config_email.txt
+Annotation/BIN/__pycache__/
+dump.rdb
+Exploration/instance/
+Exploration/SNPbot/variants_info.sqlite

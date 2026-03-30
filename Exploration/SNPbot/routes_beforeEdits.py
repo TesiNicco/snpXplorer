@@ -108,40 +108,11 @@ def liftover_hg19_to_hg38(chrom, pos19):
 # ---------------------------------------------------------
 # Variant type detection
 # ---------------------------------------------------------
-def refseq_accession_to_chrom(accession):
-    accession = accession.upper()
-    if accession == "NC_012920.1":
-        return "MT"
-    m = re.match(r"^NC_0*(\d+)\.\d+$", accession)
-    if not m:
-        return None
-    chrom_num = int(m.group(1))
-    if 1 <= chrom_num <= 22:
-        return str(chrom_num)
-    if chrom_num == 23:
-        return "X"
-    if chrom_num == 24:
-        return "Y"
-    return None
-
 def parse_variant_query(q):
     q = q.strip()
     # rsID
     if q.lower().startswith("rs") and q[2:].isdigit():
         return {"type": "rsid", "rsid": q}
-    # SPDI accession:position:deleted:inserted
-    m = re.match(r"^(NC_[0-9]+\.[0-9]+):(\d+):([^:]*):([^:]*)$", q, flags=re.IGNORECASE)
-    if m:
-        chrom = refseq_accession_to_chrom(m.group(1))
-        if chrom is not None:
-            pos = int(m.group(2)) + 1
-            return {"type": "coord", "chrom": chrom, "pos": pos}
-    # gnomAD-like chr-pos-ref-alt or chr-pos
-    m = re.match(r"^(chr)?([A-Za-z0-9]+)-(\d+)(?:-[^-]+(?:-[^-]+)?)?$", q, flags=re.IGNORECASE)
-    if m:
-        chrom = m.group(2).upper()
-        pos = int(m.group(3))
-        return {"type": "coord", "chrom": chrom, "pos": pos}
     # chr:pos or chr pos (with optional "chr")
     m = re.match(r"^(chr)?(\w+)[\:\s]+(\d+)$", q, flags=re.IGNORECASE)
     if m:
@@ -149,193 +120,6 @@ def parse_variant_query(q):
         pos = int(m.group(3))
         return {"type": "coord", "chrom": chrom, "pos": pos}
     return {"type": "invalid"}
-
-# ---------------------------------------------------------
-# Query gnomAD information -- frequency and ClinVar annotations
-# ---------------------------------------------------------
-def query_gnomad_info(info):
-    """
-    Query gnomAD for cohort frequencies and ClinVar annotations for a variant.
-    Expects `info` to contain Chromosome, Position_hg38, REF, and ALT.
-    """
-    import json
-    import urllib.request
-
-    chrom = str(info.get("Chromosome", "")).upper().replace("CHR", "")
-    pos38 = info.get("Position_hg38")
-    ref = info.get("REF")
-    alt = info.get("ALT")
-
-    result = {
-        "variant_id": None,
-        "dataset": "gnomad_r4",
-        "total_af": None,
-        "ancestry_af": {
-            "african": None,
-            "european_non_finnish": None,
-            "east_asian": None,
-            "middle_east": None,
-            "finnish": None,
-            "south_asian": None,
-            "admixed_american": None,
-        },
-        "clinvar": {
-            "variation_id": None,
-            "ref": None,
-            "alt": None,
-            "conditions": [],
-            "germline_classification": None,
-            "last_evaluated": None,
-            "review_status": None,
-        },
-        "links": {
-            "gnomad": None,
-            "clinvar": None,
-        },
-    }
-
-    if not chrom or pos38 is None or not ref or not alt:
-        return result
-
-    variant_id = f"{chrom}-{int(pos38)}-{ref}-{alt}"
-    result["variant_id"] = variant_id
-    result["links"]["gnomad"] = f"https://gnomad.broadinstitute.org/variant/{variant_id}?dataset=gnomad_r4"
-
-    population_map = {
-        "afr": "african",
-        "nfe": "european_non_finnish",
-        "eas": "east_asian",
-        "mid": "middle_east",
-        "fin": "finnish",
-        "sas": "south_asian",
-        "amr": "admixed_american",
-    }
-
-    def compute_af(ac, an):
-        try:
-            ac = int(ac)
-            an = int(an)
-        except (TypeError, ValueError):
-            return None
-        if an <= 0:
-            return None
-        return ac / an
-
-    def population_totals(payload):
-        totals = {key: {"ac": 0, "an": 0} for key in population_map}
-        if not isinstance(payload, dict):
-            return totals
-        for pop in payload.get("populations") or []:
-            pop_id = pop.get("id")
-            if pop_id not in population_map:
-                continue
-            totals[pop_id]["ac"] += int(pop.get("ac") or 0)
-            totals[pop_id]["an"] += int(pop.get("an") or 0)
-        return totals
-
-    try:
-        graphql_query = """
-        query VariantSummary($variantId: String!, $dataset: DatasetId!, $referenceGenome: ReferenceGenomeId!) {
-          variant(variantId: $variantId, dataset: $dataset) {
-            variant_id
-            exome {
-              ac
-              an
-              af
-              populations {
-                id
-                ac
-                an
-              }
-            }
-            genome {
-              ac
-              an
-              af
-              populations {
-                id
-                ac
-                an
-              }
-            }
-          }
-          clinvar_variant(variant_id: $variantId, reference_genome: $referenceGenome) {
-            clinvar_variation_id
-            ref
-            alt
-            clinical_significance
-            last_evaluated
-            review_status
-            submissions {
-              conditions {
-                name
-                medgen_id
-              }
-            }
-          }
-        }
-        """
-        graphql_payload = json.dumps(
-            {
-                "query": graphql_query,
-                "variables": {
-                    "variantId": variant_id,
-                    "dataset": "gnomad_r4",
-                    "referenceGenome": "GRCh38",
-                },
-            }
-        ).encode("utf-8")
-        graphql_request = urllib.request.Request(
-            "https://gnomad.broadinstitute.org/api",
-            data=graphql_payload,
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        with urllib.request.urlopen(graphql_request, timeout=15) as response:
-            graphql_response = json.loads(response.read().decode("utf-8"))
-    except Exception:
-        return result
-
-    data = graphql_response.get("data") or {}
-    variant_data = data.get("variant") or {}
-    clinvar_data = data.get("clinvar_variant") or {}
-
-    exome = variant_data.get("exome") or {}
-    genome = variant_data.get("genome") or {}
-    total_ac = int(exome.get("ac") or 0) + int(genome.get("ac") or 0)
-    total_an = int(exome.get("an") or 0) + int(genome.get("an") or 0)
-    result["total_af"] = compute_af(total_ac, total_an)
-
-    exome_pops = population_totals(exome)
-    genome_pops = population_totals(genome)
-    for pop_id, label in population_map.items():
-        combined_ac = exome_pops[pop_id]["ac"] + genome_pops[pop_id]["ac"]
-        combined_an = exome_pops[pop_id]["an"] + genome_pops[pop_id]["an"]
-        result["ancestry_af"][label] = compute_af(combined_ac, combined_an)
-
-    clinvar_variation_id = clinvar_data.get("clinvar_variation_id")
-    if clinvar_variation_id:
-        result["clinvar"]["variation_id"] = clinvar_variation_id
-        result["links"]["clinvar"] = f"https://www.ncbi.nlm.nih.gov/clinvar/variation/{clinvar_variation_id}/"
-
-    result["clinvar"]["ref"] = clinvar_data.get("ref")
-    result["clinvar"]["alt"] = clinvar_data.get("alt")
-    condition_names = []
-    seen_conditions = set()
-    for submission in clinvar_data.get("submissions") or []:
-        for condition in submission.get("conditions") or []:
-            condition_name = condition.get("name")
-            if not condition_name or condition_name in seen_conditions:
-                continue
-            seen_conditions.add(condition_name)
-            condition_names.append(condition_name)
-
-    result["clinvar"]["conditions"] = condition_names
-    result["clinvar"]["germline_classification"] = clinvar_data.get("clinical_significance")
-    result["clinvar"]["last_evaluated"] = clinvar_data.get("last_evaluated")
-    result["clinvar"]["review_status"] = clinvar_data.get("review_status")
-
-    return result
 
 # ---------------------------------------------------------
 # Query CADD score
@@ -711,7 +495,6 @@ def identify_most_likely_gene(info: dict):
         # Check variants in LD for coding impact
         coding_ld_rows = pd.DataFrame()
         if not ld_cadd_df.empty:
-            ld_cadd_df = ld_cadd_df[pd.to_numeric(ld_cadd_df["ld_r2"], errors="coerce") >= 0.6]
             coding_ld_rows = ld_cadd_df[ld_cadd_df["annotypes"].str.contains("coding", case=False, na=False)]
             coding_ld_rows = coding_ld_rows[~coding_ld_rows["annotypes"].str.contains("noncoding", case=False, na=False)]
             if not coding_ld_rows.empty:
@@ -818,7 +601,7 @@ def run_variant_query(q, build="hg38"):
     parsed = parse_variant_query(q)
 
     if parsed["type"] == "invalid":
-        return {"error": "Query not recognized. Use rsID (rs123), chr:pos, chr pos, gnomAD-style chr-pos-ref-alt, or SPDI accession:position:deleted:inserted."}, 400
+        return {"error": "Query not recognized. Use rsID (rs123) or chr:pos."}, 400
 
     # Monitoring: record search
     add_search_to_file(q, build, DATA_PATH)
@@ -832,8 +615,6 @@ def run_variant_query(q, build="hg38"):
         try:
             chr38 = info["Chromosome"]
             pos38 = info["Position_hg38"]
-            # Add gnomAD/ClinVar annotation
-            info["gnomad_clinvar"] = query_gnomad_info(info)
             # Add CADD annotation
             info["cadd"] = query_cadd_score(chr38, pos38)
             # Only top 100 for the UI
@@ -880,7 +661,6 @@ def run_variant_query(q, build="hg38"):
     
         except Exception:
             info.setdefault("cadd", [])
-            info.setdefault("gnomad_clinvar", {})
             info.setdefault("eqtl", [])
             info.setdefault("sqtl", [])
             info.setdefault("ld", [])
@@ -909,8 +689,6 @@ def run_variant_query(q, build="hg38"):
         try:
             chr38 = info["Chromosome"]
             pos38 = info["Position_hg38"]
-            # Add gnomAD/ClinVar annotation
-            info["gnomad_clinvar"] = query_gnomad_info(info)
             # Add CADD annotation
             info["cadd"] = query_cadd_score(chr38, pos38)
             # Only top 100 for the UI
@@ -956,7 +734,6 @@ def run_variant_query(q, build="hg38"):
 
         except Exception:
             info.setdefault("cadd", [])
-            info.setdefault("gnomad_clinvar", {})
             info.setdefault("eqtl", [])
             info.setdefault("sqtl", [])
             info.setdefault("ld", [])
@@ -988,8 +765,6 @@ def run_variant_query(q, build="hg38"):
             "to_hg38": f"{chr38}:{pos38}",
         }
         try:
-            # Add gnomAD/ClinVar annotation based on hg38 location
-            info["gnomad_clinvar"] = query_gnomad_info(info)
             # Add CADD annotation based on hg38 location
             info["cadd"] = query_cadd_score(chr38, pos38)
             # Only top 100 for the UI
@@ -1035,7 +810,6 @@ def run_variant_query(q, build="hg38"):
             
         except Exception:
             info.setdefault("cadd", [])
-            info.setdefault("gnomad_clinvar", {})
             info.setdefault("eqtl", [])
             info.setdefault("sqtl", [])
             info.setdefault("ld", [])

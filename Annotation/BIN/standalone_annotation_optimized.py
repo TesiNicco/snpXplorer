@@ -796,6 +796,7 @@ def identify_most_likely_gene(info: dict):
         # Check variants in LD for coding impact
         coding_ld_rows = pd.DataFrame()
         if not ld_cadd_df.empty:
+            ld_cadd_df = ld_cadd_df[pd.to_numeric(ld_cadd_df["ld_r2"], errors="coerce") >= 0.6]
             coding_ld_rows = ld_cadd_df[ld_cadd_df["annotypes"].str.contains("coding", case=False, na=False)]
             coding_ld_rows = coding_ld_rows[~coding_ld_rows["annotypes"].str.contains("noncoding", case=False, na=False)]
             if not coding_ld_rows.empty:
@@ -1754,4 +1755,3 @@ def main():
         
 if __name__ == "__main__":
     main()
-

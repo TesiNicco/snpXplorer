@@ -58,8 +58,10 @@ from snpxplorer_functions import *
 # differences between local and server
 # local
 #data_path = '/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Data'
+#path_annot = '/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer'
 # server
 data_path = '/Data'
+path_annot = ''
 from pandasgwas import get_variants_by_variant_id
 
 # Initialize the App
@@ -779,11 +781,16 @@ def annotation():
     emailResponse = is_valid_email(email)
     # modify the message linked to submission
     messageSubmission = ''
+    success_message = 'Your job has been submitted! Check your email shortly.'
+    limit_message = ('Input limits: Annotation allows up to 10000 SNPs and '
+                     'Gene-set Enrichment Analysis allows up to 1000 SNPs. '
+                     'Please provide one variant per line.')
     if request.method == "POST":
         # Read inputs
         # list of variants
         textarea_input = request.form.get('SNPlist', '')
         my_list = textarea_input.replace(' ', '').replace(';', '\n').replace(',', '\n').split('\n')
+        my_list = [x for x in my_list if x]
         # input type
         #inpType = request.form["inputType"]
         inpType = 'rsid'  # for now, only rsid
@@ -796,8 +803,13 @@ def annotation():
         # QTL tissues
         qtl_tissues = request.form.getlist('QTLtissuesAnnot')
         # update message
-        if emailResponse == True:
-            messageSubmission = 'Your job has been submitted! Check your email shortly.'
+        snp_limit = 10000 if analType == 'Annot' else 1000
+        if not my_list:
+            messageSubmission = f'Please enter at least one SNP. {limit_message}'
+        elif len(my_list) > snp_limit:
+            messageSubmission = f'Too many SNPs provided for the selected analysis. {limit_message}'
+        elif emailResponse == True:
+            messageSubmission = success_message
             # run the script here
             command = run_annotation(my_list, inpType, refGeno, analType, gsea_source, qtl_tissues, email)
             print(command)
@@ -827,7 +839,7 @@ def download():
 def download_results(run_id):
     # check here the run ID
     filename = f"snpXplorer_annotation_{run_id}.zip"
-    filepath = os.path.join("/Annotation/RUNS", filename)
+    filepath = os.path.join(path_annot + "/Annotation/RUNS", filename)
     return send_file(filepath, as_attachment=True, download_name=filename)
 
 # Haplotype tab

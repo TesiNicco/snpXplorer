@@ -2,6 +2,32 @@
 
 {% block content %}
     <body id="annotation_sec">
+        <style>
+            .form-error-message {
+                display: none;
+                margin-top: 12px;
+                padding: 12px 14px;
+                border-radius: 10px;
+                border: 1px solid #d1d5db;
+                background: #f3f4f6;
+                color: #b91c1c;
+                font-size: 14px;
+                font-weight: 600;
+                text-align: left;
+                line-height: 1.4;
+            }
+
+            .form-error-message.show {
+                display: block;
+            }
+
+            .form-error-message.success {
+                display: block;
+                border-color: #badbcc;
+                background: #d1e7dd;
+                color: #0f5132;
+            }
+        </style>
         <!-- DNA image at the top -->
         <div class="centered-container">
             <img class="centered-image" src="{{ url_for('static', filename='images/dna.png') }}" alt="Image">
@@ -158,21 +184,15 @@
 
                 <div class="card orange" style="width:100%; text-align:center;">
                     <h2>Click to submit</h2>
-                    <input type="submit" value="Submit your job here!" onclick="showMessage()" style="font-size: 28px; padding: 10px 20px;">
+                    <input type="submit" value="Submit your job here!" style="font-size: 28px; padding: 10px 20px;">
                     <br>
-                    <p style="color: {{ 'red' if messageSubmission == 'Email is not correct. Please check!' else 'green' }}">{{ messageSubmission }}</p>
+                    <div
+                        id="annotationMessage"
+                        class="form-error-message{% if messageSubmission %} show{% endif %}{% if messageSubmission == 'Your job has been submitted! Check your email shortly.' %} success{% endif %}"
+                        role="alert"
+                        aria-live="polite"
+                    >{{ messageSubmission }}</div>
                 </div>
-
-                <script>
-                    function validateForm() {
-                    var snpList = document.getElementsByName("SNPlist")[0].value;
-                    if (snpList.trim() === "") {
-                        alert("Please enter the SNPs to annotate in List of variants");
-                        return false;
-                    }
-                    return true;
-                    }
-                </script>
 
                 </div>
 
@@ -244,10 +264,37 @@
 
             // Make validateForm use the textarea by id (safer)
             function validateForm() {
-                const snpList = document.getElementById("SNPlist").value;
-                if (snpList.trim() === "") {
-                alert("Please enter the SNPs to annotate in List of variants");
-                return false;
+                const snpListRaw = document.getElementById("SNPlist").value;
+                const messageEl = document.getElementById("annotationMessage");
+                const analType = document.querySelector('input[name="analType"]:checked')?.value || "Annot";
+                const variants = snpListRaw
+                    .replace(/;/g, "\n")
+                    .replace(/,/g, "\n")
+                    .split(/\r?\n/)
+                    .map(s => s.trim())
+                    .filter(Boolean);
+                const limitMessage = "Input limits: Annotation allows up to 10000 SNPs and Gene-set Enrichment Analysis allows up to 1000 SNPs. Please provide one variant per line.";
+
+                if (messageEl) {
+                    messageEl.textContent = "";
+                    messageEl.classList.remove("show", "success");
+                }
+
+                if (variants.length === 0) {
+                    if (messageEl) {
+                        messageEl.textContent = `Please enter at least one SNP. ${limitMessage}`;
+                        messageEl.classList.add("show");
+                    }
+                    return false;
+                }
+
+                const maxSnps = analType === "Annot" ? 10000 : 1000;
+                if (variants.length > maxSnps) {
+                    if (messageEl) {
+                        messageEl.textContent = `Too many SNPs provided for the selected analysis. ${limitMessage}`;
+                        messageEl.classList.add("show");
+                    }
+                    return false;
                 }
                 return true;
             }
