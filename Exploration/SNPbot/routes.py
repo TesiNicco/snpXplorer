@@ -381,29 +381,28 @@ def query_gnomad_info(info):
     if clinvar_variation_id:
         result["clinvar"]["variation_id"] = clinvar_variation_id
         result["links"]["clinvar"] = f"https://www.ncbi.nlm.nih.gov/clinvar/variation/{clinvar_variation_id}/"
+        result["clinvar"]["ref"] = clinvar_data.get("ref")
+        result["clinvar"]["alt"] = clinvar_data.get("alt")
+        condition_names = []
+        seen_conditions = set()
+        for submission in clinvar_data.get("submissions") or []:
+            for condition in submission.get("conditions") or []:
+                condition_name = condition.get("name")
+                if not condition_name or condition_name in seen_conditions:
+                    continue
+                seen_conditions.add(condition_name)
+                condition_names.append(condition_name)
 
-    result["clinvar"]["ref"] = clinvar_data.get("ref")
-    result["clinvar"]["alt"] = clinvar_data.get("alt")
-    condition_names = []
-    seen_conditions = set()
-    for submission in clinvar_data.get("submissions") or []:
-        for condition in submission.get("conditions") or []:
-            condition_name = condition.get("name")
-            if not condition_name or condition_name in seen_conditions:
-                continue
-            seen_conditions.add(condition_name)
-            condition_names.append(condition_name)
-
-    result["clinvar"]["conditions"] = condition_names
-    result["clinvar"]["gene_symbol"] = transcript_consequence.get("gene_symbol")
-    result["clinvar"]["germline_classification"] = clinvar_data.get("clinical_significance")
-    result["clinvar"]["clinical_significance"] = clinvar_data.get("clinical_significance")
-    result["clinvar"]["major_consequence"] = transcript_consequence.get("major_consequence")
-    result["clinvar"]["transcript_id"] = transcript_consequence.get("transcript_id")
-    result["clinvar"]["hgvsc"] = transcript_consequence.get("hgvsc")
-    result["clinvar"]["hgvsp"] = transcript_consequence.get("hgvsp")
-    result["clinvar"]["last_evaluated"] = clinvar_data.get("last_evaluated")
-    result["clinvar"]["review_status"] = clinvar_data.get("review_status")
+        result["clinvar"]["conditions"] = condition_names
+        result["clinvar"]["gene_symbol"] = transcript_consequence.get("gene_symbol")
+        result["clinvar"]["germline_classification"] = clinvar_data.get("clinical_significance")
+        result["clinvar"]["clinical_significance"] = clinvar_data.get("clinical_significance")
+        result["clinvar"]["major_consequence"] = transcript_consequence.get("major_consequence")
+        result["clinvar"]["transcript_id"] = transcript_consequence.get("transcript_id")
+        result["clinvar"]["hgvsc"] = transcript_consequence.get("hgvsc")
+        result["clinvar"]["hgvsp"] = transcript_consequence.get("hgvsp")
+        result["clinvar"]["last_evaluated"] = clinvar_data.get("last_evaluated")
+        result["clinvar"]["review_status"] = clinvar_data.get("review_status")
 
     return result
 
