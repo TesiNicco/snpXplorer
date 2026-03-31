@@ -24,4 +24,5 @@ networkx
 psutil
 gunicorn
 gevent
+alphagenome
 git+https://github.com/mojaie/pygosemsim

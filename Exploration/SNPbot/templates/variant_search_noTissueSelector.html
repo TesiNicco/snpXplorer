@@ -150,61 +150,9 @@
     }
 
     .search-help-text {
-      font-size: 12px;
+      font-size: 11px;
       color: #6b7280;
       margin-top: 4px;
-    }
-
-    .tissue-selector-wrap {
-      margin-top: 12px;
-    }
-
-    .tissue-selector-label {
-      display: block;
-      margin-bottom: 6px;
-      font-size: 12px;
-      font-weight: 400;
-      color: #6b7280;
-    }
-
-    .tissue-selector-label strong {
-      font-weight: 600;
-    }
-
-    .tissue-selector-wrap .select2-container {
-      width: 100% !important;
-    }
-
-    .tissue-selector-wrap .select2-container--default .select2-selection--multiple {
-      min-height: 40px;
-      border: 1px solid #d1d5db;
-      border-radius: 12px;
-      padding: 4px 8px;
-      font-size: 12px;
-    }
-
-    .tissue-selector-wrap .select2-container--default.select2-container--focus .select2-selection--multiple {
-      border-color: #2563eb;
-      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18);
-    }
-
-    .tissue-selector-wrap .select2-container--default .select2-selection--multiple .select2-selection__choice {
-      border: none;
-      background: #e5efff;
-      color: #1d4ed8;
-      border-radius: 999px;
-      padding: 2px 8px;
-      margin-top: 4px;
-      font-size: 12px;
-    }
-
-    .tissue-selector-wrap .select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
-      color: #1d4ed8;
-      margin-right: 6px;
-    }
-
-    .tissue-selector-wrap .select2-container--default .select2-search--inline .select2-search__field {
-      font-size: 12px;
     }
 
     .helper-title {
@@ -257,11 +205,8 @@
 
     .result-subtitle {
       margin: 16px 0 8px 0;
-      font-size: 16px;
-      font-family: Arial, "Helvetica Neue", "Segoe UI", sans-serif;
+      font-size: 13px;
       font-weight: 600;
-      letter-spacing: 0.02em;
-      line-height: 1.35;
     }
 
     .download-button {
@@ -578,63 +523,6 @@
       <div class="search-help-text">
         Press <strong>Enter</strong> in the input or click <strong>Search</strong>.
       </div>
-
-      <div class="tissue-selector-wrap">
-        <label class="tissue-selector-label" for="tissue-select">Optional: select <strong>tissue</strong> of interest</label>
-        <select id="tissue-select" name="QTLtissuesAnnot" multiple class="form-control">
-          <option value=""></option>
-          <optgroup label="Tissues">
-            <option value="all_tissues" selected>All tissues</option>
-            <option value="Adipose_Subcutaneous">Adipose Subcutaneous</option>
-            <option value="Adipose_Visceral_Omentum">Adipose Visceral Omentum</option>
-            <option value="Adrenal_Gland">Adrenal Gland</option>
-            <option value="Artery_Aorta">Artery Aorta</option>
-            <option value="Artery_Tibial">Artery Tibial</option>
-            <option value="Brain_Amygdala">Brain Amygdala</option>
-            <option value="Brain_Anterior_cingulate_cortex_BA24">Brain Anterior cingulate cortex</option>
-            <option value="Brain_Caudate_basal_ganglia">Brain Caudate basal ganglia</option>
-            <option value="Brain_Cerebellar_Hemisphere">Brain Cerebellar Hemisphere</option>
-            <option value="Brain_Cerebellum">Brain Cerebellum</option>
-            <option value="Brain_Cortex">Brain Cortex</option>
-            <option value="Brain_Frontal_Cortex_BA9">Brain Frontal Cortex</option>
-            <option value="Brain_Hippocampus">Brain Hippocampus</option>
-            <option value="Brain_Hypothalamus">Brain Hypothalamus</option>
-            <option value="Brain_Nucleus_accumbens_basal_ganglia">Brain Nucleus accumbens basal ganglia</option>
-            <option value="Brain_Spinal_cord_cervical_c-1">Brain Spinal cord cervical</option>
-            <option value="Brain_Substantia_nigra">Brain Substantia nigra</option>
-            <option value="Breast_Mammary_Tissue">Breast Mammary Tissue</option>
-            <option value="Cells_Cultured_fibroblasts">Cells Cultured fibroblasts</option>
-            <option value="Cells_EBV-transformed_lymphocytes">EBV-transformed lymphocytes</option>
-            <option value="Colon_Sigmoid">Colon Sigmoid</option>
-            <option value="Colon_Transverse">Colon Transverse</option>
-            <option value="Esophagus_Gastroesophageal_Junction">Esophagus Gastroesophageal Junction</option>
-            <option value="Esophagus_Mucosa">Esophagus Mucosa</option>
-            <option value="Esophagus_Muscularis">Esophagus Muscularis</option>
-            <option value="Heart_Atrial_Appendage">Heart Atrial Appendage</option>
-            <option value="Heart_Left_Ventricle">Heart Left Ventricle</option>
-            <option value="Kidney_Cortex">Kidney Cortex</option>
-            <option value="Liver">Liver</option>
-            <option value="Lung">Lung</option>
-            <option value="Minor_Salivary_Gland">Minor Salivary Gland</option>
-            <option value="Muscle_Skeletal">Muscle Skeletal</option>
-            <option value="Nerve_Tibial">Nerve Tibial</option>
-            <option value="Ovary">Ovary</option>
-            <option value="Pancreas">Pancreas</option>
-            <option value="Pituitary">Pituitary</option>
-            <option value="Prostate">Prostate</option>
-            <option value="Skin_Not_Sun_Exposed_Suprapubic">Skin Suprapubic (Not Sun Exposed)</option>
-            <option value="Skin_Sun_Exposed_Lower_leg">Skin Lower leg (Sun Exposed)</option>
-            <option value="Small_Intestine_Terminal_Ileum">Small Intestine Terminal Ileum</option>
-            <option value="Spleen">Spleen</option>
-            <option value="Stomach">Stomach</option>
-            <option value="Testis">Testis</option>
-            <option value="Thyroid">Thyroid</option>
-            <option value="Uterus">Uterus</option>
-            <option value="Vagina">Vagina</option>
-            <option value="Whole_Blood">Whole Blood</option>
-          </optgroup>
-        </select>
-      </div>
     </div>
 
     <!-- Helper card -->
@@ -674,14 +562,6 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', async () => {
-  if (window.jQuery && typeof window.jQuery.fn.select2 === 'function') {
-    window.jQuery('#tissue-select').select2({
-      placeholder: 'All tissues',
-      allowClear: false,
-      width: '100%'
-    });
-  }
-
   try {
     const resp = await fetch('/snpbot/api/variant/last');
     if (!resp.ok) return;  // no previous query -> do nothing
@@ -698,18 +578,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     if (data.build) {
       buildSelect.value = data.build;
-    }
-    if (Array.isArray(data.tissues) && data.tissues.length) {
-      const tissueSelect = document.getElementById("tissue-select");
-      if (tissueSelect) {
-        const selected = data.tissues;
-        Array.from(tissueSelect.options).forEach((opt) => {
-          opt.selected = selected.includes(opt.value);
-        });
-        if (window.jQuery && typeof window.jQuery.fn.select2 === 'function') {
-          window.jQuery(tissueSelect).trigger('change');
-        }
-      }
     }
 
     // Render tables using the same function as for fresh queries
@@ -733,10 +601,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   let lastSvData = null;          // SV download
   let lastClinvarData = null;     // ClinVar download
   let lastAfData = null;          // AF table/plot download
-  let lastAlphaGenomeData = null; // AlphaGenome download
-  let currentAlphaGenomeRequestId = 0;
   const SNPBOT_API_URL = "{{ url_for('snpbot.variant_query') }}";
-  const SNPBOT_ALPHAGENOME_API_URL = "{{ url_for('snpbot.variant_alphagenome') }}";
 
   function setLoading(isLoading) {
     const btn = document.getElementById("search-btn");
@@ -772,8 +637,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     lastSvData = null;
     lastClinvarData = null;
     lastAfData = null;
-    lastAlphaGenomeData = null;
-    currentAlphaGenomeRequestId += 1;
   }
 
   function showError(message) {
@@ -792,8 +655,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     lastLdSqtlData = null;
     lastClinvarData = null;
     lastAfData = null;
-    lastAlphaGenomeData = null;
-    currentAlphaGenomeRequestId += 1;
   }
 
   function escapeHtml(value) {
@@ -813,44 +674,32 @@ document.addEventListener('DOMContentLoaded', async () => {
       lastClinvarData = null;
       return `
         <div class="result-header-row">
-          <h3 class="result-subtitle">ClinVar information: manually curated, highly trusted</h3>
+          <h3 class="result-subtitle">ClinVar information</h3>
         </div>
         <p class="no-result-title">No ClinVar annotation found for this variant.</p>
       `;
     }
 
     const refAlt = [clinvar.ref, clinvar.alt].filter(Boolean).join(" / ");
-    const geneSymbol = clinvar.gene_symbol || "";
     const conditions = (clinvar.conditions && clinvar.conditions.length)
       ? clinvar.conditions.join(", ")
       : "";
-    const clinicalSignificance = clinvar.clinical_significance || clinvar.germline_classification || "";
-    const majorConsequence = clinvar.major_consequence || "";
-    const transcriptId = clinvar.transcript_id || "";
-    const hgvsc = clinvar.hgvsc || "";
-    const hgvsp = clinvar.hgvsp || "";
     const clinvarLink = gnomadClinvar.links && gnomadClinvar.links.clinvar
       ? `<a href="${escapeHtml(gnomadClinvar.links.clinvar)}" target="_blank" rel="noopener noreferrer">ClinVar entry</a>`
       : "";
     lastClinvarData = {
-      headers: ["Variation ID", "Ref / Alt", "Gene", "Conditions", "Clinical significance", "Major consequence", "Transcript ID", "HGVSc", "HGVSp", "Link"],
+      headers: ["Variation ID", "Ref / Alt", "Conditions", "Link"],
       row: [
         clinvar.variation_id,
         refAlt,
-        geneSymbol,
         conditions,
-        clinicalSignificance,
-        majorConsequence,
-        transcriptId,
-        hgvsc,
-        hgvsp,
         (gnomadClinvar.links && gnomadClinvar.links.clinvar) ? gnomadClinvar.links.clinvar : ""
       ]
     };
 
     return `
       <div class="result-header-row">
-        <h3 class="result-subtitle">ClinVar information: manually curated, highly trusted</h3>
+        <h3 class="result-subtitle">ClinVar information</h3>
         <button class="download-button" onclick="downloadClinvarTable()">
           ⬇ Download ClinVar CSV
         </button>
@@ -861,13 +710,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             <tr>
               <th>Variation ID</th>
               <th>Ref / Alt</th>
-              <th>Gene</th>
               <th>Conditions</th>
-              <th>Clinical significance</th>
-              <th>Major consequence</th>
-              <th>Transcript ID</th>
-              <th>HGVSc</th>
-              <th>HGVSp</th>
               <th>Link</th>
             </tr>
           </thead>
@@ -875,13 +718,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             <tr>
               <td>${escapeHtml(clinvar.variation_id)}</td>
               <td>${escapeHtml(refAlt)}</td>
-              <td>${escapeHtml(geneSymbol)}</td>
               <td>${escapeHtml(conditions)}</td>
-              <td>${escapeHtml(clinicalSignificance)}</td>
-              <td>${escapeHtml(majorConsequence)}</td>
-              <td>${escapeHtml(transcriptId)}</td>
-              <td>${escapeHtml(hgvsc)}</td>
-              <td>${escapeHtml(hgvsp)}</td>
               <td>${clinvarLink}</td>
             </tr>
           </tbody>
@@ -1355,149 +1192,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     `;
 
     return html;
-  }
-
-  function formatAlphaGenomeHeader(key) {
-    return String(key || "")
-      .replace(/_/g, " ")
-      .replace(/\b\w/g, c => c.toUpperCase());
-  }
-
-  function buildAlphaGenomeSection(alphaRows, isLoading = false, errorMessage = "") {
-    if (isLoading) {
-      lastAlphaGenomeData = null;
-      return `
-        <div id="alphagenome-section">
-          <div class="result-header-row">
-            <h3 class="result-subtitle">AlphaGenome annotation</h3>
-          </div>
-          <p class="result-note">Loading AlphaGenome annotation...</p>
-        </div>
-      `;
-    }
-
-    if (errorMessage) {
-      lastAlphaGenomeData = null;
-      return `
-        <div id="alphagenome-section">
-          <div class="result-header-row">
-            <h3 class="result-subtitle">AlphaGenome annotation</h3>
-          </div>
-          <p class="no-result-title">${escapeHtml(errorMessage)}</p>
-        </div>
-      `;
-    }
-
-    if (!alphaRows || alphaRows.length === 0) {
-      lastAlphaGenomeData = null;
-      return `
-        <div id="alphagenome-section">
-          <div class="result-header-row">
-            <h3 class="result-subtitle">AlphaGenome annotation</h3>
-          </div>
-          <p class="no-result-title">No AlphaGenome annotation found for this variant.</p>
-        </div>
-      `;
-    }
-
-    const preferredColumns = [
-      "gene_name",
-      "biosample_name",
-      "track_label",
-      "track_name",
-      "score",
-      "query_locus",
-      "ref_base",
-      "alt_base",
-      "variant"
-    ];
-    const allColumns = Object.keys(alphaRows[0]);
-    const alphaColumns = [
-      ...preferredColumns.filter(col => allColumns.includes(col)),
-      ...allColumns.filter(col => !preferredColumns.includes(col))
-    ];
-    const alphaHeaders = alphaColumns.map(formatAlphaGenomeHeader);
-    const displayRows = alphaRows.slice(0, 100);
-
-    lastAlphaGenomeData = {
-      rows: alphaRows,
-      columns: alphaColumns,
-      headers: alphaHeaders
-    };
-
-    let bodyRows = "";
-    displayRows.forEach(row => {
-      bodyRows += "<tr>";
-      alphaColumns.forEach(col => {
-        const val = row[col] === null || row[col] === undefined ? "" : row[col];
-        bodyRows += `<td>${escapeHtml(val)}</td>`;
-      });
-      bodyRows += "</tr>";
-    });
-
-    return `
-      <div id="alphagenome-section">
-        <div class="result-header-row">
-          <h3 class="result-subtitle">AlphaGenome annotation (top 100)</h3>
-          <button class="download-button" onclick="downloadAlphaGenomeTable()">
-            ⬇ Download AlphaGenome CSV
-          </button>
-        </div>
-        <div class="result-table-wrapper">
-          <table class="result-table">
-            <thead>
-              <tr>${alphaHeaders.map(h => `<th>${escapeHtml(h)}</th>`).join("")}</tr>
-            </thead>
-            <tbody>
-              ${bodyRows}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    `;
-  }
-
-  function updateAlphaGenomeSection(html) {
-    const section = document.getElementById("alphagenome-section");
-    if (section) {
-      section.outerHTML = html;
-    }
-  }
-
-  function updateLikelyGeneDisplay(likelyGene) {
-    const genesCell = document.getElementById("likely-genes-cell");
-    const sourceCell = document.getElementById("likely-source-cell");
-    if (!genesCell || !sourceCell || !likelyGene) return;
-
-    const genes = Array.isArray(likelyGene.genes) ? likelyGene.genes.join(", ") : "";
-    const source = likelyGene.source || "";
-    genesCell.textContent = genes;
-    sourceCell.textContent = source;
-  }
-
-  function loadAlphaGenome(query, build, tissues) {
-    const requestId = ++currentAlphaGenomeRequestId;
-    const params = new URLSearchParams({ query, build });
-    (tissues || []).forEach((tissue) => params.append("tissues", tissue));
-
-    fetch(`${SNPBOT_ALPHAGENOME_API_URL}?${params.toString()}`)
-      .then(async (res) => {
-        const data = await res.json();
-        if (requestId !== currentAlphaGenomeRequestId) return;
-        if (!res.ok || data.error) {
-          updateAlphaGenomeSection(buildAlphaGenomeSection([], false, data.error || "AlphaGenome annotation could not be loaded."));
-          return;
-        }
-        updateAlphaGenomeSection(buildAlphaGenomeSection(data.alphagenome || []));
-        if (data.likely_gene) {
-          updateLikelyGeneDisplay(data.likely_gene);
-        }
-      })
-      .catch((err) => {
-        console.error(err);
-        if (requestId !== currentAlphaGenomeRequestId) return;
-        updateAlphaGenomeSection(buildAlphaGenomeSection([], false, "Error contacting AlphaGenome endpoint."));
-      });
   }
 
   /* ---------- SV TABLE ---------- */
@@ -2274,14 +1968,8 @@ document.addEventListener('DOMContentLoaded', async () => {
               <td>${query}</td>
     `;
 
-    rowValues.forEach((v, index) => {
-      if (index === 8) {
-        html += `<td id="likely-genes-cell">${v}</td>`;
-      } else if (index === 9) {
-        html += `<td id="likely-source-cell">${v}</td>`;
-      } else {
-        html += `<td>${v}</td>`;
-      }
+    rowValues.forEach(v => {
+      html += `<td>${v}</td>`;
     });
 
     html += `
@@ -2307,11 +1995,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       ? data.cadd_top
       : caddRowsFull;
     html += buildCaddTable(caddRowsDisplay, caddRowsFull);
-
-    const hasAlphaGenome = Object.prototype.hasOwnProperty.call(data, "alphagenome");
-    html += hasAlphaGenome
-      ? buildAlphaGenomeSection(data.alphagenome || [])
-      : buildAlphaGenomeSection([], true);
 
     // eQTL table
     const eqtlRowsFull   = data.eqtl || [];
@@ -2369,21 +2052,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     // after DOM is in place, wire up LD interactivity + height sync
     wireLdHeatmapEvents();
     wireGwasForestEvents();
-
-    if (!hasAlphaGenome) {
-      loadAlphaGenome(query, build, Array.isArray(data.tissues) ? data.tissues : []);
-    }
   }
 
   function submitQuery() {
     const queryInput = document.getElementById("query-input");
     const buildSelect = document.getElementById("build-select");
-    const tissueSelect = document.getElementById("tissue-select");
     const query = queryInput.value.trim();
     const build = buildSelect.value;
-    const tissues = tissueSelect
-      ? Array.from(tissueSelect.selectedOptions).map((opt) => opt.value).filter(Boolean)
-      : [];
 
     if (!query) {
       showError("Please enter an rsID or coordinate.");
@@ -2393,12 +2068,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     clearResult();
     setLoading(true);
 
-    const params = new URLSearchParams({
-      query,
-      build
-    });
-    tissues.forEach((tissue) => params.append("tissues", tissue));
-    const url = `${SNPBOT_API_URL}?${params.toString()}`;
+    const url = `${SNPBOT_API_URL}?query=${encodeURIComponent(query)}&build=${encodeURIComponent(build)}`;
 
     fetch(url)
       .then(async (res) => {
@@ -2606,33 +2276,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const a = document.createElement("a");
     a.href = url;
     a.download = "allele_frequency.csv";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
-
-  function downloadAlphaGenomeTable() {
-    if (!lastAlphaGenomeData) return;
-
-    const { rows, columns, headers } = lastAlphaGenomeData;
-    const lines = [headers.map(escapeCell).join(",")];
-
-    rows.forEach(row => {
-      const line = columns.map(col => {
-        const val = (row[col] === null || row[col] === undefined) ? "" : row[col];
-        return escapeCell(val);
-      }).join(",");
-      lines.push(line);
-    });
-
-    const csv = lines.join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "alphagenome_annotation.csv";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

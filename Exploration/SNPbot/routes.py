@@ -6,10 +6,17 @@ from flask import Flask, request, jsonify, render_template, Blueprint, redirect,
 from liftover import get_lifter
 import io
 import os
+import pickle
 import subprocess
+import sys
 from datetime import timedelta, datetime
 import math
 from typing import Optional
+
+try:
+    from .gtex_alphagenome_mapping import gtex_to_alphagenome_terms
+except ImportError:
+    from gtex_alphagenome_mapping import gtex_to_alphagenome_terms
 
 # Blueprint setup (if needed)
 snpbot_bp = Blueprint('snpbot', __name__, template_folder='templates')
@@ -42,6 +49,48 @@ def sanitize_for_json(obj):
     if isinstance(obj, list):
         return [sanitize_for_json(v) for v in obj]
     return obj
+
+def normalize_tissue_selection(tissues):
+    """
+    Normalize tissue selection to a clean list of strings.
+    Accepts None, a single string, or a list/tuple.
+    """
+    if tissues is None:
+        return ["all_tissues"]
+    if isinstance(tissues, str):
+        tissues = [x.strip() for x in tissues.split(",") if x.strip()]
+    elif isinstance(tissues, (list, tuple, set)):
+        tissues = [str(x).strip() for x in tissues if str(x).strip()]
+    else:
+        return ["all_tissues"]
+    if not tissues:
+        return ["all_tissues"]
+    tissue_keys = {t.lower() for t in tissues}
+    if "all_tissues" in tissue_keys:
+        return ["all_tissues"]
+    return tissues
+
+def map_gtex_to_alphagenome_terms(tissues):
+    """
+    Convert GTEx tissue identifiers to AlphaGenome biosample keyword terms.
+    """
+    tissues = normalize_tissue_selection(tissues)
+    if "all_tissues" in {t.lower() for t in tissues}:
+        return []
+
+    keywords = []
+    seen = set()
+    for tissue in tissues:
+        for term in gtex_to_alphagenome_terms.get(tissue, []):
+            term_clean = str(term).strip()
+            if not term_clean:
+                continue
+            key = term_clean.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            keywords.append(term_clean)
+    return keywords
 
 # ---------------------------------------------------------
 # DB helper: lookup by rsID
@@ -183,8 +232,14 @@ def query_gnomad_info(info):
             "variation_id": None,
             "ref": None,
             "alt": None,
+            "gene_symbol": None,
             "conditions": [],
             "germline_classification": None,
+            "clinical_significance": None,
+            "major_consequence": None,
+            "transcript_id": None,
+            "hgvsc": None,
+            "hgvsp": None,
             "last_evaluated": None,
             "review_status": None,
         },
@@ -238,6 +293,13 @@ def query_gnomad_info(info):
         query VariantSummary($variantId: String!, $dataset: DatasetId!, $referenceGenome: ReferenceGenomeId!) {
           variant(variantId: $variantId, dataset: $dataset) {
             variant_id
+            transcript_consequences {
+              gene_symbol
+              transcript_id
+              hgvsc
+              hgvsp
+              major_consequence
+            }
             exome {
               ac
               an
@@ -299,6 +361,8 @@ def query_gnomad_info(info):
     data = graphql_response.get("data") or {}
     variant_data = data.get("variant") or {}
     clinvar_data = data.get("clinvar_variant") or {}
+    transcript_consequences = variant_data.get("transcript_consequences") or []
+    transcript_consequence = transcript_consequences[0] if transcript_consequences else {}
 
     exome = variant_data.get("exome") or {}
     genome = variant_data.get("genome") or {}
@@ -331,11 +395,61 @@ def query_gnomad_info(info):
             condition_names.append(condition_name)
 
     result["clinvar"]["conditions"] = condition_names
+    result["clinvar"]["gene_symbol"] = transcript_consequence.get("gene_symbol")
     result["clinvar"]["germline_classification"] = clinvar_data.get("clinical_significance")
+    result["clinvar"]["clinical_significance"] = clinvar_data.get("clinical_significance")
+    result["clinvar"]["major_consequence"] = transcript_consequence.get("major_consequence")
+    result["clinvar"]["transcript_id"] = transcript_consequence.get("transcript_id")
+    result["clinvar"]["hgvsc"] = transcript_consequence.get("hgvsc")
+    result["clinvar"]["hgvsp"] = transcript_consequence.get("hgvsp")
     result["clinvar"]["last_evaluated"] = clinvar_data.get("last_evaluated")
     result["clinvar"]["review_status"] = clinvar_data.get("review_status")
 
     return result
+
+# ---------------------------------------------------------
+# Query alphagenome annotation
+# ---------------------------------------------------------
+def alphagenome_annotation(info, tissues=None):
+    """
+    Run AlphaGenome scoring for a single variant and return a pandas DataFrame.
+    """
+    try:
+        chrom = str(info["Chromosome"]).upper().replace("CHR", "")
+        pos38 = int(info["Position_hg38"])
+        ref = str(info["REF"]).upper()
+        alt = str(info["ALT"]).upper()
+        variant_id = f"chr{chrom}:{pos38}:{ref}:{alt}"
+        alphagenome_dir = DATA_PATH.parent / "Exploration" / "SNPbot"
+        script_path = alphagenome_dir / "alphagenome_score.py"
+        cmd = [
+            sys.executable,
+            str(script_path),
+            variant_id,
+            "--sequence-length", "16KB",
+            "--organism", "human",
+            "--output-root", "./",
+            "--genes",
+            "--stdout",
+        ]
+        alpha_terms = map_gtex_to_alphagenome_terms(tissues)
+        if alpha_terms:
+            cmd.extend(["--tissue", ",".join(alpha_terms)])
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            check=True,
+            cwd=str(alphagenome_dir),
+        )
+        if not result.stdout:
+            return pd.DataFrame()
+        df = pickle.loads(result.stdout)
+        if isinstance(df, pd.DataFrame):
+            return df
+        return pd.DataFrame(df)
+    except Exception as e:
+        print(f"Error in alphagenome_annotation: {e}", flush=True)
+        return pd.DataFrame()
 
 # ---------------------------------------------------------
 # Query CADD score
@@ -366,7 +480,7 @@ def query_cadd_score(chrom, pos38):
 # ---------------------------------------------------------
 # Query eQTLs
 # ---------------------------------------------------------
-def query_eqtls(chrom, pos38):
+def query_eqtls(chrom, pos38, tissues=None):
     """
     Query eQTL annotation for a given hg38 chromosome and position.
     Returns a list of dictionaries (JSON-serializable).
@@ -398,6 +512,9 @@ def query_eqtls(chrom, pos38):
             "pval_nominal",
             "slope",
         ]
+        tissues = normalize_tissue_selection(tissues)
+        if "all_tissues" not in {t.lower() for t in tissues}:
+            df = df[df["tissue"].isin(tissues)]
         # sort by pval_nominal
         df = df.sort_values(by="pval_nominal", ascending=True)
         return df.to_dict(orient="records")
@@ -407,7 +524,7 @@ def query_eqtls(chrom, pos38):
 # ---------------------------------------------------------
 # Query sQTLs
 # ---------------------------------------------------------
-def query_sqtls(chrom, pos38):
+def query_sqtls(chrom, pos38, tissues=None):
     """
     Query sQTL annotation for a given hg38 chromosome and position.
     Returns a list of dictionaries (JSON-serializable).
@@ -439,6 +556,10 @@ def query_sqtls(chrom, pos38):
             "pval_nominal",
             "slope",
         ]
+        tissues = normalize_tissue_selection(tissues)
+        if "all_tissues" not in {t.lower() for t in tissues}:
+            df = df[df["tissue"].isin(tissues)]
+        df = df.sort_values(by="pval_nominal", ascending=True)
         return df.to_dict(orient="records")
     except Exception:
         return []
@@ -599,7 +720,7 @@ def query_gwas_associations(chrom, pos38):
 # ---------------------------------------------------------
 # Helper for annotating LD partners with CADD, eQTL, sQTL
 # ---------------------------------------------------------
-def annotate_ld_partners(chrom, ld_rows):
+def annotate_ld_partners(chrom, ld_rows, tissues=None):
     """
     For each LD partner, query CADD / eQTL / sQTL and flatten results.
     Returns three lists of dicts: (ld_cadd, ld_eqtl, ld_sqtl).
@@ -627,7 +748,7 @@ def annotate_ld_partners(chrom, ld_rows):
             r["ld_dist_bp"] = dist
             ld_cadd.append(r)
         # eQTL for partner
-        eqtl_rows = query_eqtls(chrom_clean, partner_pos)
+        eqtl_rows = query_eqtls(chrom_clean, partner_pos, tissues=tissues)
         # keep only hits where the alleles match the query
         eqtl_rows = [x for x in eqtl_rows if ( (x['ref'] == a1 and x['alt'] == a2) or (x['ref'] == a2 and x['alt'] == a1) )]
         for row in eqtl_rows:
@@ -638,7 +759,7 @@ def annotate_ld_partners(chrom, ld_rows):
             r["ld_dist_bp"] = dist
             ld_eqtl.append(r)
         # sQTL for partner
-        sqtl_rows = query_sqtls(chrom_clean, partner_pos)
+        sqtl_rows = query_sqtls(chrom_clean, partner_pos, tissues=tissues)
         # keep only hits where the alleles match the query
         sqtl_rows = [x for x in sqtl_rows if ( (x['ref'] == a1 and x['alt'] == a2) or (x['ref'] == a2 and x['alt'] == a1) )]
         for row in sqtl_rows:
@@ -688,6 +809,16 @@ def identify_most_likely_gene(info: dict):
     invalid_queries = []
     # Iterate over snps in info
     try:
+        clinvar_gene = (
+            info.get("gnomad_clinvar", {})
+            .get("clinvar", {})
+            .get("gene_symbol")
+        )
+        if clinvar_gene:
+            likely_genes = {'genes': [clinvar_gene], 'source': 'ClinVar'}
+            info['likely_gene'] = likely_genes
+            return info
+
         # Extract dataframes
         cadd_df, eqtl_df, sqtl_df, ld_df, gwas_df, ld_cadd_df, ld_eqtl_df, ld_sqtl_df, sv_df = pd.DataFrame(info['cadd_top']), pd.DataFrame(info['eqtl']), pd.DataFrame(info['sqtl']), pd.DataFrame(info['ld']), pd.DataFrame(info['gwas']), pd.DataFrame(info['ld_cadd']), pd.DataFrame(info['ld_eqtl']), pd.DataFrame(info['ld_sqtl']), pd.DataFrame(info['svs'])
         # First check if variant is coding in CADD
@@ -732,12 +863,8 @@ def identify_most_likely_gene(info: dict):
             cadd_ld_genes = []
         # Next check QTLs
         if not eqtl_df.empty or not sqtl_df.empty:
-            eqtl_genes = []
-            sqtl_genes = []
-            if not eqtl_df.empty:
-                eqtl_genes = eqtl_df["gene"].dropna().unique().tolist()
-            if not sqtl_df.empty:
-                sqtl_genes = sqtl_df["gene"].dropna().unique().tolist()
+            eqtl_genes = qtl_target_ids(eqtl_df)
+            sqtl_genes = qtl_target_ids(sqtl_df)
             qtl_combined = list(set(eqtl_genes + sqtl_genes + cadd_genes))
             if len(qtl_combined) >0:
                 likely_genes = {'genes': qtl_combined, 'source': 'QTL'}
@@ -746,18 +873,20 @@ def identify_most_likely_gene(info: dict):
                 return info
         # Next check LD QTLs
         if not ld_eqtl_df.empty or not ld_sqtl_df.empty:
-            ld_eqtl_genes = []
-            ld_sqtl_genes = []
-            if not ld_eqtl_df.empty:
-                ld_eqtl_genes = ld_eqtl_df["gene"].dropna().unique().tolist()
-            if not ld_sqtl_df.empty:
-                ld_sqtl_genes = ld_sqtl_df["gene"].dropna().unique().tolist()
+            ld_eqtl_genes = qtl_target_ids(ld_eqtl_df)
+            ld_sqtl_genes = qtl_target_ids(ld_sqtl_df)
             ld_qtl_combined = list(set(ld_eqtl_genes + ld_sqtl_genes + cadd_ld_genes))
             if len(ld_qtl_combined) >0:
                 likely_genes = {'genes': ld_qtl_combined, 'source': 'LD with QTL'}
                 # return most likely gene
                 info['likely_gene'] = likely_genes
                 return info
+        # Next check AlphaGenome recurrence among top absolute scores
+        alpha_genes = alphagenome_likely_genes(info.get("alphagenome", []))
+        if len(alpha_genes) > 0:
+            likely_genes = {'genes': alpha_genes, 'source': 'AlphaGenome'}
+            info['likely_gene'] = likely_genes
+            return info
         # If none of the above, return closest gene (placeholder)
         likely_genes = {'genes': closest_gene(cadd_df), 'source': 'Closest Gene'}
         # return most likely gene
@@ -767,6 +896,70 @@ def identify_most_likely_gene(info: dict):
         likely_genes = {'genes': [], 'source': 'Error'}
         info['likely_gene'] = likely_genes
         return info
+
+def alphagenome_likely_genes(alpha_rows, top_n=100, min_fraction=0.20):
+    """
+    Identify recurrent AlphaGenome-supported genes from the top absolute scores.
+    """
+    if not alpha_rows:
+        return []
+
+    try:
+        alpha_df = pd.DataFrame(alpha_rows)
+        if alpha_df.empty or "gene_name" not in alpha_df.columns:
+            return []
+
+        alpha_df = alpha_df.copy()
+        alpha_df["gene_name"] = alpha_df["gene_name"].astype(str).str.strip()
+        alpha_df = alpha_df[alpha_df["gene_name"] != ""]
+        alpha_df = alpha_df[alpha_df["gene_name"].str.lower() != "nan"]
+        if alpha_df.empty:
+            return []
+
+        if "score" in alpha_df.columns:
+            alpha_df["score_numeric"] = pd.to_numeric(alpha_df["score"], errors="coerce")
+            alpha_df["abs_score"] = alpha_df["score_numeric"].abs()
+            alpha_df = alpha_df.sort_values(by="abs_score", ascending=False, na_position="last")
+
+        alpha_top = alpha_df.head(top_n)
+        if alpha_top.empty:
+            return []
+
+        gene_counts = alpha_top["gene_name"].value_counts(normalize=True)
+        supported = gene_counts[gene_counts >= min_fraction]
+        return supported.index.tolist()
+    except Exception:
+        return []
+
+def qtl_target_ids(qtl_df):
+    """
+    Prefer gene symbols for QTL targets, but fall back to Ensembl IDs when the
+    symbol is missing.
+    """
+    if qtl_df is None or qtl_df.empty:
+        return []
+
+    targets = []
+    seen = set()
+
+    for _, row in qtl_df.iterrows():
+        gene = row.get("gene")
+        ensemble = row.get("ensemble")
+
+        gene = "" if pd.isna(gene) else str(gene).strip()
+        ensemble = "" if pd.isna(ensemble) else str(ensemble).strip()
+
+        value = gene or ensemble
+        if not value:
+            continue
+
+        key = value.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        targets.append(value)
+
+    return targets
 
 # ---------------------------------------------------------
 # Identify closest gene
@@ -810,24 +1003,63 @@ def add_search_to_file(q, build, DATA_PATH):
     with open(log_file, "a") as f:
         f.write(log_entry)
 
-# ---------------------------------------------------------
-# Core logic for querying a variant
-# ---------------------------------------------------------
-def run_variant_query(q, build="hg38"):
-    print(f"Running variant query for: {q} (build={build})", flush=True)
+def resolve_variant_info(q, build="hg38"):
+    """
+    Resolve a query to the base variant info record with hg38 alleles/position.
+    """
     parsed = parse_variant_query(q)
-
     if parsed["type"] == "invalid":
         return {"error": "Query not recognized. Use rsID (rs123), chr:pos, chr pos, gnomAD-style chr-pos-ref-alt, or SPDI accession:position:deleted:inserted."}, 400
 
-    # Monitoring: record search
-    add_search_to_file(q, build, DATA_PATH)
-    
-    # rsID path
     if parsed["type"] == "rsid":
         info = fetch_by_rsid(DB_FILE, parsed["rsid"])
         if not info:
             return {"error": f"{parsed['rsid']} not found"}, 404
+        return info, 200
+
+    chrom = parsed["chrom"].upper().replace("CHR", "")
+    pos = parsed["pos"]
+
+    if build == "hg38":
+        info = fetch_by_position(DB_FILE, chrom, pos)
+        if info is None:
+            return {"error": f"{chrom}:{pos} not found in hg38"}, 404
+        return info, 200
+
+    if build == "hg19":
+        lifted = liftover_hg19_to_hg38(chrom, pos)
+        if lifted is None:
+            return {"error": f"Cannot liftover {chrom}:{pos} (hg19→hg38)"}, 400
+
+        chr38, pos38 = lifted
+        info = fetch_by_position(DB_FILE, chr38, pos38)
+        if info is None:
+            return {"error": f"{chrom}:{pos}→{chr38}:{pos38} not in DB"}, 404
+        info["liftover"] = {
+            "from_hg19": f"{chrom}:{pos}",
+            "to_hg38": f"{chr38}:{pos38}",
+        }
+        return info, 200
+
+    return {"error": "build must be hg19 or hg38"}, 400
+
+# ---------------------------------------------------------
+# Core logic for querying a variant
+# ---------------------------------------------------------
+def run_variant_query(q, build="hg38", tissues=None):
+    print(f"Running variant query for: {q} (build={build})", flush=True)
+    tissues = normalize_tissue_selection(tissues)
+
+    # Monitoring: record search
+    add_search_to_file(q, build, DATA_PATH)
+
+    info, status = resolve_variant_info(q, build)
+    if status != 200:
+        return info, status
+
+    # rsID path
+    parsed = parse_variant_query(q)
+    if parsed["type"] == "rsid":
 
         try:
             chr38 = info["Chromosome"]
@@ -839,11 +1071,11 @@ def run_variant_query(q, build="hg38"):
             # Only top 100 for the UI
             info["cadd_top"] = sorted(info["cadd"], key=lambda x: x.get("phred_max", 0), reverse=True)[:100]
             # Add eQTL annotation
-            info["eqtl"] = query_eqtls(chr38, pos38)
+            info["eqtl"] = query_eqtls(chr38, pos38, tissues=tissues)
             # Only top 100 for the UI
             info["eqtl_top"] = sorted(info["eqtl"], key=lambda x: x.get("pval_nominal", 1))[:100]
             # Add sQTL annotation
-            info["sqtl"] = query_sqtls(chr38, pos38)
+            info["sqtl"] = query_sqtls(chr38, pos38, tissues=tissues)
             # Only top 100 for the UI
             info["sqtl_top"] = sorted(info["sqtl"], key=lambda x: x.get("pval_nominal", 1))[:100]
             # Add LD annotation
@@ -859,7 +1091,7 @@ def run_variant_query(q, build="hg38"):
                 #if len(info["ld"]) > 100:
                 #    info["ld"] = sorted(info["ld"], key=lambda x: x.get("r2", 0), reverse=True)[:100]
                 info["ld"] = sorted(info["ld"], key=lambda x: x.get("r2", 0), reverse=True)
-                ld_cadd, ld_eqtl, ld_sqtl = annotate_ld_partners(chr38, info["ld"])
+                ld_cadd, ld_eqtl, ld_sqtl = annotate_ld_partners(chr38, info["ld"], tissues=tissues)
                 info["ld_cadd"] = ld_cadd
                 info["ld_eqtl"] = ld_eqtl
                 info["ld_sqtl"] = ld_sqtl
@@ -894,6 +1126,7 @@ def run_variant_query(q, build="hg38"):
         # record in session
         info["query"] = q
         info["build"] = build
+        info["tissues"] = tissues
         session['single_variant_query'] = info
         return info, 200
 
@@ -902,10 +1135,6 @@ def run_variant_query(q, build="hg38"):
     pos = parsed["pos"]
 
     if build == "hg38":
-        info = fetch_by_position(DB_FILE, chrom, pos)
-        if info is None:
-            return {"error": f"{chrom}:{pos} not found in hg38"}, 404
-
         try:
             chr38 = info["Chromosome"]
             pos38 = info["Position_hg38"]
@@ -916,11 +1145,11 @@ def run_variant_query(q, build="hg38"):
             # Only top 100 for the UI
             info["cadd_top"] = sorted(info["cadd"], key=lambda x: x.get("phred_max", 0), reverse=True)[:100]
             # Add eQTL annotation
-            info["eqtl"] = query_eqtls(chr38, pos38)
+            info["eqtl"] = query_eqtls(chr38, pos38, tissues=tissues)
             # Only top 100 for the UI
             info["eqtl_top"] = sorted(info["eqtl"], key=lambda x: x.get("pval_nominal", 1))[:100]
             # Add sQTL annotation
-            info["sqtl"] = query_sqtls(chr38, pos38)
+            info["sqtl"] = query_sqtls(chr38, pos38, tissues=tissues)
             # Only top 100 for the UI
             info["sqtl_top"] = sorted(info["sqtl"], key=lambda x: x.get("pval_nominal", 1))[:100]
             # Add LD annotation
@@ -935,7 +1164,7 @@ def run_variant_query(q, build="hg38"):
                 # If there are >100 LD partners, limit to top 100 by r2
                 if len(info["ld"]) > 100:
                     info["ld"] = sorted(info["ld"], key=lambda x: x.get("r2", 0), reverse=True)[:100]
-                ld_cadd, ld_eqtl, ld_sqtl = annotate_ld_partners(chr38, info["ld"])
+                ld_cadd, ld_eqtl, ld_sqtl = annotate_ld_partners(chr38, info["ld"], tissues=tissues)
                 info["ld_cadd"] = ld_cadd
                 info["ld_eqtl"] = ld_eqtl
                 info["ld_sqtl"] = ld_sqtl
@@ -970,23 +1199,13 @@ def run_variant_query(q, build="hg38"):
         # record in session
         info["query"] = q
         info["build"] = build
+        info["tissues"] = tissues
         session['single_variant_query'] = info
         return info, 200
 
     if build == "hg19":
-        lifted = liftover_hg19_to_hg38(chrom, pos)
-        if lifted is None:
-            return {"error": f"Cannot liftover {chrom}:{pos} (hg19→hg38)"}, 400
-
-        chr38, pos38 = lifted
-        info = fetch_by_position(DB_FILE, chr38, pos38)
-        if info is None:
-            return {"error": f"{chrom}:{pos}→{chr38}:{pos38} not in DB"}, 404
-
-        info["liftover"] = {
-            "from_hg19": f"{chrom}:{pos}",
-            "to_hg38": f"{chr38}:{pos38}",
-        }
+        chr38 = info["Chromosome"]
+        pos38 = info["Position_hg38"]
         try:
             # Add gnomAD/ClinVar annotation based on hg38 location
             info["gnomad_clinvar"] = query_gnomad_info(info)
@@ -995,11 +1214,11 @@ def run_variant_query(q, build="hg38"):
             # Only top 100 for the UI
             info["cadd_top"] = sorted(info["cadd"], key=lambda x: x.get("phred_max", 0), reverse=True)[:100]
             # Add eQTL annotation based on hg38 location
-            info["eqtl"] = query_eqtls(chr38, pos38)
+            info["eqtl"] = query_eqtls(chr38, pos38, tissues=tissues)
             # Only top 100 for the UI
             info["eqtl_top"] = sorted(info["eqtl"], key=lambda x: x.get("pval_nominal", 1))[:100]
             # Add sQTL annotation based on hg38 location
-            info["sqtl"] = query_sqtls(chr38, pos38)
+            info["sqtl"] = query_sqtls(chr38, pos38, tissues=tissues)
             # Only top 100 for the UI
             info["sqtl_top"] = sorted(info["sqtl"], key=lambda x: x.get("pval_nominal", 1))[:100]
             # Add LD annotation based on hg38 location
@@ -1014,7 +1233,7 @@ def run_variant_query(q, build="hg38"):
                 # If there are >100 LD partners, limit to top 100 by r2
                 if len(info["ld"]) > 100:
                     info["ld"] = sorted(info["ld"], key=lambda x: x.get("r2", 0), reverse=True)[:100]
-                ld_cadd, ld_eqtl, ld_sqtl = annotate_ld_partners(chr38, info["ld"])
+                ld_cadd, ld_eqtl, ld_sqtl = annotate_ld_partners(chr38, info["ld"], tissues=tissues)
                 info["ld_cadd"] = ld_cadd
                 info["ld_eqtl"] = ld_eqtl
                 info["ld_sqtl"] = ld_sqtl
@@ -1049,6 +1268,7 @@ def run_variant_query(q, build="hg38"):
         # record in session
         info["query"] = q
         info["build"] = build
+        info["tissues"] = tissues
         session['single_variant_query'] = info
         return info, 200
     return {"error": "build must be hg19 or hg38"}, 400
@@ -1060,13 +1280,60 @@ def run_variant_query(q, build="hg38"):
 def variant_query():
     q = request.args.get("query", "").strip()
     build = request.args.get("build", "hg38").lower()
+    tissues = request.args.getlist("tissues")
+    if not tissues:
+        tissues_param = request.args.get("tissues", "").strip()
+        tissues = tissues_param if tissues_param else None
 
     if not q:
         return jsonify({"error": "Missing ?query= parameter"}), 400
 
-    info, status = run_variant_query(q, build)
+    info, status = run_variant_query(q, build, tissues=tissues)
     info = sanitize_for_json(info)
     return jsonify(info), status
+
+# ---------------------------------------------------------
+# AlphaGenome endpoint (JSON)
+# ---------------------------------------------------------
+@snpbot_bp.route("/api/variant/alphagenome")
+def variant_alphagenome():
+    q = request.args.get("query", "").strip()
+    build = request.args.get("build", "hg38").lower()
+    tissues = request.args.getlist("tissues")
+    if not tissues:
+        tissues_param = request.args.get("tissues", "").strip()
+        tissues = tissues_param if tissues_param else None
+    tissues = normalize_tissue_selection(tissues)
+
+    if not q:
+        return jsonify({"error": "Missing ?query= parameter"}), 400
+
+    session_info = session.get("single_variant_query")
+    if session_info and session_info.get("query") == q and session_info.get("build") == build:
+        info = dict(session_info)
+    else:
+        info, status = resolve_variant_info(q, build)
+        if status != 200:
+            return jsonify(sanitize_for_json(info)), status
+
+    alpha_df = alphagenome_annotation(info, tissues=tissues)
+    alpha_records = alpha_df.to_dict(orient="records") if not alpha_df.empty else []
+    info["alphagenome"] = alpha_records
+
+    if {"cadd_top", "eqtl", "sqtl", "ld", "gwas", "ld_cadd", "ld_eqtl", "ld_sqtl", "svs"}.issubset(info.keys()):
+        info = identify_most_likely_gene(info)
+
+    if session_info and session_info.get("query") == q and session_info.get("build") == build:
+        session["single_variant_query"] = info
+
+    payload = {
+        "query": q,
+        "build": build,
+        "tissues": tissues,
+        "alphagenome": alpha_records,
+        "likely_gene": info.get("likely_gene"),
+    }
+    return jsonify(sanitize_for_json(payload)), 200
 
 # ---------------------------------------------------------
 # Session endpoint to retrieve last query
