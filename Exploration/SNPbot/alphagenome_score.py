@@ -14,6 +14,16 @@ from alphagenome.models import dna_client, variant_scorers
 
 LOGGER = logging.getLogger(__name__)
 
+def _load_default_api_key() -> str | None:
+    """Load the AlphaGenome API key from config.txt next to this script."""
+    try:
+        config_path = Path(__file__).resolve().with_name("config.txt")
+        cfg = pd.read_table(config_path, sep=r"\s+", engine="python")
+        api_key = str(cfg["alphagenome_api"].iloc[0]).strip()
+        return api_key or None
+    except Exception:
+        return None
+
 # Functions
 # Helper function to convert DataFrames with object columns to a format that can be safely written to parquet.
 def _to_parquet_safe(df: pd.DataFrame) -> pd.DataFrame:
@@ -79,8 +89,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--api-key",
-        default='AIzaSyAGZR0FINFE3rgCDP_b36x1-V4m5ZeG4Es',
-        #default=os.environ.get("ALPHAGENOME_API_KEY"),
+        default=_load_default_api_key(),
         help="AlphaGenome API key (if different from default).",
     )
     parser.add_argument(

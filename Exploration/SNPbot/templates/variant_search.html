@@ -89,6 +89,22 @@
       margin-bottom: 10px;
     }
 
+    .example-button {
+      border: 0;
+      border-radius: 999px;
+      padding: 8px 14px;
+      background: #dbeafe;
+      color: #1d4ed8;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .example-button:hover {
+      background: #bfdbfe;
+    }
+
     #query-input {
       flex: 1;
       border-radius: 999px;
@@ -555,6 +571,10 @@
       <h3 class="search-card-title">Search</h3>
 
       <div class="search-row">
+        <button type="button" class="example-button" onclick="useDefaultExample()">
+          Use example
+        </button>
+
         <input
           id="query-input"
           type="text"
@@ -2417,6 +2437,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         setLoading(false);
         queryInput.focus();
       });
+  }
+
+  function useDefaultExample() {
+    const queryInput = document.getElementById("query-input");
+    if (!queryInput) return;
+    queryInput.value = "rs7412";
+    queryInput.focus();
   }
 
   function escapeCell(v) {
