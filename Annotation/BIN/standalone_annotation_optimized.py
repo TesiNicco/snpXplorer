@@ -869,37 +869,53 @@ def run_variant_query(q: str, build: str = "hg38", qtl_tissues: List[str] = ["al
                 pos38 = info["pos_hg38"]
                 # Add gnomAD / ClinVar annotation
                 gnomad_clinvar_dic = query_gnomad_info(info)
+            except Exception:
+                gnomad_clinvar_dic = None
+            try:
                 # Add alphagenome annotation
                 alphagenome_dic = alphagenome_annotation(info, tissues=qtl_tissues)
+            except Exception:
+                alphagenome_dic = None
+            try:
                 # Add CADD annotation
                 cadd_dic = query_cadd_score(chr38, pos38)
+            except Exception:
+                cadd_dic = None
+            try:
                 # Add eQTL annotation
                 eqtl_dic = query_eqtls(chr38, pos38, qtl_tissues)
+            except Exception:
+                eqtl_dic = None
+            try:
                 # Add sQTL annotation
                 sqtl_dic = query_sqtls(chr38, pos38, qtl_tissues)
+            except Exception:
+                sqtl_dic = None
+            try:
                 # Add LD annotation
                 ld_dic, all_vars = query_ld(chr38, pos38, ld_threshold)
+            except Exception:
+                ld_dic = None
+            try:
                 # Add GWAS associations
                 gwas_dic = query_gwas_associations(chr38, pos38)
+            except Exception:
+                gwas_dic = None
+            try:
                 # Add SV annotation
                 sv_list = extract_sv(DATA_PATH, chr38, pos38, build, ['all'])
+            except Exception:
+                sv_list = None
+            try:
                 # CADD / eQTL / sQTL for all LD partners
                 if ld_dic:
                     ld_cadd, ld_eqtl, ld_sqtl = annotate_ld_partners(chr38, ld_dic, pos38, qtl_tissues)
                 else:
                     ld_cadd, ld_eqtl, ld_sqtl = None, None, None
             except Exception:
-                cadd_dic = None
-                gnomad_clinvar_dic = None
-                alphagenome_dic = None
-                eqtl_dic = None
-                sqtl_dic = None
-                ld_dic = None
-                gwas_dic = None
                 ld_cadd = None
                 ld_eqtl = None
                 ld_sqtl = None
-                sv_list = None
             # Convert to dfs
             output[p['rsid']] = []
             output[p['rsid']].append([info] if info is not None else [])
@@ -932,37 +948,53 @@ def run_variant_query(q: str, build: str = "hg38", qtl_tissues: List[str] = ["al
                 pos38 = info["pos_hg38"]
                 # Add CADD annotation
                 cadd_dic = query_cadd_score(chr38, pos38)
+            except Exception:
+                cadd_dic = None
+            try:
                 # Add gnomAD / ClinVar annotation
                 gnomad_clinvar_dic = query_gnomad_info(info)
+            except Exception:                
+                gnomad_clinvar_dic = None
+            try:
                 # Add alphagenome annotation
                 alphagenome_dic = alphagenome_annotation(info, tissues=qtl_tissues)
+            except Exception:
+                alphagenome_dic = None
+            try:
                 # Add eQTL annotation
                 eqtl_dic = query_eqtls(chr38, pos38, qtl_tissues)
+            except Exception:
+                eqtl_dic = None
+            try:
                 # Add sQTL annotation
                 sqtl_dic = query_sqtls(chr38, pos38, qtl_tissues)
+            except Exception:
+                sqtl_dic = None
+            try:
                 # Add LD annotation
                 ld_dic, all_vars = query_ld(chr38, pos38, ld_threshold)
+            except Exception:
+                ld_dic = None
+            try:
                 # Add GWAS associations
                 gwas_dic = query_gwas_associations(chr38, pos38)
+            except Exception:
+                gwas_dic = None
+            try:
                 # Add SV annotation
                 sv_list = extract_sv(DATA_PATH, chr38, pos38, build, ['all'])
+            except Exception:
+                sv_list = None
+            try:
                 # CADD / eQTL / sQTL for all LD partners
                 if ld_dic:
                     ld_cadd, ld_eqtl, ld_sqtl = annotate_ld_partners(chr38, ld_dic, pos38, qtl_tissues)
                 else:
                     ld_cadd, ld_eqtl, ld_sqtl = None, None, None
             except Exception:
-                cadd_dic = None
-                gnomad_clinvar_dic = None
-                alphagenome_dic = None
-                eqtl_dic = None
-                sqtl_dic = None
-                ld_dic = None
-                gwas_dic = None
                 ld_cadd = None
                 ld_eqtl = None
                 ld_sqtl = None
-                sv_list = None
             # Convert to dfs
             output[p['query']] = []
             output[p['query']].append([info] if info is not None else [])
@@ -996,37 +1028,53 @@ def run_variant_query(q: str, build: str = "hg38", qtl_tissues: List[str] = ["al
             try:
                 # Add CADD annotation based on hg38 location
                 cadd_dic = query_cadd_score(chr38, pos38)
+            except Exception:
+                cadd_dic = None
+            try:
                 # Add gnomAD / ClinVar annotation
                 gnomad_clinvar_dic = query_gnomad_info(info)
+            except Exception:
+                gnomad_clinvar_dic = None
+            try:
                 # Add alphagenome annotation
                 alphagenome_dic = alphagenome_annotation(info, tissues=qtl_tissues)
+            except Exception:
+                alphagenome_dic = None
+            try:
                 # Add eQTL annotation based on hg38 location
                 eqtl_dic = query_eqtls(chr38, pos38, qtl_tissues)
+            except Exception:
+                eqtl_dic = None
+            try:
                 # Add sQTL annotation based on hg38 location
                 sqtl_dic = query_sqtls(chr38, pos38, qtl_tissues)
+            except Exception:
+                sqtl_dic = None
+            try:
                 # Add LD annotation based on hg38 location
                 ld_dic, all_vars = query_ld(chr38, pos38, ld_threshold)
+            except Exception:
+                ld_dic = None
+            try:
                 # Add GWAS associations
                 gwas_dic = query_gwas_associations(chr38, pos38)
+            except Exception:
+                gwas_dic = None
+            try:
                 # Add SV annotation
                 sv_list = extract_sv(DATA_PATH, chr38, pos38, build, ['all'])
+            except Exception:
+                sv_list = None
+            try:
                 # CADD / eQTL / sQTL for all LD partners
                 if ld_dic:
                     ld_cadd, ld_eqtl, ld_sqtl = annotate_ld_partners(chr38, ld_dic, pos38, qtl_tissues)
                 else:
                     ld_cadd, ld_eqtl, ld_sqtl = None, None, None
             except Exception:
-                cadd_dic = None
-                gnomad_clinvar_dic = None
-                alphagenome_dic = None
-                eqtl_dic = None
-                sqtl_dic = None
-                ld_dic = None
-                gwas_dic = None
                 ld_cadd = None
                 ld_eqtl = None
                 ld_sqtl = None
-                sv_list = None
             # Convert to dfs
             output[p['query']] = []
             output[p['query']].append([info] if info is not None else [])
@@ -1917,7 +1965,7 @@ def main():
     parser.add_argument("-t", "--type", default="annotation", choices=["annotation", "enrichment"], help="Type of analysis to perform (default: annotation).")
     parser.add_argument("-ts", "--qtl-tissues", default="all", help="Comma-separated list of tissues to consider for eQTL/sQTL annotation (default: all).")
     parser.add_argument("-gs", "--gsea-sets", default="GO:BP", help="Comma-separated list of gene sets to use for gene-set enrichment analysis (default: GO:BP). Options: GO:BP, KEGG, REAC, WP.")
-    parser.add_argument("-e", "--email", required=True, help="Email address to send results to.")
+    parser.add_argument("-e", "--email", required=False, default="", help="Optional email address to send results to.")
     args = parser.parse_args()
     # Place arguments into variables
     query = args.query
@@ -1927,13 +1975,13 @@ def main():
     analysis_type = args.type
     qtl_tissues = args.qtl_tissues.split(",") if args.qtl_tissues != "all" else ["all"]
     gsea_sets = args.gsea_sets.split(",")
-    email = args.email
+    email = (args.email or "").strip()
     # query = '/Users/nicco/Downloads/snpXplorer_input_58462.txt'
     # build = 'grch37'
     # random_number = 58462
     # output_folder = '/Users/nicco/Downloads'
     # analysis_type = 'annotation'
-    # qtl_tissues = ['Whole_Blood', 'Lung']
+    # qtl_tissues = ['Skin_Sun_Exposed_Lower_leg']
     # gsea_sets = ['GO:BP', 'KEGG', 'REAC', 'Wiki']
     # email = 'tesinicco@gmail.com'
     
@@ -1953,15 +2001,17 @@ def main():
     if not os.path.exists(output_folder):
         # Create output folder
         os.makedirs(output_folder)
-        # Add documentation to the output folder
-        cmd = f"cp {PATH_SCRIPT}/snpXplorer_output_description.pdf {output_folder}/"
-        os.system(cmd)
+        # Add documentation to the output folder if email if present
+        if email:
+            cmd = f"cp {PATH_SCRIPT}/snpXplorer_output_description.pdf {output_folder}/"
+            os.system(cmd)
     else:
         print(f"Output folder {output_folder} already exists. Please remove it or provide a different random number.", file=sys.stderr, flush=True)
         sys.exit(1)
     
     # Email notification
-    email_at_start(email, output_folder, query, analysis_type, build, qtl_tissues, gsea_sets, random_number)
+    if email:
+        email_at_start(email, output_folder, query, analysis_type, build, qtl_tissues, gsea_sets, random_number)
     
     # Decide whether to run the process or not
     wait_for_memory(analysis_type)
@@ -2016,7 +2066,8 @@ def main():
     
     # If gene-set enrichment analysis is requested and >1000 variants, stop execution and notify user
     if analysis_type == "enrichment" and len(queries) > 1000:
-        send_email_error_toomany(email, query, output_folder)
+        if email:
+            send_email_error_toomany(email, query, output_folder)
         sys.exit(1)
     
     # Iterate over elements in queries
@@ -2127,61 +2178,63 @@ def main():
     
     # If all queries were invalid, send error email and exit
     if len(invalid_queries) == len(queries):
-        send_email_error(email, query, output_folder)
+        if email:
+            send_email_error(email, query, output_folder)
         sys.exit(1)
     
     # At this point, combine all most likely genes into a single DataFrame
-    if most_likely_gene_list:
-        most_likely_gene = pd.concat(most_likely_gene_list, ignore_index=True)
-    else:
-        most_likely_gene = pd.DataFrame()
+    if email:
+        if most_likely_gene_list:
+            most_likely_gene = pd.concat(most_likely_gene_list, ignore_index=True)
+        else:
+            most_likely_gene = pd.DataFrame()
 
-    # Gene-set enrichment analysis
-    if analysis_type == "enrichment" and not most_likely_gene.empty:
-        enrichment_df = gene_set_enrichment_analysis(most_likely_gene, n_iterations=200, gsea_sets=gsea_sets)
-        dist_mt, go_list = semantic_pygosemsim(enrichment_df, p_threshold=0.05, output_folder=output_folder)
+        # Gene-set enrichment analysis
+        if analysis_type == "enrichment" and not most_likely_gene.empty:
+            enrichment_df = gene_set_enrichment_analysis(most_likely_gene, n_iterations=200, gsea_sets=gsea_sets)
+            dist_mt, go_list = semantic_pygosemsim(enrichment_df, p_threshold=0.05, output_folder=output_folder)
 
-        clustered_go_terms_list = []
-        if not dist_mt.empty:
-            cmd = f"Rscript {PATH_SCRIPT}/standalone_annotation.R -d {output_folder}/gene_set_enrichment/semantic_similarity_matrix.tsv -o {output_folder}/gene_set_enrichment"
-            os.system(cmd)
-            clustered_go_terms_list = guide_wordclouds(output_folder, enrichment_df)
-            cleanRedundantFiles(output_folder)
-            
-        # Rename columns of enrichment_df for consistency
-        enrichment_df = enrichment_df.rename(columns={"native": "Enrichment Term ID", "name": "Enrichment Term Name", "source": "Enrichment Source", "p_value": "Enrichment P-value", "term_size": "Enrichment Term Size", "query_size": "Enrichment Query Size", "precision": "Enrichment Precision", "recall": "Enrichment Recall", "description": "Enrichment Term Description", "intersections": "Enrichment intersections"}).reset_index(drop=True)
-        # Convert intersections to comma-separated strings
-        enrichment_df['Enrichment intersections'] = enrichment_df['Enrichment intersections'].apply(lambda x: ','.join(x) if isinstance(x, list) else x)
-        # Write to disk
-        enrichment_df.to_csv(f"{output_folder}/gene_set_enrichment/gene_set_enrichment_results.tsv", sep="\t", index=False)
-    else:
-        enrichment_df = pd.DataFrame()
-        dist_mt = pd.DataFrame()
-        clustered_go_terms_list = []
-    
-    # Read again the merged_df from disk
-    merged_df = pd.read_csv(variant_combined_path, sep="\t")
-    
-    # Prepare pathway-PRS weights if clustering was performed
-    if analysis_type == "enrichment" and clustered_go_terms_list:
-        prepare_pathway_prs_weights(clustered_go_terms_list, merged_df, output_folder, enrichment_df)
+            clustered_go_terms_list = []
+            if not dist_mt.empty:
+                cmd = f"Rscript {PATH_SCRIPT}/standalone_annotation.R -d {output_folder}/gene_set_enrichment/semantic_similarity_matrix.tsv -o {output_folder}/gene_set_enrichment"
+                os.system(cmd)
+                clustered_go_terms_list = guide_wordclouds(output_folder, enrichment_df)
+                cleanRedundantFiles(output_folder)
+                
+            # Rename columns of enrichment_df for consistency
+            enrichment_df = enrichment_df.rename(columns={"native": "Enrichment Term ID", "name": "Enrichment Term Name", "source": "Enrichment Source", "p_value": "Enrichment P-value", "term_size": "Enrichment Term Size", "query_size": "Enrichment Query Size", "precision": "Enrichment Precision", "recall": "Enrichment Recall", "description": "Enrichment Term Description", "intersections": "Enrichment intersections"}).reset_index(drop=True)
+            # Convert intersections to comma-separated strings
+            enrichment_df['Enrichment intersections'] = enrichment_df['Enrichment intersections'].apply(lambda x: ','.join(x) if isinstance(x, list) else x)
+            # Write to disk
+            enrichment_df.to_csv(f"{output_folder}/gene_set_enrichment/gene_set_enrichment_results.tsv", sep="\t", index=False)
+        else:
+            enrichment_df = pd.DataFrame()
+            dist_mt = pd.DataFrame()
+            clustered_go_terms_list = []
         
-    # Plots with R
-    cmd = f"Rscript {PATH_SCRIPT}/plot_annotation.R -i {output_folder}/variant_annotation_combined.tsv -g {output_folder}/target_annotations/gwas_annotation_target.tsv -o {output_folder}/plots_variant_annotation"
-    os.system(cmd)
-    
-    # Move query file in output folder
-    cmd = f"mv {query} {output_folder}/"
-    os.system(cmd)
-    # Compress output folder
-    cmd = f"cd {os.path.dirname(output_folder)} && zip -r {os.path.basename(output_folder)}.zip {os.path.basename(output_folder)}"
-    os.system(cmd)
-    # Remove output folder after compression
-    cmd = f"rm -rf {output_folder}"
-    os.system(cmd)
-    
-    # Send email notification at the end
-    email_at_end(email, random_number)    
+        # Read again the merged_df from disk
+        merged_df = pd.read_csv(variant_combined_path, sep="\t")
+        
+        # Prepare pathway-PRS weights if clustering was performed
+        if analysis_type == "enrichment" and clustered_go_terms_list:
+            prepare_pathway_prs_weights(clustered_go_terms_list, merged_df, output_folder, enrichment_df)
+            
+        # Plots with R
+        cmd = f"Rscript {PATH_SCRIPT}/plot_annotation.R -i {output_folder}/variant_annotation_combined.tsv -g {output_folder}/target_annotations/gwas_annotation_target.tsv -o {output_folder}/plots_variant_annotation"
+        os.system(cmd)
+        
+        # Move query file in output folder
+        cmd = f"mv {query} {output_folder}/"
+        os.system(cmd)
+        # Compress output folder
+        cmd = f"cd {os.path.dirname(output_folder)} && zip -r {os.path.basename(output_folder)}.zip {os.path.basename(output_folder)}"
+        os.system(cmd)
+        # Remove output folder after compression
+        cmd = f"rm -rf {output_folder}"
+        os.system(cmd)
+        
+        # Send email notification at the end
+        email_at_end(email, random_number)    
         
 if __name__ == "__main__":
     main()
