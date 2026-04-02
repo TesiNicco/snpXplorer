@@ -1973,7 +1973,8 @@ def main():
     output_folder = args.output
     random_number = args.random
     analysis_type = args.type
-    qtl_tissues = args.qtl_tissues.split(",") if args.qtl_tissues != "all" else ["all"]
+    parts = [x.strip().lower() for x in args.qtl_tissues.split(",") if x.strip()]
+    qtl_tissues = ["all"] if any(x in {"all", "all_tissues"} for x in parts) else parts
     gsea_sets = args.gsea_sets.split(",")
     email = (args.email or "").strip()
     # query = '/Users/nicco/Downloads/snpXplorer_input_58462.txt'
