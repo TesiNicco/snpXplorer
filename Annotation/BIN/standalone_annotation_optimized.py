@@ -1536,6 +1536,9 @@ def average_enrichment_results(enrichment_results: List[pd.DataFrame]):
 # ---------------------------------------------------------
 def semantic_pygosemsim(enrichment_df: pd.DataFrame, p_threshold: float = 0.05, output_folder: str = ""):
     try:
+        # Create output folder for gene set enrichment results
+        output_folder_gset = f"{output_folder}/gene_set_enrichment"
+        os.makedirs(output_folder_gset, exist_ok=True)
         # Set Path
         go_path = DATA_PATH / "../Annotation/INPUTS_OTHER/20220510_go"
         # Load Go graph
@@ -1571,8 +1574,6 @@ def semantic_pygosemsim(enrichment_df: pd.DataFrame, p_threshold: float = 0.05, 
         # Convert to matrix with GO terms as row and column names
         dist_mt = pd.DataFrame(dist_mt, index=go_list, columns=go_list)
         # Save distance matrix
-        output_folder_gset = f"{output_folder}/gene_set_enrichment"
-        os.makedirs(output_folder_gset, exist_ok=True)
         dist_mt.to_csv(f"{output_folder_gset}/semantic_similarity_matrix.tsv", sep="\t", index=True, header=True)
     except Exception as e:
         print(f"Error during semantic similarity analysis: {e}", file=sys.stderr, flush=True)
@@ -1979,11 +1980,11 @@ def main():
     email = (args.email or "").strip()
     # query = '/Users/nicco/Downloads/snpXplorer_input_58462.txt'
     # build = 'grch37'
-    # random_number = 58462
+    # random_number = 48903
     # output_folder = '/Users/nicco/Downloads'
-    # analysis_type = 'annotation'
-    # qtl_tissues = ['Skin_Sun_Exposed_Lower_leg']
-    # gsea_sets = ['GO:BP', 'KEGG', 'REAC', 'Wiki']
+    # analysis_type = 'enrichment'
+    # qtl_tissues = ['pancreas']
+    # gsea_sets = ['KEGG', 'REAC']
     # email = 'tesinicco@gmail.com'
     
     # Fix reference built
@@ -2205,7 +2206,8 @@ def main():
             # Rename columns of enrichment_df for consistency
             enrichment_df = enrichment_df.rename(columns={"native": "Enrichment Term ID", "name": "Enrichment Term Name", "source": "Enrichment Source", "p_value": "Enrichment P-value", "term_size": "Enrichment Term Size", "query_size": "Enrichment Query Size", "precision": "Enrichment Precision", "recall": "Enrichment Recall", "description": "Enrichment Term Description", "intersections": "Enrichment intersections"}).reset_index(drop=True)
             # Convert intersections to comma-separated strings
-            enrichment_df['Enrichment intersections'] = enrichment_df['Enrichment intersections'].apply(lambda x: ','.join(x) if isinstance(x, list) else x)
+            if enrichment_df.shape[0] > 0 and 'Enrichment intersections' in enrichment_df.columns:
+                enrichment_df['Enrichment intersections'] = enrichment_df['Enrichment intersections'].apply(lambda x: ','.join(x) if isinstance(x, list) else x)
             # Write to disk
             enrichment_df.to_csv(f"{output_folder}/gene_set_enrichment/gene_set_enrichment_results.tsv", sep="\t", index=False)
         else:
