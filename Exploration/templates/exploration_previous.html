@@ -23,6 +23,31 @@
             <!-- Define styles for the Select2 elements -->
             <style>
                 .card { background:#9FD8C6; padding:20px; margin:20px; border-radius:12px; }
+                .card-actions { display:flex; justify-content:flex-start; margin-bottom:16px; }
+                .preset-button {
+                    border: 0;
+                    border-radius: 999px;
+                    padding: 8px 14px;
+                    background: #14532d;
+                    color: #ffffff;
+                    font-size: 13px;
+                    font-weight: 600;
+                    cursor: pointer;
+                }
+                .preset-button:hover { background: #166534; }
+                .form-error-message {
+                    display: none;
+                    margin: 0 0 14px 0;
+                    padding: 10px 14px;
+                    border-radius: 10px;
+                    background: #fee2e2;
+                    color: #991b1b;
+                    font-size: 14px;
+                    font-weight: 600;
+                }
+                .form-error-message.show {
+                    display: block;
+                }
                 .options-wrapper { display:flex; flex-wrap:nowrap; gap:20px; }
 
                 /* proportions (sum ≈ 100; gap will cause some shrink, that’s OK) */
@@ -56,6 +81,10 @@
             </style>
             <!-- Set divs for the three options -->
             <div class="card">
+                <div class="card-actions">
+                    <button type="button" id="use-default-example" class="preset-button">Use Default Example</button>
+                </div>
+                <div id="exploration-form-error" class="form-error-message" role="alert" aria-live="polite"></div>
                 <div class="options-wrapper">
                     <!-- GWAS choice -->
                     <div class="option-box" id="gwas_option">
@@ -191,8 +220,74 @@
                 </div>
 
                 <script>
+                    (function () {
+                        const defaultGwas = "Alzheimer's disease — Bellenguez C (2022) [ebi-a-GCST90027158]";
+                        const defaultBrowse = "PLCG2";
+                        const defaultRefGenome = "GRCh37";
+                        const presetButton = document.getElementById('use-default-example');
+
+                        if (!presetButton) return;
+
+                        presetButton.addEventListener('click', function () {
+                            const gwasSelect = $('#gwas_select');
+                            const browseSelect = $('#browse_option');
+
+                            const existingGwasOption = gwasSelect.find("option").filter(function () {
+                                return this.value === defaultGwas;
+                            });
+                            if (existingGwasOption.length === 0) {
+                                const gwasOption = new Option(defaultGwas, defaultGwas, true, true);
+                                gwasSelect.append(gwasOption);
+                            } else {
+                                existingGwasOption.prop('selected', true);
+                            }
+                            gwasSelect.trigger('change');
+
+                            document.querySelector(`input[name="refGenome"][value="${defaultRefGenome}"]`)?.click();
+
+                            const existingBrowseOption = browseSelect.find("option").filter(function () {
+                                return this.value === defaultBrowse;
+                            });
+                            if (existingBrowseOption.length === 0) {
+                                const browseOption = new Option(defaultBrowse, defaultBrowse, true, true);
+                                browseSelect.append(browseOption);
+                            } else {
+                                existingBrowseOption.prop('selected', true);
+                            }
+                            browseSelect.trigger('change');
+                        });
+                    })();
+
                     document.getElementById('exploration_form').addEventListener('submit', async (e) => {
                         e.preventDefault();
+                        const errorBox = document.getElementById('exploration-form-error');
+                        const gwasValues = ($('#gwas_select').val() || []).filter(Boolean);
+                        const browseValue = ($('#browse_option').val() || '').trim();
+                        const missingGwas = gwasValues.length === 0;
+                        const missingBrowse = browseValue.length === 0;
+
+                        if (missingGwas || missingBrowse) {
+                            let message = '';
+                            if (missingGwas && missingBrowse) {
+                                message = 'Please insert a GWAS and a region of interest before submitting';
+                            } else if (missingGwas) {
+                                message = 'Please insert a GWAS of interest before submitting';
+                            } else {
+                                message = 'Please insert a region of interest before submitting';
+                            }
+
+                            if (errorBox) {
+                                errorBox.textContent = message;
+                                errorBox.classList.add('show');
+                            }
+                            return;
+                        }
+
+                        if (errorBox) {
+                            errorBox.textContent = '';
+                            errorBox.classList.remove('show');
+                        }
+
                         const fd = new FormData(e.target);
                         // (no consoleAppend here)
                         const resp = await fetch('/exploration/run', { method: 'POST', body: fd });

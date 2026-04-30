@@ -182,7 +182,7 @@ def plot_haplotype_traits(clusters_of_interest, all_indices, trait_list, cluster
                 x=umap[idxs, 0],
                 y=umap[idxs, 1],
                 mode="markers",
-                marker=dict(size=9, color=color_map[cid]),
+                marker=dict(size=13, color=color_map[cid]),
                 name=all_cluster_representatives.loc[all_cluster_representatives['Cluster Label'] == cid, 'Final Representative'].values[0],  # show representative name in legend
                 text=[trait_list[i] for i in idxs],
                 hoverinfo="text",
@@ -261,21 +261,31 @@ def plot_haplotype_traits(clusters_of_interest, all_indices, trait_list, cluster
         col=2
     )
     # Cluster annotation strip on the right
-    cluster_colors_for_traits = [
-        color_map.get(cid, "#d3d3d3") for cid in cluster_labels_for_index
-    ]
+    cluster_colors_for_traits = [color_map.get(cid, "#d3d3d3") for cid in cluster_labels_for_index]
+    # Build a 1-column heatmap strip so width can be increased in X only
+    unique_strip_colors = list(dict.fromkeys(cluster_colors_for_traits))
+    color_to_idx = {c: i for i, c in enumerate(unique_strip_colors)}
+    strip_width_cols = 4
+    strip_col = np.array([color_to_idx[c] for c in cluster_colors_for_traits], dtype=float).reshape(-1, 1)
+    strip_vals = np.repeat(strip_col, strip_width_cols, axis=1)
+    if len(unique_strip_colors) == 1:
+        strip_colorscale = [[0.0, unique_strip_colors[0]], [1.0, unique_strip_colors[0]]]
+    else:
+        strip_colorscale = []
+        denom = float(len(unique_strip_colors) - 1)
+        for i, c in enumerate(unique_strip_colors):
+            p = i / denom
+            strip_colorscale.append([p, c])
     fig.add_trace(
-        go.Scatter(
-            x=[n_traits + 0.5] * n_traits,   # vertical strip to the right
+        go.Heatmap(
+            z=strip_vals,
+            # first strip column centered at n_traits: left edge is n_traits-0.5 (touches heatmap edge)
+            x=list(range(n_traits, n_traits + strip_width_cols)),
             y=list(range(n_traits)),
-            mode="markers",
-            marker=dict(
-                color=cluster_colors_for_traits,
-                symbol="square",
-                size=8,
-                line=dict(width=0),
-            ),
-            showlegend=False,
+            zmin=0,
+            zmax=max(1, len(unique_strip_colors) - 1),
+            colorscale=strip_colorscale,
+            showscale=False,
             hoverinfo="skip",
         ),
         row=1,
@@ -285,7 +295,8 @@ def plot_haplotype_traits(clusters_of_interest, all_indices, trait_list, cluster
     fig.update_xaxes(
         showticklabels=False,
         title_text="",
-        range=[-0.5, n_traits + 1.0],  # make room for annotation strip
+        # include the strip columns exactly; no right-side gap
+        range=[-0.5, n_traits + strip_width_cols - 0.5],
         row=1,
         col=2
     )
@@ -363,7 +374,8 @@ def plot_haplotype_traits(clusters_of_interest, all_indices, trait_list, cluster
             )
             .reset_index()
         )
-        haplo_bin_counts['genomic_pos'] = haplo_bin_counts['bin'] * bin_size
+        # Center bars on bin midpoints so they align with SNP towers in the same bins
+        haplo_bin_counts['genomic_pos'] = (haplo_bin_counts['bin'] * bin_size) + (bin_size / 2.0)
         # Add number of haplo_ids per bin
         haplo_bin_counts['n_haplo_ids'] = haplo_bin_counts['haplo_ids'].apply(len)
         # Add colors
@@ -381,6 +393,7 @@ def plot_haplotype_traits(clusters_of_interest, all_indices, trait_list, cluster
             go.Bar(
                 x=haplo_bin_counts['genomic_pos'],
                 y=haplo_bin_counts['haplo_count'],
+                width=bin_size * 0.9,
                 marker_color=haplo_bin_counts['color'],
                 marker_line=dict(width=1, color=haplo_bin_counts['color']),
                 hovertext=[
@@ -607,6 +620,43 @@ def find_trait_index(trait_query, trait_names):
         return np.where(sub)[0][0]
     raise ValueError(f"Trait '{trait_query}' not found in trait_names.")
 
+# function to convert a zero-based index to spreadsheet-like letters
+def index_to_letters(idx):
+    # 0 -> A, 25 -> Z, 26 -> AA, etc.
+    idx = int(idx)
+    letters = ""
+    while True:
+        idx, rem = divmod(idx, 26)
+        letters = chr(65 + rem) + letters
+        if idx == 0:
+            break
+        idx -= 1
+    return letters
+
+# function to summarize trait repetitions within a haplotype
+def summarize_traits_with_counts(traits_value):
+    """
+    Convert strings like:
+    A___B___A___C
+    into:
+    A (2 SNPs); B (1 SNPs); C (1 SNPs)
+    Preserves first-seen order.
+    """
+    if pd.isna(traits_value):
+        return ""
+    raw = [t.strip() for t in str(traits_value).split("___")]
+    raw = [t for t in raw if t and t.lower() != "nan"]
+    if not raw:
+        return ""
+    counts = {}
+    order = []
+    for t in raw:
+        if t not in counts:
+            counts[t] = 0
+            order.append(t)
+        counts[t] += 1
+    return "; ".join([f"{t} ({counts[t]} SNPs)" for t in order])
+
 # function to guide haplotype plots with snps/genes as inputs
 def guide_haplotypes_snps_genes(data_path, browse, window, refGen):
     # Derive chromosome and position
@@ -626,22 +676,24 @@ def guide_haplotypes_snps_genes(data_path, browse, window, refGen):
     # get genes
     genes = extract_genes(data_path, chrom, start_pos, end_pos, refGen)
     haplo_summary = (haplo_df.groupby("ID").agg(n_snps=('NSNPS', 'max'), start_bp=('BP1', 'min'), end_bp=('BP2', 'max'), n_traits=('n_traits', 'max'), traits=('traits', 'max')).reset_index())
-    # sort by position and assign an index
-    haplo_summary = haplo_summary.sort_values(by='start_bp').reset_index(drop=True)
-    haplo_summary['haplo_index'] = haplo_summary.index
-    # sort haplo summary by number of traits descending
-    haplo_summary = haplo_summary.sort_values(by='n_traits', ascending=False).reset_index(drop=True)
-    # reorder columns
+    # format traits as deduplicated labels with SNP counts
+    haplo_summary['traits'] = haplo_summary['traits'].apply(summarize_traits_with_counts)
+    # sort haplotype summary by number of traits descending (tie-break by start position)
+    haplo_summary = haplo_summary.sort_values(by=['n_traits', 'start_bp'], ascending=[False, True]).reset_index(drop=True)
+    # assign letter-based index (A, B, C, ...)
+    haplo_summary['haplo_index'] = haplo_summary.index.map(index_to_letters)
+    # reorder columns for the table
     haplo_summary = haplo_summary[['haplo_index', 'ID', 'n_snps', 'start_bp', 'end_bp', 'n_traits', 'traits']]
-    # if hap_id_interest is not empty, move that haplotype on top
+    # prepare plotting labels/order: cap at top 50 by #traits
+    plot_df = haplo_summary.head(50).copy()
+    haplo_label_map = dict(zip(plot_df['ID'], plot_df['haplo_index']))
+    # keep first matching haplotype for highlighting if available
     if hap_id_interest == []:
         hap_id_interest = 'Not found'
     else:
-        haplo_summary['is_interest'] = haplo_summary['ID'].apply(lambda x: x in hap_id_interest)
-        haplo_summary = haplo_summary.sort_values(by='is_interest', ascending=False).drop(columns=['is_interest']).reset_index(drop=True)
         hap_id_interest = hap_id_interest[0]  # take the first one for highlighting in the plot
     # create plot
-    fig = haplotype_plotly_regional(haplo_df, haplo_dict, genes)
+    fig = haplotype_plotly_regional(haplo_df, haplo_dict, genes, refGen=refGen, haplo_label_map=haplo_label_map)
     plot_url = pio.to_html(fig, include_plotlyjs='cdn', full_html=False)
     return browse, plot_url, haplo_summary, chrom, start_pos, end_pos, hap_id_interest
 
@@ -692,7 +744,11 @@ def fetch_by_position(chrom, pos38):
         WHERE Chromosome = ?
           AND Position_hg38 = ?
     """
-    info = pd.read_sql_query(query, conn, params=(str(chrom), int(pos38))).to_dict(orient="records")[0]
+    rows = pd.read_sql_query(query, conn, params=(str(chrom), int(pos38))).to_dict(orient="records")
+    conn.close()
+    if not rows:
+        return None
+    info = rows[0]
     try:
         info['AF'] = round(float(info.get('AF')), 2)
     except Exception:
@@ -830,9 +886,16 @@ def set_haplotype_plot_height(haplo_df):
     return px
 
 # function to plot haplotype regional plot
-def haplotype_plotly_regional(haplo_df, haplo_dict, genes, refGen='GRCh38'):
-    # sort haplo_df by position
-    haplo_df = haplo_df.sort_values(by='BP1', ascending=True).reset_index(drop=True)
+def haplotype_plotly_regional(haplo_df, haplo_dict, genes, refGen='GRCh38', haplo_label_map=None):
+    # Keep only haplotypes in the provided ranking map (already top-50 by #traits)
+    # and force the plot order to follow the table order (A, B, C, ...).
+    if haplo_label_map:
+        rank_map = {hid: i for i, hid in enumerate(haplo_label_map.keys())}
+        haplo_df = haplo_df[haplo_df['ID'].isin(rank_map)].copy()
+        haplo_df['plot_rank'] = haplo_df['ID'].map(rank_map)
+        haplo_df = haplo_df.sort_values(by=['plot_rank', 'BP1'], ascending=[True, True]).reset_index(drop=True)
+    else:
+        haplo_df = haplo_df.sort_values(by='BP1', ascending=True).reset_index(drop=True)
     # set figure height based on number of haplotypes
     height_px = set_haplotype_plot_height(haplo_df)
     # set up figure -- 2 panels associations and genes
@@ -849,6 +912,7 @@ def haplotype_plotly_regional(haplo_df, haplo_dict, genes, refGen='GRCh38'):
     max_n_traits = haplo_df['n_traits'].max() if not haplo_df.empty else 1
     min_n_traits = haplo_df['n_traits'].min() if not haplo_df.empty else 0
     # iterate over haplo_df rows and plot each haplotype block
+    y_labels = []
     for index, row in haplo_df.iterrows():
         haplo_id = row['ID']
         snps = row['SNPS'].split('|')
@@ -856,7 +920,9 @@ def haplotype_plotly_regional(haplo_df, haplo_dict, genes, refGen='GRCh38'):
         n_traits = int(row['n_traits'])
         n_traits_list = [n_traits for _ in snps]
         trait_list = row['traits'].split('___') if pd.notna(row['traits']) else []
-        index_list = [index for _ in snps]
+        y_val = row['plot_rank'] if 'plot_rank' in row.index else index
+        index_list = [y_val for _ in snps]
+        y_labels.append((y_val, haplo_label_map.get(haplo_id, str(y_val)) if haplo_label_map else str(y_val)))
         # the color depends on the number of traits, normalized to 0-100 based on the maximum number of traits in the haplo_df
         counter = int(((n_traits - min_n_traits) / (max_n_traits - min_n_traits)) * 99) if max_n_traits != min_n_traits else 50
         # create a scatter trace for the haplotype block
@@ -888,12 +954,19 @@ def haplotype_plotly_regional(haplo_df, haplo_dict, genes, refGen='GRCh38'):
 
     # ensure y-axis ticks are integers only (0,1,2,...) and set a small padding around the range
     max_idx = (haplo_df.shape[0] - 1) if not haplo_df.empty else 1
+    if y_labels:
+        y_ticks = [x[0] for x in y_labels]
+        y_ticktext = [x[1] for x in y_labels]
+    else:
+        y_ticks = [0]
+        y_ticktext = [""]
     fig.update_yaxes(
         range=[-0.2, max_idx + 0.2],
-        tick0=0,
-        dtick=1,
-        tickmode='linear',
-        title_text="Haplotype number",
+        tickmode='array',
+        tickvals=y_ticks,
+        ticktext=y_ticktext,
+        autorange='reversed',
+        title_text="Haplotype",
         title_font=dict(size=18, family="Arial", color="black", weight="bold"),
         tickfont=dict(size=14, family="Arial", color="black"),
         row=1,

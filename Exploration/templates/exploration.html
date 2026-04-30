@@ -732,7 +732,14 @@
                         {% for row in table_snps %}
                         <tr>
                         <td>{{ row['Locus'] }}</td>
-                        <td>{{ row['Rsid'] }}</td>
+                        <td>
+                            {% set rsid = row['Rsid'] %}
+                            {% if rsid and rsid|string|lower != 'nan' and rsid|string|lower != 'none' %}
+                                <a href="{{ url_for('snpbot.index') }}?query={{ rsid|urlencode }}&build=hg38" target="_blank" rel="noopener noreferrer">{{ rsid }}</a>
+                            {% else %}
+                                {{ rsid }}
+                            {% endif %}
+                        </td>
                         <td>{{ row['Gwas'] }}</td>
                         <td>{{ row['Alleles'] }}</td>
                         <td>{{ row['EAF'] }}</td>

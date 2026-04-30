@@ -89,6 +89,22 @@
       margin-bottom: 10px;
     }
 
+    .example-button {
+      border: 0;
+      border-radius: 999px;
+      padding: 8px 14px;
+      background: #dbeafe;
+      color: #1d4ed8;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .example-button:hover {
+      background: #bfdbfe;
+    }
+
     #query-input {
       flex: 1;
       border-radius: 999px;
@@ -150,9 +166,61 @@
     }
 
     .search-help-text {
-      font-size: 11px;
+      font-size: 12px;
       color: #6b7280;
       margin-top: 4px;
+    }
+
+    .tissue-selector-wrap {
+      margin-top: 12px;
+    }
+
+    .tissue-selector-label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 12px;
+      font-weight: 400;
+      color: #6b7280;
+    }
+
+    .tissue-selector-label strong {
+      font-weight: 600;
+    }
+
+    .tissue-selector-wrap .select2-container {
+      width: 100% !important;
+    }
+
+    .tissue-selector-wrap .select2-container--default .select2-selection--multiple {
+      min-height: 40px;
+      border: 1px solid #d1d5db;
+      border-radius: 12px;
+      padding: 4px 8px;
+      font-size: 12px;
+    }
+
+    .tissue-selector-wrap .select2-container--default.select2-container--focus .select2-selection--multiple {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18);
+    }
+
+    .tissue-selector-wrap .select2-container--default .select2-selection--multiple .select2-selection__choice {
+      border: none;
+      background: #e5efff;
+      color: #1d4ed8;
+      border-radius: 999px;
+      padding: 2px 8px;
+      margin-top: 4px;
+      font-size: 12px;
+    }
+
+    .tissue-selector-wrap .select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
+      color: #1d4ed8;
+      margin-right: 6px;
+    }
+
+    .tissue-selector-wrap .select2-container--default .select2-search--inline .select2-search__field {
+      font-size: 12px;
     }
 
     .helper-title {
@@ -205,8 +273,11 @@
 
     .result-subtitle {
       margin: 16px 0 8px 0;
-      font-size: 13px;
+      font-size: 16px;
+      font-family: Arial, "Helvetica Neue", "Segoe UI", sans-serif;
       font-weight: 600;
+      letter-spacing: 0.02em;
+      line-height: 1.35;
     }
 
     .download-button {
@@ -410,6 +481,73 @@
       max-height: none !important;
       width: 1100px;                /* or 900, etc. */
     }
+
+    .af-section {
+      display: flex;
+      gap: 18px;
+      align-items: stretch;
+    }
+
+    .af-plot-card,
+    .af-table-card {
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 12px 14px;
+      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+    }
+
+    .af-plot-card {
+      flex: 1.2;
+      width: 100%;
+      min-width: 0;
+      overflow-x: auto;
+    }
+
+    .af-table-card {
+      flex: 0.9;
+      width: 100%;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #af-plot {
+      width: 100%;
+    }
+
+    .af-plot-card svg {
+      display: block;
+      width: 100%;
+      min-width: 100%;
+      height: auto;
+      margin: 0;
+    }
+
+    .af-link {
+      margin-top: 10px;
+      font-size: 12px;
+    }
+
+    .af-link a {
+      color: #2563eb;
+      text-decoration: none;
+    }
+
+    .af-link a:hover {
+      text-decoration: underline;
+    }
+
+    @media (max-width: 960px) {
+      .af-section {
+        flex-direction: column;
+      }
+
+      .af-plot-card,
+      .af-table-card {
+        flex: 1 1 auto;
+        width: 100%;
+      }
+    }
   </style>
 
 <div class="snpbot-page">
@@ -433,6 +571,10 @@
       <h3 class="search-card-title">Search</h3>
 
       <div class="search-row">
+        <button type="button" class="example-button" onclick="useDefaultExample()">
+          Use example
+        </button>
+
         <input
           id="query-input"
           type="text"
@@ -456,6 +598,63 @@
       <div class="search-help-text">
         Press <strong>Enter</strong> in the input or click <strong>Search</strong>.
       </div>
+
+      <div class="tissue-selector-wrap">
+        <label class="tissue-selector-label" for="tissue-select">Optional: select <strong>tissue</strong> of interest</label>
+        <select id="tissue-select" name="QTLtissuesAnnot" multiple class="form-control">
+          <option value=""></option>
+          <optgroup label="Tissues">
+            <option value="all_tissues" selected>All tissues</option>
+            <option value="Adipose_Subcutaneous">Adipose Subcutaneous</option>
+            <option value="Adipose_Visceral_Omentum">Adipose Visceral Omentum</option>
+            <option value="Adrenal_Gland">Adrenal Gland</option>
+            <option value="Artery_Aorta">Artery Aorta</option>
+            <option value="Artery_Tibial">Artery Tibial</option>
+            <option value="Brain_Amygdala">Brain Amygdala</option>
+            <option value="Brain_Anterior_cingulate_cortex_BA24">Brain Anterior cingulate cortex</option>
+            <option value="Brain_Caudate_basal_ganglia">Brain Caudate basal ganglia</option>
+            <option value="Brain_Cerebellar_Hemisphere">Brain Cerebellar Hemisphere</option>
+            <option value="Brain_Cerebellum">Brain Cerebellum</option>
+            <option value="Brain_Cortex">Brain Cortex</option>
+            <option value="Brain_Frontal_Cortex_BA9">Brain Frontal Cortex</option>
+            <option value="Brain_Hippocampus">Brain Hippocampus</option>
+            <option value="Brain_Hypothalamus">Brain Hypothalamus</option>
+            <option value="Brain_Nucleus_accumbens_basal_ganglia">Brain Nucleus accumbens basal ganglia</option>
+            <option value="Brain_Spinal_cord_cervical_c-1">Brain Spinal cord cervical</option>
+            <option value="Brain_Substantia_nigra">Brain Substantia nigra</option>
+            <option value="Breast_Mammary_Tissue">Breast Mammary Tissue</option>
+            <option value="Cells_Cultured_fibroblasts">Cells Cultured fibroblasts</option>
+            <option value="Cells_EBV-transformed_lymphocytes">EBV-transformed lymphocytes</option>
+            <option value="Colon_Sigmoid">Colon Sigmoid</option>
+            <option value="Colon_Transverse">Colon Transverse</option>
+            <option value="Esophagus_Gastroesophageal_Junction">Esophagus Gastroesophageal Junction</option>
+            <option value="Esophagus_Mucosa">Esophagus Mucosa</option>
+            <option value="Esophagus_Muscularis">Esophagus Muscularis</option>
+            <option value="Heart_Atrial_Appendage">Heart Atrial Appendage</option>
+            <option value="Heart_Left_Ventricle">Heart Left Ventricle</option>
+            <option value="Kidney_Cortex">Kidney Cortex</option>
+            <option value="Liver">Liver</option>
+            <option value="Lung">Lung</option>
+            <option value="Minor_Salivary_Gland">Minor Salivary Gland</option>
+            <option value="Muscle_Skeletal">Muscle Skeletal</option>
+            <option value="Nerve_Tibial">Nerve Tibial</option>
+            <option value="Ovary">Ovary</option>
+            <option value="Pancreas">Pancreas</option>
+            <option value="Pituitary">Pituitary</option>
+            <option value="Prostate">Prostate</option>
+            <option value="Skin_Not_Sun_Exposed_Suprapubic">Skin Suprapubic (Not Sun Exposed)</option>
+            <option value="Skin_Sun_Exposed_Lower_leg">Skin Lower leg (Sun Exposed)</option>
+            <option value="Small_Intestine_Terminal_Ileum">Small Intestine Terminal Ileum</option>
+            <option value="Spleen">Spleen</option>
+            <option value="Stomach">Stomach</option>
+            <option value="Testis">Testis</option>
+            <option value="Thyroid">Thyroid</option>
+            <option value="Uterus">Uterus</option>
+            <option value="Vagina">Vagina</option>
+            <option value="Whole_Blood">Whole Blood</option>
+          </optgroup>
+        </select>
+      </div>
     </div>
 
     <!-- Helper card -->
@@ -478,13 +677,6 @@
 
   <!-- RESULT SECTION BELOW (no box) -->
   <section class="result-section" id="result-section">
-    <!-- Variant info header + download -->
-    <div class="result-header-row">
-      <h3 class="result-subtitle">Variant information</h3>
-      <button class="download-button" id="download-btn" onclick="downloadVariantTable()" disabled>
-        ⬇ Download variant CSV
-      </button>
-    </div>
     <div id="result-container"></div>
   </section>
 </div>
@@ -502,6 +694,14 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', async () => {
+  if (window.jQuery && typeof window.jQuery.fn.select2 === 'function') {
+    window.jQuery('#tissue-select').select2({
+      placeholder: 'All tissues',
+      allowClear: false,
+      width: '100%'
+    });
+  }
+
   try {
     const resp = await fetch('/snpbot/api/variant/last');
     if (!resp.ok) return;  // no previous query -> do nothing
@@ -518,6 +718,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     if (data.build) {
       buildSelect.value = data.build;
+    }
+    if (Array.isArray(data.tissues) && data.tissues.length) {
+      const tissueSelect = document.getElementById("tissue-select");
+      if (tissueSelect) {
+        const selected = data.tissues;
+        Array.from(tissueSelect.options).forEach((opt) => {
+          opt.selected = selected.includes(opt.value);
+        });
+        if (window.jQuery && typeof window.jQuery.fn.select2 === 'function') {
+          window.jQuery(tissueSelect).trigger('change');
+        }
+      }
     }
 
     // Render tables using the same function as for fresh queries
@@ -539,7 +751,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   let lastLdSqtlData = null;       // LD-partner sQTL
   let lastGwasData = null;        // GWAS download
   let lastSvData = null;          // SV download
+  let lastClinvarData = null;     // ClinVar download
+  let lastAfData = null;          // AF table/plot download
+  let lastAlphaGenomeData = null; // AlphaGenome download
+  let currentAlphaGenomeRequestId = 0;
   const SNPBOT_API_URL = "{{ url_for('snpbot.variant_query') }}";
+  const SNPBOT_ALPHAGENOME_API_URL = "{{ url_for('snpbot.variant_alphagenome') }}";
 
   function setLoading(isLoading) {
     const btn = document.getElementById("search-btn");
@@ -573,7 +790,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     lastLdSqtlData = null;
     lastGwasData = null;
     lastSvData = null;
-    document.getElementById("download-btn").disabled = true;
+    lastClinvarData = null;
+    lastAfData = null;
+    lastAlphaGenomeData = null;
+    currentAlphaGenomeRequestId += 1;
   }
 
   function showError(message) {
@@ -590,7 +810,247 @@ document.addEventListener('DOMContentLoaded', async () => {
     lastLdCaddData = null;
     lastLdEqtlData = null;
     lastLdSqtlData = null;
-    document.getElementById("download-btn").disabled = true;
+    lastClinvarData = null;
+    lastAfData = null;
+    lastAlphaGenomeData = null;
+    currentAlphaGenomeRequestId += 1;
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function buildClinvarTable(gnomadClinvar) {
+    const clinvar = gnomadClinvar && gnomadClinvar.clinvar ? gnomadClinvar.clinvar : null;
+    const hasClinvar = clinvar && clinvar.variation_id;
+
+    if (!hasClinvar) {
+      lastClinvarData = null;
+      return `
+        <div class="result-header-row">
+          <h3 class="result-subtitle">ClinVar information: manually curated, highly trusted</h3>
+        </div>
+        <p class="no-result-title">No ClinVar annotation found for this variant.</p>
+      `;
+    }
+
+    const refAlt = [clinvar.ref, clinvar.alt].filter(Boolean).join(" / ");
+    const geneSymbol = clinvar.gene_symbol || "";
+    const conditions = (clinvar.conditions && clinvar.conditions.length)
+      ? clinvar.conditions.join(", ")
+      : "";
+    const clinicalSignificance = clinvar.clinical_significance || clinvar.germline_classification || "";
+    const majorConsequence = clinvar.major_consequence || "";
+    const transcriptId = clinvar.transcript_id || "";
+    const hgvsc = clinvar.hgvsc || "";
+    const hgvsp = clinvar.hgvsp || "";
+    const clinvarLink = gnomadClinvar.links && gnomadClinvar.links.clinvar
+      ? `<a href="${escapeHtml(gnomadClinvar.links.clinvar)}" target="_blank" rel="noopener noreferrer">ClinVar entry</a>`
+      : "";
+    lastClinvarData = {
+      headers: ["Variation ID", "Ref / Alt", "Gene", "Conditions", "Clinical significance", "Major consequence", "Transcript ID", "HGVSc", "HGVSp", "Link"],
+      row: [
+        clinvar.variation_id,
+        refAlt,
+        geneSymbol,
+        conditions,
+        clinicalSignificance,
+        majorConsequence,
+        transcriptId,
+        hgvsc,
+        hgvsp,
+        (gnomadClinvar.links && gnomadClinvar.links.clinvar) ? gnomadClinvar.links.clinvar : ""
+      ]
+    };
+
+    return `
+      <div class="result-header-row">
+        <h3 class="result-subtitle">ClinVar information: manually curated, highly trusted</h3>
+        <button class="download-button" onclick="downloadClinvarTable()">
+          ⬇ Download ClinVar CSV
+        </button>
+      </div>
+      <div class="result-table-wrapper">
+        <table class="result-table">
+          <thead>
+            <tr>
+              <th>Variation ID</th>
+              <th>Ref / Alt</th>
+              <th>Gene</th>
+              <th>Conditions</th>
+              <th>Clinical significance</th>
+              <th>Major consequence</th>
+              <th>Transcript ID</th>
+              <th>HGVSc</th>
+              <th>HGVSp</th>
+              <th>Link</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>${escapeHtml(clinvar.variation_id)}</td>
+              <td>${escapeHtml(refAlt)}</td>
+              <td>${escapeHtml(geneSymbol)}</td>
+              <td>${escapeHtml(conditions)}</td>
+              <td>${escapeHtml(clinicalSignificance)}</td>
+              <td>${escapeHtml(majorConsequence)}</td>
+              <td>${escapeHtml(transcriptId)}</td>
+              <td>${escapeHtml(hgvsc)}</td>
+              <td>${escapeHtml(hgvsp)}</td>
+              <td>${clinvarLink}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  function buildAncestryAfPlot(gnomadClinvar) {
+    const ancestry = gnomadClinvar && gnomadClinvar.ancestry_af ? gnomadClinvar.ancestry_af : {};
+    const totalAf = gnomadClinvar && gnomadClinvar.total_af;
+    const gnomadLink = gnomadClinvar && gnomadClinvar.links ? gnomadClinvar.links.gnomad : "";
+    const labels = [
+      ["total", "Total"],
+      ["african", "African"],
+      ["european_non_finnish", "European non-Finnish"],
+      ["east_asian", "East Asian"],
+      ["middle_east", "Middle East"],
+      ["finnish", "Finnish"],
+      ["south_asian", "South Asian"],
+      ["admixed_american", "Admixed American"]
+    ];
+    const colors = [
+      "#111827",
+      "#2563eb",
+      "#0f766e",
+      "#dc2626",
+      "#d97706",
+      "#7c3aed",
+      "#0891b2",
+      "#4f46e5"
+    ];
+
+    const rows = labels
+      .map(([key, label], index) => ({
+        key,
+        label,
+        value: key === "total" ? totalAf : ancestry[key],
+        color: colors[index]
+      }))
+      .filter(row => row.value !== null && row.value !== undefined && !Number.isNaN(Number(row.value)));
+
+    if (!rows.length) {
+      lastAfData = null;
+      return `
+        <div class="result-header-row">
+          <h3 class="result-subtitle">Allele frequency across populations</h3>
+        </div>
+        <p class="no-result-title">No allele frequency data found for this variant.</p>
+      `;
+    }
+
+    const maxValue = Math.max(...rows.map(row => Number(row.value)), 0);
+    const chartWidth = 620;
+    const chartHeight = 230;
+    const leftPad = 44;
+    const rightPad = 18;
+    const topPad = 18;
+    const bottomPad = 72;
+    const plotWidth = chartWidth - leftPad - rightPad;
+    const plotHeight = chartHeight - topPad - bottomPad;
+    const step = plotWidth / rows.length;
+    const barWidth = step * 0.58;
+    const gap = step * 0.42;
+
+    let svg = `
+      <svg viewBox="0 0 ${chartWidth} ${chartHeight}" role="img" aria-label="Allele frequency across populations">
+        <line x1="${leftPad}" y1="${topPad + plotHeight}" x2="${chartWidth - rightPad}" y2="${topPad + plotHeight}" stroke="#cbd5e1" stroke-width="1.5"></line>
+    `;
+
+    rows.forEach((row, index) => {
+      const value = Number(row.value);
+      const barHeight = maxValue > 0 ? (value / maxValue) * plotHeight : 0;
+      const x = leftPad + index * step + gap / 2;
+      const y = topPad + plotHeight - barHeight;
+      const labelLines = row.label.split(" ");
+
+      svg += `
+        <rect x="${x}" y="${y}" width="${barWidth}" height="${barHeight}" rx="5" fill="${row.color}"></rect>
+        <text x="${x + barWidth / 2}" y="${y - 6}" text-anchor="middle" font-size="10" fill="#1f2937">${value.toFixed(4)}</text>
+      `;
+
+      labelLines.forEach((line, lineIndex) => {
+        svg += `
+          <text x="${x + barWidth / 2}" y="${topPad + plotHeight + 16 + lineIndex * 12}" text-anchor="middle" font-size="10" fill="#4b5563">${escapeHtml(line)}</text>
+        `;
+      });
+    });
+
+    svg += `
+        <text x="16" y="${topPad + plotHeight / 2}" transform="rotate(-90 16 ${topPad + plotHeight / 2})" text-anchor="middle" font-size="11" fill="#4b5563">Allele frequency</text>
+      </svg>
+    `;
+
+    let tableRows = ``;
+
+    rows.forEach(row => {
+      tableRows += `
+        <tr>
+          <td>
+            <span style="display:inline-block;width:10px;height:10px;border-radius:999px;background:${row.color};margin-right:8px;vertical-align:middle;"></span>
+            ${escapeHtml(row.label)}
+          </td>
+          <td>${Number(row.value).toFixed(4)}</td>
+        </tr>
+      `;
+    });
+
+    lastAfData = {
+      rows: rows.map(row => ({ population: row.label, af: Number(row.value).toFixed(6) })),
+      headers: ["Population", "AF"]
+    };
+
+    return `
+      <div class="result-header-row">
+        <h3 class="result-subtitle">Allele frequency across populations</h3>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="download-button" onclick="downloadAfTable()">
+            ⬇ Download AF CSV
+          </button>
+          <button class="download-button" onclick="downloadAfSvg()">
+            ⬇ Download AF SVG
+          </button>
+        </div>
+      </div>
+      <div class="af-section">
+        <div class="af-plot-card">
+          <div id="af-plot">
+            ${svg}
+          </div>
+        </div>
+        <div class="af-table-card">
+          <div class="result-table-wrapper">
+            <table class="result-table">
+              <thead>
+                <tr>
+                  <th>Population</th>
+                  <th>AF</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${tableRows}
+              </tbody>
+            </table>
+          </div>
+          ${gnomadLink ? `<div class="af-link"><a href="${escapeHtml(gnomadLink)}" target="_blank" rel="noopener noreferrer">Open in gnomAD</a></div>` : ""}
+        </div>
+      </div>
+    `;
   }
 
   /* ---------- CADD TABLE ---------- */
@@ -644,7 +1104,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // use (possibly truncated) caddRows for display
     let html = `
       <div class="result-header-row">
-        <h3 class="result-subtitle">CADD annotation</h3>
+        <h3 class="result-subtitle">CADD annotation (only reporting SNPs)</h3>
         <button class="download-button" onclick="downloadCaddTable()">
           ⬇ Download CADD CSV
         </button>
@@ -915,6 +1375,149 @@ document.addEventListener('DOMContentLoaded', async () => {
     `;
 
     return html;
+  }
+
+  function formatAlphaGenomeHeader(key) {
+    return String(key || "")
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, c => c.toUpperCase());
+  }
+
+  function buildAlphaGenomeSection(alphaRows, isLoading = false, errorMessage = "") {
+    if (isLoading) {
+      lastAlphaGenomeData = null;
+      return `
+        <div id="alphagenome-section">
+          <div class="result-header-row">
+            <h3 class="result-subtitle">AlphaGenome annotation</h3>
+          </div>
+          <p class="result-note">Loading AlphaGenome annotation...</p>
+        </div>
+      `;
+    }
+
+    if (errorMessage) {
+      lastAlphaGenomeData = null;
+      return `
+        <div id="alphagenome-section">
+          <div class="result-header-row">
+            <h3 class="result-subtitle">AlphaGenome annotation</h3>
+          </div>
+          <p class="no-result-title">${escapeHtml(errorMessage)}</p>
+        </div>
+      `;
+    }
+
+    if (!alphaRows || alphaRows.length === 0) {
+      lastAlphaGenomeData = null;
+      return `
+        <div id="alphagenome-section">
+          <div class="result-header-row">
+            <h3 class="result-subtitle">AlphaGenome annotation</h3>
+          </div>
+          <p class="no-result-title">No AlphaGenome annotation found for this variant.</p>
+        </div>
+      `;
+    }
+
+    const preferredColumns = [
+      "gene_name",
+      "biosample_name",
+      "track_label",
+      "track_name",
+      "score",
+      "query_locus",
+      "ref_base",
+      "alt_base",
+      "variant"
+    ];
+    const allColumns = Object.keys(alphaRows[0]);
+    const alphaColumns = [
+      ...preferredColumns.filter(col => allColumns.includes(col)),
+      ...allColumns.filter(col => !preferredColumns.includes(col))
+    ];
+    const alphaHeaders = alphaColumns.map(formatAlphaGenomeHeader);
+    const displayRows = alphaRows.slice(0, 100);
+
+    lastAlphaGenomeData = {
+      rows: alphaRows,
+      columns: alphaColumns,
+      headers: alphaHeaders
+    };
+
+    let bodyRows = "";
+    displayRows.forEach(row => {
+      bodyRows += "<tr>";
+      alphaColumns.forEach(col => {
+        const val = row[col] === null || row[col] === undefined ? "" : row[col];
+        bodyRows += `<td>${escapeHtml(val)}</td>`;
+      });
+      bodyRows += "</tr>";
+    });
+
+    return `
+      <div id="alphagenome-section">
+        <div class="result-header-row">
+          <h3 class="result-subtitle">AlphaGenome annotation (top 100)</h3>
+          <button class="download-button" onclick="downloadAlphaGenomeTable()">
+            ⬇ Download AlphaGenome CSV
+          </button>
+        </div>
+        <div class="result-table-wrapper">
+          <table class="result-table">
+            <thead>
+              <tr>${alphaHeaders.map(h => `<th>${escapeHtml(h)}</th>`).join("")}</tr>
+            </thead>
+            <tbody>
+              ${bodyRows}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  }
+
+  function updateAlphaGenomeSection(html) {
+    const section = document.getElementById("alphagenome-section");
+    if (section) {
+      section.outerHTML = html;
+    }
+  }
+
+  function updateLikelyGeneDisplay(likelyGene) {
+    const genesCell = document.getElementById("likely-genes-cell");
+    const sourceCell = document.getElementById("likely-source-cell");
+    if (!genesCell || !sourceCell || !likelyGene) return;
+
+    const genes = Array.isArray(likelyGene.genes) ? likelyGene.genes.join(", ") : "";
+    const source = likelyGene.source || "";
+    genesCell.textContent = genes;
+    sourceCell.textContent = source;
+  }
+
+  function loadAlphaGenome(query, build, tissues) {
+    const requestId = ++currentAlphaGenomeRequestId;
+    const params = new URLSearchParams({ query, build });
+    (tissues || []).forEach((tissue) => params.append("tissues", tissue));
+
+    fetch(`${SNPBOT_ALPHAGENOME_API_URL}?${params.toString()}`)
+      .then(async (res) => {
+        const data = await res.json();
+        if (requestId !== currentAlphaGenomeRequestId) return;
+        if (!res.ok || data.error) {
+          updateAlphaGenomeSection(buildAlphaGenomeSection([], false, data.error || "AlphaGenome annotation could not be loaded."));
+          return;
+        }
+        updateAlphaGenomeSection(buildAlphaGenomeSection(data.alphagenome || []));
+        if (data.likely_gene) {
+          updateLikelyGeneDisplay(data.likely_gene);
+        }
+      })
+      .catch((err) => {
+        console.error(err);
+        if (requestId !== currentAlphaGenomeRequestId) return;
+        updateAlphaGenomeSection(buildAlphaGenomeSection([], false, "Error contacting AlphaGenome endpoint."));
+      });
   }
 
   /* ---------- SV TABLE ---------- */
@@ -1626,6 +2229,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     showResultSection();
     const resultContainer = document.getElementById("result-container");
 
+    const gnomadClinvar = data.gnomad_clinvar || {};
+
     // Variant annotation table (no Liftover column)
     const headerColumns = [
       "Query type",
@@ -1662,9 +2267,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       headerColumns,
       rowValues
     };
-    document.getElementById("download-btn").disabled = false;
 
     let html = `
+      <div class="result-header-row">
+        <h3 class="result-subtitle">Variant information</h3>
+        <button class="download-button" onclick="downloadVariantTable()">
+          ⬇ Download variant CSV
+        </button>
+      </div>
       <div class="result-table-wrapper">
         <table class="result-table">
           <thead>
@@ -1684,8 +2294,14 @@ document.addEventListener('DOMContentLoaded', async () => {
               <td>${query}</td>
     `;
 
-    rowValues.forEach(v => {
-      html += `<td>${v}</td>`;
+    rowValues.forEach((v, index) => {
+      if (index === 8) {
+        html += `<td id="likely-genes-cell">${v}</td>`;
+      } else if (index === 9) {
+        html += `<td id="likely-source-cell">${v}</td>`;
+      } else {
+        html += `<td>${v}</td>`;
+      }
     });
 
     html += `
@@ -1695,12 +2311,27 @@ document.addEventListener('DOMContentLoaded', async () => {
       </div>
     `;
 
+    const clinvarHtml = buildClinvarTable(gnomadClinvar);
+    const variantHtml = html;
+    const afHtml = buildAncestryAfPlot(gnomadClinvar);
+
+    html = `
+      ${clinvarHtml}
+      ${variantHtml}
+      ${afHtml}
+    `;
+
     // CADD table
     const caddRowsFull   = data.cadd || [];
     const caddRowsDisplay = (data.cadd_top && data.cadd_top.length)
       ? data.cadd_top
       : caddRowsFull;
     html += buildCaddTable(caddRowsDisplay, caddRowsFull);
+
+    const hasAlphaGenome = Object.prototype.hasOwnProperty.call(data, "alphagenome");
+    html += hasAlphaGenome
+      ? buildAlphaGenomeSection(data.alphagenome || [])
+      : buildAlphaGenomeSection([], true);
 
     // eQTL table
     const eqtlRowsFull   = data.eqtl || [];
@@ -1758,13 +2389,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     // after DOM is in place, wire up LD interactivity + height sync
     wireLdHeatmapEvents();
     wireGwasForestEvents();
+
+    if (!hasAlphaGenome) {
+      loadAlphaGenome(query, build, Array.isArray(data.tissues) ? data.tissues : []);
+    }
   }
 
   function submitQuery() {
     const queryInput = document.getElementById("query-input");
     const buildSelect = document.getElementById("build-select");
+    const tissueSelect = document.getElementById("tissue-select");
     const query = queryInput.value.trim();
     const build = buildSelect.value;
+    const tissues = tissueSelect
+      ? Array.from(tissueSelect.selectedOptions).map((opt) => opt.value).filter(Boolean)
+      : [];
 
     if (!query) {
       showError("Please enter an rsID or coordinate.");
@@ -1774,7 +2413,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     clearResult();
     setLoading(true);
 
-    const url = `${SNPBOT_API_URL}?query=${encodeURIComponent(query)}&build=${encodeURIComponent(build)}`;
+    const params = new URLSearchParams({
+      query,
+      build
+    });
+    tissues.forEach((tissue) => params.append("tissues", tissue));
+    const url = `${SNPBOT_API_URL}?${params.toString()}`;
 
     fetch(url)
       .then(async (res) => {
@@ -1793,6 +2437,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         setLoading(false);
         queryInput.focus();
       });
+  }
+
+  function useDefaultExample() {
+    const queryInput = document.getElementById("query-input");
+    if (!queryInput) return;
+    queryInput.value = "rs7412";
+    queryInput.focus();
   }
 
   function escapeCell(v) {
@@ -1822,6 +2473,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     const a = document.createElement("a");
     a.href = url;
     a.download = `variant_${queryId.replace(/[^a-zA-Z0-9_\-]+/g, "_")}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadClinvarTable() {
+    if (!lastClinvarData) return;
+
+    const { headers, row } = lastClinvarData;
+    const csv = [
+      headers.map(escapeCell).join(","),
+      row.map(escapeCell).join(",")
+    ].join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "clinvar_information.csv";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -1938,6 +2610,83 @@ document.addEventListener('DOMContentLoaded', async () => {
     const a = document.createElement("a");
     a.href = url;
     a.download = `sv_annotation.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadAfTable() {
+    if (!lastAfData) return;
+
+    const { rows, headers } = lastAfData;
+    const lines = [headers.map(escapeCell).join(",")];
+
+    rows.forEach(row => {
+      lines.push([row.population, row.af].map(escapeCell).join(","));
+    });
+
+    const csv = lines.join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "allele_frequency.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadAlphaGenomeTable() {
+    if (!lastAlphaGenomeData) return;
+
+    const { rows, columns, headers } = lastAlphaGenomeData;
+    const lines = [headers.map(escapeCell).join(",")];
+
+    rows.forEach(row => {
+      const line = columns.map(col => {
+        const val = (row[col] === null || row[col] === undefined) ? "" : row[col];
+        return escapeCell(val);
+      }).join(",");
+      lines.push(line);
+    });
+
+    const csv = lines.join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "alphagenome_annotation.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadGwasTable() {
+    if (!lastGwasData) return;
+
+    const { rows, columns, headers } = lastGwasData;
+    const lines = [headers.map(escapeCell).join(",")];
+
+    rows.forEach(row => {
+      const line = columns.map(col => {
+        const val = (row[col] === null || row[col] === undefined) ? "" : row[col];
+        return escapeCell(val);
+      }).join(",");
+      lines.push(line);
+    });
+
+    const csv = lines.join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "gwas_associations.csv";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -2167,6 +2916,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     const a = document.createElement("a");
     a.href = url;
     a.download = "ld_heatmap.svg";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadAfSvg() {
+    const svg = document.querySelector("#af-plot svg");
+    if (!svg) return;
+
+    const blob = new Blob([svg.outerHTML], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "allele_frequency.svg";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

@@ -963,9 +963,25 @@ def haplotype_detail():
     # ------------------------------------------------------------------
     # (0) NEW TOP-ROW HEATMAP (placeholder)
     # ------------------------------------------------------------------
-    # LD df
-    corr_vals = ld_df.values
-    traits = list(ld_df.columns)
+    # LD df with clustering-based ordering (no dendrogram shown)
+    ld_plot = ld_df.copy()
+    ld_plot = ld_plot.fillna(0.0)
+    # enforce symmetry for stable clustering without shrinking LD values:
+    # some pairs are present only in one direction, so use max(A, A^T), not average.
+    m = ld_plot.values.astype(float)
+    m = np.maximum(m, m.T)
+    np.fill_diagonal(m, 1.0)
+    ld_plot = pd.DataFrame(m, index=ld_plot.index, columns=ld_plot.columns)
+    if ld_plot.shape[0] > 1:
+        dist = 1 - ld_plot.values
+        np.fill_diagonal(dist, 0.0)
+        dist = np.clip(dist, 0.0, 1.0)
+        dist_condensed = squareform(dist, checks=False)
+        Z = linkage(dist_condensed, method="average")
+        order = leaves_list(Z)
+        ld_plot = ld_plot.iloc[order, order]
+    corr_vals = ld_plot.values
+    traits = list(ld_plot.columns)
     custom_ld_colorscale = [
         [0.0,   "navy"],   # 0.0 → base color (≤0.2)
         [0.2,   "navy"],   # stop until 0.2
@@ -985,7 +1001,7 @@ def haplotype_detail():
         zmin=0,
         zmax=1,
         colorscale=custom_ld_colorscale,
-        colorbar=dict(title="r", orientation="v", x=1.02, y=0.83, len=0.3, thickness=15),
+        colorbar=dict(title="LD R2", orientation="v", x=1.02, y=0.83, len=0.3, thickness=15),
         hovertemplate=(
             "Trait 1: %{y}<br>"  
             "Trait 2: %{x}<br>"  

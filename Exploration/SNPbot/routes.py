@@ -817,15 +817,28 @@ def identify_most_likely_gene(info: dict):
             likely_genes = {'genes': [clinvar_gene], 'source': 'ClinVar'}
             info['likely_gene'] = likely_genes
             return info
-
         # Extract dataframes
-        cadd_df, eqtl_df, sqtl_df, ld_df, gwas_df, ld_cadd_df, ld_eqtl_df, ld_sqtl_df, sv_df = pd.DataFrame(info['cadd_top']), pd.DataFrame(info['eqtl']), pd.DataFrame(info['sqtl']), pd.DataFrame(info['ld']), pd.DataFrame(info['gwas']), pd.DataFrame(info['ld_cadd']), pd.DataFrame(info['ld_eqtl']), pd.DataFrame(info['ld_sqtl']), pd.DataFrame(info['svs'])
+        cadd_df, eqtl_df, sqtl_df, ld_df, gwas_df, ld_cadd_df, ld_eqtl_df, ld_sqtl_df, sv_df = (
+            pd.DataFrame(info.get('cadd_top', [])),
+            pd.DataFrame(info.get('eqtl', [])),
+            pd.DataFrame(info.get('sqtl', [])),
+            pd.DataFrame(info.get('ld', [])),
+            pd.DataFrame(info.get('gwas', [])),
+            pd.DataFrame(info.get('ld_cadd', [])),
+            pd.DataFrame(info.get('ld_eqtl', [])),
+            pd.DataFrame(info.get('ld_sqtl', [])),
+            pd.DataFrame(info.get('svs', [])),
+        )
         # First check if variant is coding in CADD
-        coding_rows = cadd_df[cadd_df["annotypes"].str.contains("coding", case=False, na=False)]
-        coding_rows = coding_rows[~coding_rows["annotypes"].str.contains("noncoding", case=False, na=False)]
+        if "annotypes" in cadd_df.columns:
+            coding_rows = cadd_df[cadd_df["annotypes"].str.contains("coding", case=False, na=False)]
+            coding_rows = coding_rows[~coding_rows["annotypes"].str.contains("noncoding", case=False, na=False)]
+        else:
+            coding_rows = pd.DataFrame()
         cadd_genes = []
         if not coding_rows.empty:
-            genes = [x.split(';') for x in coding_rows["genes"].unique().tolist()]
+            genes_col = coding_rows["genes"] if "genes" in coding_rows.columns else pd.Series([], dtype="object")
+            genes = [x.split(';') for x in genes_col.dropna().astype(str).unique().tolist()]
             genes = [gene for sublist in genes for gene in sublist]  # flatten
             # unique genes
             genes = list(set(genes))
@@ -835,17 +848,24 @@ def identify_most_likely_gene(info: dict):
                 info['likely_gene'] = likely_genes
                 return info
             else:
-                cadd_genes = cadd_df["genes"].dropna().unique().tolist()
+                if "genes" in cadd_df.columns:
+                    cadd_genes = cadd_df["genes"].dropna().astype(str).unique().tolist()
         else:
-            cadd_genes = cadd_df["genes"].dropna().unique().tolist()
+            if "genes" in cadd_df.columns:
+                cadd_genes = cadd_df["genes"].dropna().astype(str).unique().tolist()
         # Check variants in LD for coding impact
         coding_ld_rows = pd.DataFrame()
         if not ld_cadd_df.empty:
-            ld_cadd_df = ld_cadd_df[pd.to_numeric(ld_cadd_df["ld_r2"], errors="coerce") >= 0.6]
-            coding_ld_rows = ld_cadd_df[ld_cadd_df["annotypes"].str.contains("coding", case=False, na=False)]
-            coding_ld_rows = coding_ld_rows[~coding_ld_rows["annotypes"].str.contains("noncoding", case=False, na=False)]
+            if "ld_r2" in ld_cadd_df.columns:
+                ld_cadd_df = ld_cadd_df[pd.to_numeric(ld_cadd_df["ld_r2"], errors="coerce") >= 0.6]
+            if "annotypes" in ld_cadd_df.columns:
+                coding_ld_rows = ld_cadd_df[ld_cadd_df["annotypes"].str.contains("coding", case=False, na=False)]
+                coding_ld_rows = coding_ld_rows[~coding_ld_rows["annotypes"].str.contains("noncoding", case=False, na=False)]
+            else:
+                coding_ld_rows = pd.DataFrame()
             if not coding_ld_rows.empty:
-                genes = [x.split(';') for x in coding_ld_rows["genes"].unique().tolist()]
+                genes_col = coding_ld_rows["genes"] if "genes" in coding_ld_rows.columns else pd.Series([], dtype="object")
+                genes = [x.split(';') for x in genes_col.dropna().astype(str).unique().tolist()]
                 genes = [gene for sublist in genes for gene in sublist]  # flatten
                 # unique genes
                 genes = list(set(genes))
@@ -855,9 +875,15 @@ def identify_most_likely_gene(info: dict):
                     info['likely_gene'] = likely_genes
                     return info
                 else:
-                    cadd_ld_genes = ld_cadd_df["genes"].dropna().unique().tolist()
+                    if "genes" in ld_cadd_df.columns:
+                        cadd_ld_genes = ld_cadd_df["genes"].dropna().astype(str).unique().tolist()
+                    else:
+                        cadd_ld_genes = []
             else:
-                cadd_ld_genes = ld_cadd_df["genes"].dropna().unique().tolist()
+                if "genes" in ld_cadd_df.columns:
+                    cadd_ld_genes = ld_cadd_df["genes"].dropna().astype(str).unique().tolist()
+                else:
+                    cadd_ld_genes = []
         else:
             cadd_ld_genes = []
         # Next check QTLs
@@ -886,8 +912,17 @@ def identify_most_likely_gene(info: dict):
             likely_genes = {'genes': alpha_genes, 'source': 'AlphaGenome'}
             info['likely_gene'] = likely_genes
             return info
+        # Next check LD-CADD genes (including noncoding) before position fallback
+        if len(cadd_ld_genes) > 0:
+            genes = [x.split(';') for x in cadd_ld_genes if isinstance(x, str)]
+            genes = [gene.strip() for sublist in genes for gene in sublist if gene and gene.strip()]
+            genes = list(dict.fromkeys(genes))  # unique, preserve order
+            if len(genes) > 0:
+                likely_genes = {'genes': genes, 'source': 'LD (CADD)'}
+                info['likely_gene'] = likely_genes
+                return info
         # If none of the above, return closest gene (placeholder)
-        likely_genes = {'genes': closest_gene(cadd_df), 'source': 'Closest Gene'}
+        likely_genes = {'genes': closest_gene(info), 'source': 'Closest Gene'}
         # return most likely gene
         info['likely_gene'] = likely_genes
         return info
@@ -965,11 +1000,11 @@ def qtl_target_ids(qtl_df):
 # ---------------------------------------------------------
 def closest_gene(query_info):
     # get chromosome and position
-    chrom = query_info["chrom"].values[0].lower()
+    chrom = str(query_info["Chromosome"])
     if 'chr' not in chrom:
         chrom = 'chr' + chrom
-    start_pos = query_info["pos"].values[0] - 500000
-    end_pos = query_info["pos"].values[0] + 500000
+    start_pos = query_info["Position_hg38"] - 500000
+    end_pos = query_info["Position_hg38"] + 500000
     # tabix command
     GENE_DB_FILE = DATA_PATH / "databases/Genes/genes_hg38.txt.gz"
     result = subprocess.run(["tabix", str(GENE_DB_FILE), f"{chrom}:{start_pos}-{end_pos}"], capture_output=True, check=True, text=True)
@@ -985,7 +1020,7 @@ def closest_gene(query_info):
     # remove duplicates based on gene_symbol, keeping the longest gene
     df = df.sort_values(by="gene_size", ascending=False).drop_duplicates(subset=["gene_symbol"])
     # add distance to variant from tx_start and tx_end, and keep minimum
-    variant_pos = query_info["pos"].values[0]
+    variant_pos = query_info["Position_hg38"]
     df["dist_to_variant"] = df.apply(lambda row: min(abs(row["tx_start"] - variant_pos), abs(row["tx_end"] - variant_pos)), axis=1)
     # sort by distance
     df = df.sort_values(by="dist_to_variant", ascending=True)

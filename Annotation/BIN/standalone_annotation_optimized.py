@@ -1141,11 +1141,11 @@ def info_to_dataframes(info: dict) -> List[pd.DataFrame]:
 # ---------------------------------------------------------
 def closest_gene(query_info):
     # get chromosome and position
-    chrom = query_info["chr_hg38"].values[0].lower()
+    chrom = str(query_info["Chromosome"])
     if 'chr' not in chrom:
         chrom = 'chr' + chrom
-    start_pos = query_info["pos_hg38"].values[0] - 1500000
-    end_pos = query_info["pos_hg38"].values[0] + 1500000
+    start_pos = query_info["Position_hg38"] - 1500000
+    end_pos = query_info["Position_hg38"] + 1500000
     # tabix command
     GENE_DB_FILE = DATA_PATH / "databases/Genes/genes_hg38.txt.gz"
     result = subprocess.run(["tabix", str(GENE_DB_FILE), f"{chrom}:{start_pos}-{end_pos}"], capture_output=True, check=True, text=True)
@@ -1161,7 +1161,7 @@ def closest_gene(query_info):
     # remove duplicates based on gene_symbol, keeping the longest gene
     df = df.sort_values(by="gene_size", ascending=False).drop_duplicates(subset=["gene_symbol"])
     # add distance to variant from tx_start and tx_end, and keep minimum
-    variant_pos = query_info["pos_hg38"].values[0]
+    variant_pos = query_info["Position_hg38"]
     df["dist_to_variant"] = df.apply(lambda row: min(abs(row["tx_start"] - variant_pos), abs(row["tx_end"] - variant_pos)), axis=1)
     # sort by distance
     df = df.sort_values(by="dist_to_variant", ascending=True)
@@ -1181,92 +1181,112 @@ def identify_most_likely_gene(info: dict):
     invalid_queries = []
     # Iterate over snps in info
     for snp in info.keys():
-        if 'Error' in info[snp]:
-            invalid_queries.append(snp)
-            continue
-        # Extract dataframes
-        info_df, cadd_df, gnomad_freq_df, clinvar_df, alphagenome_df, eqtl_df, sqtl_df, ld_df, gwas_df, ld_cadd_df, ld_eqtl_df, ld_sqtl_df, sv_df = convert_info_dict_to_dfs({snp: info[snp]})
-        # Get rsid
-        rsid = info_df["rsid"].values[0]
-        if rsid is None:
-            rsid = info_df["chr_hg38"].values[0] + ":" + str(info_df["pos_hg38"].values[0])
-        # First check ClinVar
         try:
-            clinvar_data = clinvar_df.iloc[0].to_dict() if not clinvar_df.empty else {}
-            clinvar_gene = clinvar_data.get("gene_symbol")
-            if clinvar_gene:
-                likely_genes[rsid] = {'genes': [clinvar_gene], 'source': 'clinvar'}
+            if 'Error' in info[snp]:
+                invalid_queries.append(snp)
                 continue
-        except Exception:
-            pass
-        # First check if variant is coding in CADD
-        try:
-            coding_rows = cadd_df[cadd_df["annotypes"].str.contains("coding", case=False, na=False)]
-            coding_rows = coding_rows[~coding_rows["annotypes"].str.contains("noncoding", case=False, na=False)]
-            cadd_genes = []
-            if not coding_rows.empty:
-                try:
-                    genes = [x.split(';') for x in coding_rows["genes"].unique().tolist()]
-                    genes = [gene for sublist in genes for gene in sublist]  # flatten
-                except Exception:
-                    genes = []
-                # unique genes
-                genes = list(set(genes))
-                if len(genes) >0:
-                    likely_genes[rsid] = {'genes': genes, 'source': 'coding'}
+            # Extract dataframes
+            info_df, cadd_df, gnomad_freq_df, clinvar_df, alphagenome_df, eqtl_df, sqtl_df, ld_df, gwas_df, ld_cadd_df, ld_eqtl_df, ld_sqtl_df, sv_df = convert_info_dict_to_dfs({snp: info[snp]})
+            # Get rsid
+            rsid = info_df["rsid"].values[0]
+            if rsid is None:
+                rsid = info_df["chr_hg38"].values[0] + ":" + str(info_df["pos_hg38"].values[0])
+            # First check ClinVar
+            try:
+                clinvar_data = clinvar_df.iloc[0].to_dict() if not clinvar_df.empty else {}
+                clinvar_gene = clinvar_data.get("gene_symbol")
+                if clinvar_gene:
+                    likely_genes[rsid] = {'genes': [clinvar_gene], 'source': 'clinvar'}
                     continue
+            except Exception:
+                pass
+            # First check if variant is coding in CADD
+            try:
+                if "annotypes" in cadd_df.columns:
+                    coding_rows = cadd_df[cadd_df["annotypes"].str.contains("coding", case=False, na=False)]
+                    coding_rows = coding_rows[~coding_rows["annotypes"].str.contains("noncoding", case=False, na=False)]
                 else:
-                    cadd_genes = cadd_df["genes"].dropna().unique().tolist()
+                    coding_rows = pd.DataFrame()
+                cadd_genes = []
+                if not coding_rows.empty:
+                    try:
+                        genes_col = coding_rows["genes"] if "genes" in coding_rows.columns else pd.Series([], dtype="object")
+                        genes = [x.split(';') for x in genes_col.dropna().astype(str).unique().tolist()]
+                        genes = [gene for sublist in genes for gene in sublist]  # flatten
+                    except Exception:
+                        genes = []
+                    # unique genes
+                    genes = list(set(genes))
+                    if len(genes) >0:
+                        likely_genes[rsid] = {'genes': genes, 'source': 'coding'}
+                        continue
+                    else:
+                        cadd_genes = cadd_df["genes"].dropna().astype(str).unique().tolist() if "genes" in cadd_df.columns else []
+                else:
+                    cadd_genes = cadd_df["genes"].dropna().astype(str).unique().tolist() if "genes" in cadd_df.columns else []
+            except Exception:
+                cadd_genes = []
+            # Check variants in LD for coding impact
+            coding_ld_rows = pd.DataFrame()
+            if not ld_cadd_df.empty:
+                if "ld_r2" in ld_cadd_df.columns:
+                    ld_cadd_df = ld_cadd_df[pd.to_numeric(ld_cadd_df["ld_r2"], errors="coerce") >= 0.6]
+                if "annotypes" in ld_cadd_df.columns:
+                    coding_ld_rows = ld_cadd_df[ld_cadd_df["annotypes"].str.contains("coding", case=False, na=False)]
+                    coding_ld_rows = coding_ld_rows[~coding_ld_rows["annotypes"].str.contains("noncoding", case=False, na=False)]
+                else:
+                    coding_ld_rows = pd.DataFrame()
+                if not coding_ld_rows.empty:
+                    try:
+                        genes_col = coding_ld_rows["genes"] if "genes" in coding_ld_rows.columns else pd.Series([], dtype="object")
+                        genes = [x.split(';') for x in genes_col.dropna().astype(str).unique().tolist()]
+                        genes = [gene for sublist in genes for gene in sublist]  # flatten
+                    except Exception:
+                        genes = []
+                    # unique genes
+                    genes = list(set(genes))
+                    if len(genes) >0:
+                        likely_genes[rsid] = {'genes': genes, 'source': 'coding_ld'}
+                        continue
+                    else:
+                        cadd_ld_genes = ld_cadd_df["genes"].dropna().astype(str).unique().tolist() if "genes" in ld_cadd_df.columns else []
+                else:
+                    cadd_ld_genes = ld_cadd_df["genes"].dropna().astype(str).unique().tolist() if "genes" in ld_cadd_df.columns else []
             else:
-                cadd_genes = cadd_df["genes"].dropna().unique().tolist()
-        except Exception:
-            cadd_genes = []
-        # Check variants in LD for coding impact
-        coding_ld_rows = pd.DataFrame()
-        if not ld_cadd_df.empty:
-            ld_cadd_df = ld_cadd_df[pd.to_numeric(ld_cadd_df["ld_r2"], errors="coerce") >= 0.6]
-            coding_ld_rows = ld_cadd_df[ld_cadd_df["annotypes"].str.contains("coding", case=False, na=False)]
-            coding_ld_rows = coding_ld_rows[~coding_ld_rows["annotypes"].str.contains("noncoding", case=False, na=False)]
-            if not coding_ld_rows.empty:
-                try:
-                    genes = [x.split(';') for x in coding_ld_rows["genes"].unique().tolist()]
-                    genes = [gene for sublist in genes for gene in sublist]  # flatten
-                except Exception:
-                    genes = []
-                # unique genes
-                genes = list(set(genes))
-                if len(genes) >0:
-                    likely_genes[rsid] = {'genes': genes, 'source': 'coding_ld'}
+                cadd_ld_genes = []
+            # Next check QTLs
+            if not eqtl_df.empty or not sqtl_df.empty:
+                eqtl_genes = qtl_target_ids(eqtl_df)
+                sqtl_genes = qtl_target_ids(sqtl_df)
+                qtl_combined = list(set(eqtl_genes + sqtl_genes + cadd_genes))
+                if len(qtl_combined) >0:
+                    likely_genes[rsid] = {'genes': qtl_combined, 'source': 'qtl_query'}
                     continue
-                else:
-                    cadd_ld_genes = ld_cadd_df["genes"].dropna().unique().tolist()
-            else:
-                cadd_ld_genes = ld_cadd_df["genes"].dropna().unique().tolist()
-        else:
-            cadd_ld_genes = []
-        # Next check QTLs
-        if not eqtl_df.empty or not sqtl_df.empty:
-            eqtl_genes = qtl_target_ids(eqtl_df)
-            sqtl_genes = qtl_target_ids(sqtl_df)
-            qtl_combined = list(set(eqtl_genes + sqtl_genes + cadd_genes))
-            if len(qtl_combined) >0:
-                likely_genes[rsid] = {'genes': qtl_combined, 'source': 'qtl_query'}
+            # Next check LD QTLs
+            if not ld_eqtl_df.empty or not ld_sqtl_df.empty:
+                ld_eqtl_genes = qtl_target_ids(ld_eqtl_df)
+                ld_sqtl_genes = qtl_target_ids(ld_sqtl_df)
+                ld_qtl_combined = list(set(ld_eqtl_genes + ld_sqtl_genes + cadd_ld_genes))
+                if len(ld_qtl_combined) >0:
+                    likely_genes[rsid] = {'genes': ld_qtl_combined, 'source': 'qtl_ld'}
+                    continue
+            # Next check AlphaGenome recurrence among top absolute scores
+            alpha_genes = alphagenome_likely_genes(alphagenome_df.to_dict(orient="records") if not alphagenome_df.empty else [])
+            if len(alpha_genes) > 0:
+                likely_genes[rsid] = {'genes': alpha_genes, 'source': 'alphagenome'}
                 continue
-        # Next check LD QTLs
-        if not ld_eqtl_df.empty or not ld_sqtl_df.empty:
-            ld_eqtl_genes = qtl_target_ids(ld_eqtl_df)
-            ld_sqtl_genes = qtl_target_ids(ld_sqtl_df)
-            ld_qtl_combined = list(set(ld_eqtl_genes + ld_sqtl_genes + cadd_ld_genes))
-            if len(ld_qtl_combined) >0:
-                likely_genes[rsid] = {'genes': ld_qtl_combined, 'source': 'qtl_ld'}
-                continue
-        # Next check AlphaGenome recurrence among top absolute scores
-        alpha_genes = alphagenome_likely_genes(alphagenome_df.to_dict(orient="records") if not alphagenome_df.empty else [])
-        if len(alpha_genes) > 0:
-            likely_genes[rsid] = {'genes': alpha_genes, 'source': 'alphagenome'}
-            continue
-        # If none of the above, return closest gene (placeholder)
-        likely_genes[rsid] = {'genes': closest_gene(info_df), 'source': 'closest_gene'}
+            # Next check LD-CADD genes (including noncoding) before position fallback
+            if len(cadd_ld_genes) > 0:
+                genes = [x.split(';') for x in cadd_ld_genes if isinstance(x, str)]
+                genes = [gene.strip() for sublist in genes for gene in sublist if gene and gene.strip()]
+                genes = list(dict.fromkeys(genes))
+                if len(genes) > 0:
+                    likely_genes[rsid] = {'genes': genes, 'source': 'ld_cadd'}
+                    continue
+            # If none of the above, return closest gene (placeholder)
+            likely_genes[rsid] = {'genes': closest_gene(info[snp]), 'source': 'closest_gene'}
+        except Exception as e:
+            likely_genes[snp] = {'genes': [], 'source': 'error'}
     # Convert to dataframe
     likely_genes_df = pd.DataFrame.from_dict(likely_genes, orient='index')
     likely_genes_df['query'] = likely_genes_df.index
