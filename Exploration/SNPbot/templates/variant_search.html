@@ -772,6 +772,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   let currentAlphaGenomeRequestId = 0;
   const SNPBOT_API_URL = "{{ url_for('snpbot.variant_query') }}";
   const SNPBOT_ALPHAGENOME_API_URL = "{{ url_for('snpbot.variant_alphagenome') }}";
+  const SNPBOT_ALPHAGENOME_PLOT_API_URL = "{{ url_for('snpbot.variant_alphagenome_plot') }}";
 
   function setLoading(isLoading) {
     const btn = document.getElementById("search-btn");
@@ -1474,9 +1475,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       <div id="alphagenome-section">
         <div class="result-header-row">
           <h3 class="result-subtitle">AlphaGenome annotation (top 100)</h3>
-          <button class="download-button" onclick="downloadAlphaGenomeTable()">
-            ⬇ Download AlphaGenome CSV
-          </button>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="download-button" onclick="downloadAlphaGenomeTable()">
+              ⬇ Download AlphaGenome CSV
+            </button>
+            <button class="download-button" onclick="downloadAlphaGenomePlot()">
+              ⬇ Download AlphaGenome plot
+            </button>
+          </div>
         </div>
         <div class="result-table-wrapper">
           <table class="result-table">
@@ -2679,6 +2685,47 @@ document.addEventListener('DOMContentLoaded', async () => {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  }
+
+  function downloadAlphaGenomePlot() {
+    if (!lastAlphaGenomeData || !Array.isArray(lastAlphaGenomeData.rows) || lastAlphaGenomeData.rows.length === 0) {
+      showError("No AlphaGenome data available to plot.");
+      return;
+    }
+
+    setLoading(true);
+    fetch(SNPBOT_ALPHAGENOME_PLOT_API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rows: lastAlphaGenomeData.rows })
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          let msg = "Could not generate AlphaGenome plot.";
+          try {
+            const j = await res.json();
+            if (j && j.error) msg = j.error;
+          } catch (_) {}
+          showError(msg);
+          return;
+        }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "alphagenome_clustermap.png";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      })
+      .catch((err) => {
+        console.error(err);
+        showError("Error contacting AlphaGenome plot endpoint.");
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }
 
   function downloadGwasTable() {

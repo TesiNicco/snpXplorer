@@ -862,6 +862,7 @@ def haplotypes():
             clusters_of_interest, all_indices, trait_list, cluster_index_map, umap, cluster_representatives, browse_resolved, sim_mat, names_sub, cluster_labels_for_index, cluster_traits, traits_interest, idx_trait,all_cluster_representatives = guide_haplotypes_traits(data_path, browse, window, refGen, trait_names)
             # get table of trait info and gwas associations
             traits_info_table, gwas_assoc_df, all_haplo_df = get_traits_info(data_path, traits_interest, cluster_representatives, meta)
+            traits_info_csv = traits_info_table.drop(columns=['__is_representative'], errors='ignore')
             # get plot
             plot_url, gwas_assoc_df = plot_haplotype_traits(clusters_of_interest, all_indices, trait_list, cluster_index_map, umap, cluster_representatives, browse, sim_mat, names_sub, cluster_labels_for_index, cluster_traits, idx_trait, all_cluster_representatives, gwas_assoc_df, all_haplo_df)
             # show only top rows in tables
@@ -869,7 +870,7 @@ def haplotypes():
             gwas_assoc_df_show = top_gwas_rows(gwas_assoc_df, MAX_ROWS)
             all_haplo_df_show = all_haplo_df.head(MAX_ROWS).copy()
             # store full csvs in session for download
-            session["haplo_trait_full_csv"] = {"gwas_assoc": gwas_assoc_df.to_csv(index=False, sep=";"), "all_haplo": all_haplo_df.to_csv(index=False, sep=";"), "traits_info": traits_info_table.to_csv(index=False, sep=";")}
+            session["haplo_trait_full_csv"] = {"gwas_assoc": gwas_assoc_df.to_csv(index=False, sep=";"), "all_haplo": all_haplo_df.to_csv(index=False, sep=";"), "traits_info": traits_info_csv.to_csv(index=False, sep=";")}
             session.modified = True
             # store last state in session
             session['haplo_last'] = {"mode": "trait", "browse": browse_resolved, "browse_type": browse_type, "refGen": refGen, "window": window, "plot_url": plot_url, "haplo_summary": [], "chrom": None, "start_pos": None, "end_pos": None, "hap_id_interest": None, "table_traits": traits_info_table.to_dict(orient="records"), "gwas_assoc_table": gwas_assoc_df_show.to_dict(orient="records"), "all_haplo_table": all_haplo_df_show.to_dict(orient="records"), "gwas_assoc_total": int(len(gwas_assoc_df)), "all_haplo_total": int(len(all_haplo_df))}

@@ -73,6 +73,8 @@ def get_traits_info(data_path, traits_interest, representative, meta):
     all_gw_info = []
     all_haplo_df = pd.DataFrame()
     gwas_assoc_df = pd.DataFrame()
+    representative_file = representative['Final Representative file'].values[0]
+    representative_id = representative_file.replace('_hits_p5e-5.txt.gz', '')
     # iterate over df rows
     for index, row in traits_interest.iterrows():
         gwas_id = row['id'].replace('_hits_p5e-5.txt.gz', '')
@@ -80,10 +82,11 @@ def get_traits_info(data_path, traits_interest, representative, meta):
         gwas_info = meta[gwas_id]
         # convert to dictionary
         gwas_info = dict(gwas_info)
+        gwas_info['__is_representative'] = (gwas_id == representative_id)
         # make a dictionary
         all_gw_info.append(gwas_info)
         # check if this is the representative gwas
-        if row['id'] == representative['Final Representative file'].values[0]:
+        if row['id'] == representative_file:
             # in that case, get associations for manhattan plot
             gwas_associations = [x.split('\t') for x in subprocess.run(["tabix", data_path + "/databases/haplotypes/All_indep_gwas_sumstats_AI_hg38_byTrait.txt.gz", row['id'].replace('_hits_p5e-5.txt.gz', '')], capture_output=True,check=True, text=True).stdout.strip().split('\n')]
             # convert to dataframe
@@ -93,9 +96,16 @@ def get_traits_info(data_path, traits_interest, representative, meta):
     # convert all_gw_info to dataframe
     all_gw_info = pd.DataFrame(all_gw_info)
     # subset of columns to keep
-    all_gw_info = all_gw_info[["id", "trait", "pmid", "author", "year", "sample_size", "population"]]
+    all_gw_info = all_gw_info[["id", "trait", "pmid", "author", "year", "sample_size", "population", "__is_representative"]]
     # pmid as integer NA proof
     all_gw_info['pmid'] = all_gw_info['pmid'].fillna(0).astype(int)
+    # sort by sample size (descending) but keep representative trait at the very top
+    all_gw_info['sample_size'] = pd.to_numeric(all_gw_info['sample_size'], errors='coerce')
+    all_gw_info = all_gw_info.sort_values(
+        by=['__is_representative', 'sample_size'],
+        ascending=[False, False],
+        na_position='last'
+    ).reset_index(drop=True)
     # rename columns
     all_gw_info.rename(columns={"id":"GWAS ID", "trait":"Trait", "pmid":"PubMed ID", "author":"First Author", "year":"Year", "sample_size":"Sample Size", "population":"Population"}, inplace=True)
     all_haplo_df.rename(columns={'CHR': 'Chromosome', 'BP1':'Start (hg38)', 'BP2':'End (hg38)', 'KB':'Size (kb)', 'NSNPS':'# SNPs', 'SNPS':'SNPs', 'assoc_count':'# Associations', 'rsids':'SNPs (RsIDs)', 'traits':'Traits'}, inplace=True)

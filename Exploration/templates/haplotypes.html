@@ -237,15 +237,19 @@
           <thead>
             <tr>
               {% for col in table_traits[0].keys() %}
+              {% if not col.startswith('__') %}
               <th>{{ col }}</th>
+              {% endif %}
               {% endfor %}
             </tr>
           </thead>
           <tbody>
             {% for row in table_traits %}
-            <tr>
+            <tr {% if row.get('__is_representative') %}style="font-weight:700;"{% endif %}>
               {% for col, val in row.items() %}
+              {% if not col.startswith('__') %}
               <td>{{ val }}</td>
+              {% endif %}
               {% endfor %}
             </tr>
             {% endfor %}
@@ -253,10 +257,9 @@
         </table>
       </div>
 
-      <div style="text-align:right; margin-top:8px;">
-        <button type="button" id="download-traits-summary" class="btn-download">
-          Download table (CSV)
-        </button>
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-top:8px;">
+        <small style="color:#444;">In bold, the representative GWAS for the selected trait</small>
+        <button type="button" id="download-traits-summary" class="btn-download">Download table (CSV)</button>
       </div>
     </div>
   {% endif %}

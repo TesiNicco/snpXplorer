@@ -1322,9 +1322,14 @@ def variant_query():
     if not q:
         return jsonify({"error": "Missing ?query= parameter"}), 400
 
-    info, status = run_variant_query(q, build, tissues=tissues)
-    info = sanitize_for_json(info)
-    return jsonify(info), status
+    try:
+        info, status = run_variant_query(q, build, tissues=tissues)
+        info = sanitize_for_json(info)
+        return jsonify(info), status
+    except Exception:
+        return jsonify({
+            "error": "This is a tough variant to search. We can not find it in our database. Please double check if variant name is correct."
+        }), 404
 
 # ---------------------------------------------------------
 # AlphaGenome endpoint (JSON)
@@ -1368,6 +1373,277 @@ def variant_alphagenome():
         "likely_gene": info.get("likely_gene"),
     }
     return jsonify(sanitize_for_json(payload)), 200
+
+@snpbot_bp.route("/api/variant/alphagenome/plot", methods=["POST"])
+def variant_alphagenome_plot():
+    """
+    Build and return an AlphaGenome clustermap PNG from currently displayed rows.
+    Input JSON: { "rows": [ ... ] }
+    """
+    try:
+        import numpy as np
+        import seaborn as sns
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        from matplotlib.patches import Patch
+        from matplotlib.colors import LinearSegmentedColormap
+        from scipy.cluster import hierarchy
+    except Exception:
+        return jsonify({"error": "Plot dependencies are not available on server."}), 500
+
+    try:
+        payload = request.get_json(silent=True) or {}
+        rows = payload.get("rows", [])
+        if not rows:
+            return jsonify({"error": "No AlphaGenome rows provided for plotting."}), 400
+
+        df = pd.DataFrame(rows)
+        if df.empty:
+            return jsonify({"error": "No AlphaGenome rows provided for plotting."}), 400
+
+        def pick_col(candidates):
+            for c in candidates:
+                if c in df.columns:
+                    return c
+            return None
+
+        gene_col = pick_col(["gene_name", "Gene Name", "gene", "Gene"])
+        biosample_col = pick_col(["biosample_name", "Biosample Name", "tissue", "Tissue"])
+        score_col = pick_col(["score", "Raw Score", "raw_score"])
+        if not gene_col or not biosample_col or not score_col:
+            return jsonify({"error": "AlphaGenome table is missing required columns (gene, biosample, score)."}), 400
+
+        work = df.copy()
+        work["Gene Name"] = work[gene_col].astype(str).str.strip()
+        work["Biosample Name"] = work[biosample_col].astype(str).str.strip()
+        work["Raw Score"] = pd.to_numeric(work[score_col], errors="coerce")
+        work = work.dropna(subset=["Gene Name", "Biosample Name", "Raw Score"])
+        if work.empty:
+            return jsonify({"error": "No valid AlphaGenome rows after score parsing."}), 400
+
+        # Optional metadata
+        biosample_type_col = pick_col(["biosample_type", "Biosample Type"])
+        life_stage_col = pick_col(["biosample_life_stage", "Biosample Life Stage"])
+        data_source_col = pick_col(["data_source", "Data Source"])
+        output_type_col = pick_col(["output_type", "Output Type"])
+        gene_type_col = pick_col(["gene_type", "Gene Type", "track_label", "track_name"])
+
+        work["Biosample Type"] = work[biosample_type_col].astype(str) if biosample_type_col else "Unknown"
+        work["Biosample Life Stage"] = work[life_stage_col].astype(str) if life_stage_col else "Unknown"
+        work["Data Source"] = work[data_source_col].astype(str) if data_source_col else "Unknown"
+        work["Output Type"] = work[output_type_col].astype(str) if output_type_col else "Unknown"
+        work["Gene Type"] = work[gene_type_col].astype(str) if gene_type_col else "Unknown"
+
+        # Top 1% by absolute score (two-tailed by abs)
+        work["absScore"] = work["Raw Score"].abs()
+        thr = work["absScore"].quantile(0.99)
+        data_top_thr = work.loc[work["absScore"] >= thr].copy()
+        if data_top_thr.empty:
+            data_top_thr = work.nlargest(min(100, len(work)), "absScore").copy()
+
+        # Matrix
+        mat_dt = (
+            data_top_thr
+            .groupby(["Biosample Name", "Gene Name"], as_index=False)["Raw Score"]
+            .mean()
+        )
+        mat = mat_dt.pivot(index="Biosample Name", columns="Gene Name", values="Raw Score")
+        if mat.empty or mat.shape[0] < 1 or mat.shape[1] < 1:
+            return jsonify({"error": "Insufficient data to build AlphaGenome heatmap."}), 400
+
+        # Row / column metadata
+        row_anno = (
+            data_top_thr[["Biosample Name", "Biosample Type", "Biosample Life Stage", "Data Source", "Output Type"]]
+            .drop_duplicates(subset=["Biosample Name"])
+            .set_index("Biosample Name")
+            .reindex(mat.index)
+        )
+
+        col_anno = (
+            data_top_thr[["Gene Name", "Gene Type"]]
+            .drop_duplicates(subset=["Gene Name"])
+            .set_index("Gene Name")
+            .reindex(mat.columns)
+        )
+
+        # Palettes
+        life_stage_levels = sorted(row_anno["Biosample Life Stage"].dropna().unique())
+        life_stage_palette = dict(zip(
+            life_stage_levels,
+            sns.color_palette("Set2", n_colors=max(1, len(life_stage_levels))).as_hex()
+        ))
+        output_type_levels = sorted(row_anno["Output Type"].dropna().unique())
+        output_type_palette = dict(zip(
+            output_type_levels,
+            sns.color_palette("Dark2", n_colors=max(1, len(output_type_levels))).as_hex()
+        ))
+        gene_type_levels = sorted(col_anno["Gene Type"].dropna().unique())
+        gene_type_palette = dict(zip(
+            gene_type_levels,
+            sns.color_palette("tab20", n_colors=max(1, len(gene_type_levels))).as_hex()
+        ))
+
+        biosample_type_levels = sorted(row_anno["Biosample Type"].dropna().unique())
+        biosample_type_palette = dict(zip(
+            biosample_type_levels,
+            sns.color_palette("Set3", n_colors=max(1, len(biosample_type_levels))).as_hex()
+        ))
+        data_source_levels = sorted(row_anno["Data Source"].dropna().unique())
+        data_source_palette = dict(zip(
+            data_source_levels,
+            sns.color_palette("Paired", n_colors=max(1, len(data_source_levels))).as_hex()
+        ))
+
+        row_colors = pd.DataFrame({
+            "Biosample Type": row_anno["Biosample Type"].map(biosample_type_palette),
+            "Life Stage": row_anno["Biosample Life Stage"].map(life_stage_palette),
+            "Data Source": row_anno["Data Source"].map(data_source_palette),
+            "Output Type": row_anno["Output Type"].map(output_type_palette),
+        }, index=mat.index).fillna("#d9d9d9")
+
+        col_colors = pd.DataFrame({
+            "Gene Type": col_anno["Gene Type"].map(gene_type_palette)
+        }, index=mat.columns).fillna("#d9d9d9")
+
+        mat_plot = mat.replace([np.inf, -np.inf], np.nan)
+        finite_vals = np.abs(mat_plot.to_numpy(dtype=float))
+        lim = np.nanmax(finite_vals)
+        if not np.isfinite(lim):
+            lim = 1.0
+        cmap = LinearSegmentedColormap.from_list("bwr_custom", ["blue", "white", "red"])
+
+        # Safe matrix for clustering only (keep NA in plotted matrix)
+        mat_cluster = mat_plot.copy()
+        col_medians = mat_cluster.median(axis=0, skipna=True).fillna(0)
+        mat_cluster = mat_cluster.fillna(col_medians)
+
+        if mat_cluster.shape[0] > 1:
+            row_linkage = hierarchy.linkage(mat_cluster.values, method="average", metric="euclidean")
+            row_cluster_plot = True
+        else:
+            row_linkage = None
+            row_cluster_plot = False
+
+        if mat_cluster.shape[1] > 1:
+            col_linkage = hierarchy.linkage(mat_cluster.T.values, method="average", metric="euclidean")
+            col_cluster_plot = True
+        else:
+            col_linkage = None
+            col_cluster_plot = False
+
+        g = sns.clustermap(
+            mat_plot,
+            cmap=cmap,
+            center=0,
+            vmin=-lim,
+            vmax=lim,
+            row_cluster=row_cluster_plot,
+            col_cluster=col_cluster_plot,
+            row_linkage=row_linkage,
+            col_linkage=col_linkage,
+            row_colors=row_colors,
+            col_colors=col_colors,
+            figsize=(16, 10),
+            xticklabels=True,
+            yticklabels=True,
+            dendrogram_ratio=(0.15, 0.10),
+            colors_ratio=(0.04, 0.04),
+            cbar_pos=None,
+        )
+
+        g.fig.subplots_adjust(left=0.28, right=0.98, top=0.70)
+        g.ax_heatmap.set_yticklabels(g.ax_heatmap.get_yticklabels(), fontsize=9)
+        g.ax_heatmap.set_xticklabels(g.ax_heatmap.get_xticklabels(), fontsize=11, rotation=45, ha="right")
+
+        # mark NAs with "-"
+        rord = g.dendrogram_row.reordered_ind if getattr(g, "dendrogram_row", None) is not None else list(range(mat.shape[0]))
+        cord = g.dendrogram_col.reordered_ind if getattr(g, "dendrogram_col", None) is not None else list(range(mat.shape[1]))
+        mat_ord = mat.iloc[rord, cord]
+        for i in range(mat_ord.shape[0]):
+            for j in range(mat_ord.shape[1]):
+                if pd.isna(mat_ord.iat[i, j]):
+                    g.ax_heatmap.text(j + 0.5, i + 0.5, "-", ha="center", va="center", fontsize=8, color="black")
+
+        def make_handles(pal):
+            return [Patch(facecolor=c, edgecolor="none", label=str(k)) for k, c in pal.items()]
+
+        # Raw score colorbar (top-center)
+        cax = g.fig.add_axes([0.36, 0.965, 0.28, 0.018])
+        cb = plt.colorbar(g.ax_heatmap.collections[0], cax=cax, orientation="horizontal")
+        cb.set_label("Raw score", fontsize=9)
+        cb.ax.tick_params(labelsize=8)
+
+        g.fig.legend(
+            make_handles(biosample_type_palette),
+            biosample_type_palette.keys(),
+            title="Biosample Type",
+            loc="upper center",
+            bbox_to_anchor=(0.5, 0.94),
+            ncol=min(6, max(1, len(biosample_type_palette))),
+            frameon=False,
+            fontsize=8,
+            title_fontsize=9
+        )
+        g.fig.legend(
+            make_handles(life_stage_palette),
+            life_stage_palette.keys(),
+            title="Life Stage",
+            loc="upper center",
+            bbox_to_anchor=(0.5, 0.90),
+            ncol=min(6, max(1, len(life_stage_palette))),
+            frameon=False,
+            fontsize=8,
+            title_fontsize=9
+        )
+        g.fig.legend(
+            make_handles(data_source_palette),
+            data_source_palette.keys(),
+            title="Data Source",
+            loc="upper center",
+            bbox_to_anchor=(0.5, 0.86),
+            ncol=min(6, max(1, len(data_source_palette))),
+            frameon=False,
+            fontsize=8,
+            title_fontsize=9
+        )
+        g.fig.legend(
+            make_handles(output_type_palette),
+            output_type_palette.keys(),
+            title="Output Type",
+            loc="upper center",
+            bbox_to_anchor=(0.5, 0.82),
+            ncol=min(6, max(1, len(output_type_palette))),
+            frameon=False,
+            fontsize=8,
+            title_fontsize=9
+        )
+        g.fig.legend(
+            make_handles(gene_type_palette),
+            gene_type_palette.keys(),
+            title="Gene Type",
+            loc="upper center",
+            bbox_to_anchor=(0.5, 0.78),
+            ncol=min(6, max(1, len(gene_type_palette))),
+            frameon=False,
+            fontsize=8,
+            title_fontsize=9
+        )
+
+        buf = io.BytesIO()
+        g.savefig(buf, format="png", dpi=300, bbox_inches="tight")
+        plt.close(g.fig)
+        buf.seek(0)
+        return (
+            buf.getvalue(),
+            200,
+            {
+                "Content-Type": "image/png",
+                "Content-Disposition": "attachment; filename=alphagenome_clustermap.png",
+            },
+        )
+    except Exception as e:
+        return jsonify({"error": f"Could not generate AlphaGenome plot: {e}"}), 500
 
 # ---------------------------------------------------------
 # Session endpoint to retrieve last query

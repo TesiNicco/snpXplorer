@@ -702,6 +702,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  // If query/build are provided in URL, prioritize them over "last query" restore.
+  const urlParams = new URLSearchParams(window.location.search);
+  const queryFromUrl = (urlParams.get("query") || "").trim();
+  const buildFromUrl = (urlParams.get("build") || "hg38").toLowerCase();
+  if (queryFromUrl) {
+    const queryInput = document.getElementById("query-input");
+    const buildSelect = document.getElementById("build-select");
+    if (queryInput) queryInput.value = queryFromUrl;
+    if (buildSelect && ["hg38", "hg19"].includes(buildFromUrl)) {
+      buildSelect.value = buildFromUrl;
+    }
+    submitQuery();
+    return;
+  }
+
   try {
     const resp = await fetch('/snpbot/api/variant/last');
     if (!resp.ok) return;  // no previous query -> do nothing
