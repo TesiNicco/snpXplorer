@@ -550,6 +550,26 @@ def query_eqtls(chrom, pos38, qtl_tissues):
     except Exception:
         return []
 
+def filter_alphagenome_output(alpha_df: pd.DataFrame, quantile: float = 0.97) -> pd.DataFrame:
+    """
+    Keep only the top tail of AlphaGenome rows by absolute score for batch output.
+    Default quantile 0.97 keeps the top 3% by absolute score.
+    """
+    if alpha_df is None or alpha_df.empty or "score" not in alpha_df.columns:
+        return alpha_df
+
+    filtered = alpha_df.copy()
+    filtered["score_numeric"] = pd.to_numeric(filtered["score"], errors="coerce")
+    filtered = filtered.dropna(subset=["score_numeric"])
+    if filtered.empty:
+        return filtered.drop(columns=["score_numeric"], errors="ignore")
+
+    filtered["abs_score"] = filtered["score_numeric"].abs()
+    threshold = filtered["abs_score"].quantile(quantile)
+    filtered = filtered[filtered["abs_score"] >= threshold].copy()
+    filtered = filtered.drop(columns=["score_numeric", "abs_score"], errors="ignore")
+    return filtered.reset_index(drop=True)
+
 def qtl_target_ids(qtl_df):
     """
     Prefer gene symbols for QTL targets, but fall back to Ensembl IDs when the
@@ -2105,6 +2125,7 @@ def main():
             info_df, cadd_df, gnomad_freq_df, clinvar_df, alphagenome_df, eqtl_df, sqtl_df, ld_df, gwas_df, ld_cadd_df, ld_eqtl_df, ld_sqtl_df, sv_df = convert_info_dict_to_dfs(info_single_filtered)
             # Merge tables
             cadd_df_m, gnomad_freq_df_m, clinvar_df_m, alphagenome_df_m, eqtl_df_m, sqtl_df_m, merged_df_single, ld_cadd_df_m, ld_eqtl_df_m, ld_sqtl_df_m, ld_df_m, gwas_df_m, _, sv_df_m = merge_info(info_df, cadd_df, gnomad_freq_df, clinvar_df, alphagenome_df, eqtl_df, sqtl_df, ld_df, gwas_df, ld_cadd_df, ld_eqtl_df, ld_sqtl_df, most_likely_gene_single, pd.DataFrame(), sv_df)
+            alphagenome_df_m = filter_alphagenome_output(alphagenome_df_m, quantile=0.97)
             # Store in buffers
             buf_variant.append(merged_df_single)
             buf_cadd.append(cadd_df_m)
