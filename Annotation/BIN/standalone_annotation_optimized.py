@@ -1377,6 +1377,10 @@ def merge_info(info_df, cadd_df, gnomad_freq_df, clinvar_df, alphagenome_df, eqt
         return out
     # Rename info_df columns
     info_df_renamed = info_df.rename(columns={"query_type": "Query Type", "rsid": "RsID", "chr_hg38": "Chromosome", "pos_hg38": "Position (hg38)", "pos_hg19": "Position (hg19)", "ref": "Reference", "alt": "Alternative", "af": "Alternative Allele Frequency"}).reset_index(drop=True)
+    # Keep a stable base schema across query types (rsid vs coordinates) to avoid
+    # variable-width rows when appending batches to disk.
+    base_cols = ["Query Type", "RsID", "Chromosome", "Position (hg38)", "Position (hg19)", "Reference", "Alternative", "Alternative Allele Frequency"]
+    info_df_renamed = info_df_renamed.reindex(columns=[c for c in base_cols if c in info_df_renamed.columns])
     # Add locus ID as chrom:pos:alleles (alleles are alphabetically ordered)
     info_df_renamed['Locus ID'] = info_df_renamed['Chromosome'].astype(str) + ":" + info_df_renamed['Position (hg38)'].astype(str) + ":" + info_df_renamed[['Reference', 'Alternative']].apply(lambda row: ':'.join(sorted([str(row['Reference']), str(row['Alternative'])])), axis=1)
     # Check if cadd_df is empty
@@ -2257,7 +2261,11 @@ def main():
             clustered_go_terms_list = []
         
         # Read again the merged_df from disk
-        merged_df = pd.read_csv(variant_combined_path, sep="\t")
+        try:
+            merged_df = pd.read_csv(variant_combined_path, sep="\t")
+        except pd.errors.ParserError:
+            # Fallback: keep pipeline alive if one malformed line slips into TSV.
+            merged_df = pd.read_csv(variant_combined_path, sep="\t", engine="python", on_bad_lines="skip")
         
         # Prepare pathway-PRS weights if clustering was performed
         if analysis_type == "enrichment" and clustered_go_terms_list:
