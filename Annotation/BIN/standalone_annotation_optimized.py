@@ -430,7 +430,7 @@ def fetch_by_position(DB_FILE, chrom, pos38):
     try:
         info = pd.read_sql_query(query, conn, params=(str(chrom), int(pos38))).to_dict(orient="records")[0]
     except Exception:
-        info = {'Position_hg19': None, 'REF': None, 'ALT': None, 'rsID': None, 'AF': None}
+        return None
     try:
         info['AF'] = round(float(info.get('AF')), 2)
     except Exception:
@@ -1161,11 +1161,19 @@ def info_to_dataframes(info: dict) -> List[pd.DataFrame]:
 # ---------------------------------------------------------
 def closest_gene(query_info):
     # get chromosome and position
-    chrom = str(query_info["Chromosome"])
+    chrom = query_info.get("Chromosome", query_info.get("chr_hg38"))
+    variant_pos = query_info.get("Position_hg38", query_info.get("pos_hg38"))
+    if chrom is None or variant_pos is None:
+        return []
+    chrom = str(chrom)
     if 'chr' not in chrom:
         chrom = 'chr' + chrom
-    start_pos = query_info["Position_hg38"] - 1500000
-    end_pos = query_info["Position_hg38"] + 1500000
+    try:
+        variant_pos = int(variant_pos)
+    except Exception:
+        return []
+    start_pos = variant_pos - 1500000
+    end_pos = variant_pos + 1500000
     # tabix command
     GENE_DB_FILE = DATA_PATH / "databases/Genes/genes_hg38.txt.gz"
     result = subprocess.run(["tabix", str(GENE_DB_FILE), f"{chrom}:{start_pos}-{end_pos}"], capture_output=True, check=True, text=True)
@@ -1181,7 +1189,6 @@ def closest_gene(query_info):
     # remove duplicates based on gene_symbol, keeping the longest gene
     df = df.sort_values(by="gene_size", ascending=False).drop_duplicates(subset=["gene_symbol"])
     # add distance to variant from tx_start and tx_end, and keep minimum
-    variant_pos = query_info["Position_hg38"]
     df["dist_to_variant"] = df.apply(lambda row: min(abs(row["tx_start"] - variant_pos), abs(row["tx_end"] - variant_pos)), axis=1)
     # sort by distance
     df = df.sort_values(by="dist_to_variant", ascending=True)
@@ -1202,19 +1209,30 @@ def identify_most_likely_gene(info: dict):
     # Iterate over snps in info
     for snp in info.keys():
         try:
-            if 'Error' in info[snp]:
+            snp_payload = info[snp]
+            if isinstance(snp_payload, str) and 'Error' in snp_payload:
                 invalid_queries.append(snp)
+                continue
+            if not isinstance(snp_payload, list) or len(snp_payload) < 12:
+                likely_genes[snp] = {'genes': [], 'source': 'error'}
                 continue
             # Extract dataframes
             info_df, cadd_df, gnomad_freq_df, clinvar_df, alphagenome_df, eqtl_df, sqtl_df, ld_df, gwas_df, ld_cadd_df, ld_eqtl_df, ld_sqtl_df, sv_df = convert_info_dict_to_dfs({snp: info[snp]})
+            if info_df.empty:
+                likely_genes[snp] = {'genes': [], 'source': 'error'}
+                continue
             # Get rsid
             rsid = info_df["rsid"].values[0]
             if rsid is None:
                 rsid = info_df["chr_hg38"].values[0] + ":" + str(info_df["pos_hg38"].values[0])
             # First check ClinVar
             try:
-                clinvar_data = clinvar_df.iloc[0].to_dict() if not clinvar_df.empty else {}
-                clinvar_gene = clinvar_data.get("gene_symbol")
+                gnomad_payload = snp_payload[2][0] if len(snp_payload) > 2 and snp_payload[2] else {}
+                clinvar_gene = (
+                    gnomad_payload.get("clinvar", {}).get("gene_symbol")
+                    if isinstance(gnomad_payload, dict)
+                    else None
+                )
                 if clinvar_gene:
                     likely_genes[rsid] = {'genes': [clinvar_gene], 'source': 'clinvar'}
                     continue
@@ -1304,7 +1322,8 @@ def identify_most_likely_gene(info: dict):
                     likely_genes[rsid] = {'genes': genes, 'source': 'ld_cadd'}
                     continue
             # If none of the above, return closest gene (placeholder)
-            likely_genes[rsid] = {'genes': closest_gene(info[snp]), 'source': 'closest_gene'}
+            base_info = info_df.iloc[0].to_dict()
+            likely_genes[rsid] = {'genes': closest_gene(base_info), 'source': 'closest_gene'}
         except Exception as e:
             likely_genes[snp] = {'genes': [], 'source': 'error'}
     # Convert to dataframe
