@@ -331,6 +331,7 @@
             and colored by the number of traits that haplotype is associated with.
           </div>
       </div>
+    <h3>Graphical overview of haplotypes</h3>
     <div id="plotly-haplotypes" style="width:100%; margin:24px 0; height:auto;">
       {{ plot_url | safe }}
     </div>
@@ -361,6 +362,27 @@
              style="max-width:80%; height:auto; border-radius:10px;">
         <figcaption style="font-size:0.9em; color:#444; margin-top:8px;">
             Manhattan plots showing SNP associations with various traits.
+        </figcaption>
+      </figure>
+    </div>
+  {% endif %}
+
+  {% if fig_url %}
+    <div class="info-wrap">
+      <span class="info-icon">ⓘ</span>
+      <div class="info-tip">
+        This heatmap summarizes the average beta effect of the top haplotypes across their associated traits, helping compare whether different haplotypes tend to show similar or opposite directions of effect.
+      </div>
+    </div>
+    <h3>Average effect of haplotypes on phenotypes</h3>
+    <div id="plotly-haplotype-effects" style="width:100%; margin:24px 0; height:auto;">
+      {{ fig_url | safe }}
+    </div>
+    <div style="margin:12px 0;">
+      <figure style="max-width:100%; text-align:left;">
+        <figcaption style="font-size:0.95rem; color:#444;">
+          <strong>Figure description:</strong>
+          This interactive heatmap shows average beta values for haplotype-trait pairs. Rows correspond to haplotypes, columns correspond to associated traits, and the color scale is centered at zero so positive and negative effects can be compared at a glance. For visibility, a maximum of 10 haplotypes with more than 1 trait association and a maximum of 40 traits are shown.
         </figcaption>
       </figure>
     </div>

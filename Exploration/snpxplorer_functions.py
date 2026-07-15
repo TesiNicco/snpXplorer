@@ -48,6 +48,7 @@ from sklearn.cluster import AgglomerativeClustering
 from sklearn.metrics.pairwise import cosine_similarity
 from scipy.cluster.hierarchy import dendrogram, linkage
 from pandasgwas import get_variants_by_variant_id
+import plotly.express as px
 
 # differences between local and server
 # local
@@ -512,6 +513,75 @@ def plot_haplotype_traits(clusters_of_interest, all_indices, trait_list, cluster
     # and sort by p-value
     gwas_assoc_df = gwas_assoc_df.sort_values(by='P-value').reset_index(drop=True)
     return plot_url, gwas_assoc_df
+
+# function to extract haplotype effect on traits
+def extract_haplotype_effect_on_traits(data_path, haplo_summary, chrom):
+    # subset to haplotypes with >1 trait associations
+    haplo_tmp = haplo_summary[haplo_summary['n_traits'] >= 1].copy().reset_index(drop=True)
+    # if more than 10, restrict to top 10 by number of traits
+    if haplo_tmp.shape[0] > 10:
+        haplo_tmp = haplo_tmp.sort_values(by='n_traits', ascending=False).iloc[:10, :].copy().reset_index(drop=True)
+    # extract all haplo data
+    start_pos = min(haplo_tmp['start_bp'].astype(int))
+    end_pos = max(haplo_tmp['end_bp'].astype(int))
+    haplo_df, haplo_dict = extract_haplo_data(data_path, chrom, start_pos-1_000_000, end_pos+1_000_000)
+    # iterate over haplotypes
+    haplo_effects = []
+    for idx, row in haplo_tmp.iterrows():
+        haplo_id = row['ID']
+        # subset to haplotype of interest
+        haplo_row = haplo_df[haplo_df['ID'] == haplo_id].copy().reset_index(drop=True)
+        # extract snps
+        snps = ' '.join([str(chrom).upper().replace('CHR', '') + ':' + x.split(':')[1] + '-' + x.split(':')[1] for x in haplo_dict[haplo_id]])
+        # extract effects
+        cmd = "tabix %s/databases/haplotypes/All_indep_gwas_sumstats_AI_hg38.txt.gz %s" %(data_path.replace(' ', '\ '), snps)
+        snps_data = [x.rstrip().split('\t') for x in os.popen(cmd)]
+        snps_df = pd.DataFrame(snps_data, columns=["id", "trait", "chr", "position", "rsid", "ea", "nea", "eaf", "beta", "se", "p", "n", "study_id", "position_hg38"])
+        # make betas numeric
+        snps_df['beta'] = pd.to_numeric(snps_df['beta'], errors='coerce')
+        # average betas across all SNPs in the haplotype for each trait
+        trait_effects = snps_df.groupby('trait')['beta'].mean().reset_index()
+        # add haplo id
+        trait_effects['haplo_id'] = haplo_id
+        # append to list
+        haplo_effects.append(trait_effects)
+    # combine into a single dataframe
+    haplo_effects = pd.concat(haplo_effects, ignore_index=True)
+    # add haplotype index by merging with haplo_tmp
+    haplo_effects = haplo_effects.merge(haplo_tmp[['ID', 'haplo_index']], left_on='haplo_id', right_on='ID', how='left')
+    # then the plot -- plotly heatmap to show haplotypes on the y-axis and traits on the x-axis, with color representing the average beta effect
+    # get heatmap data
+    heatmap_data = haplo_effects.pivot(index="haplo_index", columns="trait", values="beta")
+    # preserve haplotype order from the original dataframe
+    haplo_order = haplo_effects["haplo_index"].drop_duplicates()
+    heatmap_data = heatmap_data.reindex(haplo_order)
+    # if >30 traits, limit to top 30 by number of haplotypes associated
+    if heatmap_data.shape[1] > 40:
+        trait_counts = haplo_effects.groupby("trait")["haplo_id"].nunique().reset_index(name="haplo_count")
+        top_traits = trait_counts.sort_values(by="haplo_count", ascending=False).head(40)["trait"]
+        heatmap_data = heatmap_data[top_traits]
+    # if the labels of traits are too long, truncate them to 40 characters
+    heatmap_data.columns = [col if len(col) <= 40 else col[:40] + "..." for col in heatmap_data.columns]
+    # Symmetric colour scale around zero
+    max_abs_beta = np.nanmax(np.abs(heatmap_data.to_numpy()))
+    fig = px.imshow(heatmap_data, color_continuous_scale="RdBu_r", color_continuous_midpoint=0, zmin=-max_abs_beta, zmax=max_abs_beta, aspect="auto", labels={"x": "", "y": "Haplotype", "color": "Beta"})
+    na_text = np.where(heatmap_data.isna(), "/", "")
+    fig.update_traces(
+        xgap=1,
+        ygap=1,
+        text=na_text,
+        texttemplate="%{text}",
+        textfont=dict(color="lightgrey", size=12),
+    )
+    fig.update_layout(width=max(1450, 35*heatmap_data.shape[1]), height=max(500, 35*heatmap_data.shape[0]), plot_bgcolor="white", paper_bgcolor="white", xaxis=dict(tickangle=45, automargin=True), yaxis=dict(automargin=True, tickmode="array", tickvals=np.arange(heatmap_data.shape[0]), ticktext=heatmap_data.index), coloraxis_colorbar=dict(title="Beta", orientation="h", x=0.5, xanchor="center", y=1.08, yanchor="bottom", len=0.3, thickness=15))
+    fig.update_yaxes(
+        title_text="Haplotype",
+        title_font=dict(size=20, family="Arial", color="black", weight="bold"),
+        tickfont=dict(size=16, family="Arial", color="black"),
+    )
+    # convert to HTML
+    plot_url = pio.to_html(fig, include_plotlyjs='cdn', full_html=False)
+    return plot_url
 
 # function to guide haplotype plots with traits as inputs
 def guide_haplotypes_traits(data_path, browse, window, refGen, trait_names):
