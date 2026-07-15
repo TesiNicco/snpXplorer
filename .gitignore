@@ -16,3 +16,4 @@ dump.rdb
 Exploration/instance/
 Exploration/SNPbot/variants_info.sqlite
 Exploration/SNPbot/config.txt
+Exploration/.ieugwaspy.json
