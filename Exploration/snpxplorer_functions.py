@@ -573,7 +573,7 @@ def extract_haplotype_effect_on_traits(data_path, haplo_summary, chrom):
         texttemplate="%{text}",
         textfont=dict(color="lightgrey", size=12),
     )
-    fig.update_layout(width=max(1450, 35*heatmap_data.shape[1]), height=max(500, 35*heatmap_data.shape[0]), plot_bgcolor="white", paper_bgcolor="white", xaxis=dict(tickangle=45, automargin=True), yaxis=dict(automargin=True, tickmode="array", tickvals=np.arange(heatmap_data.shape[0]), ticktext=heatmap_data.index), coloraxis_colorbar=dict(title="Beta", orientation="h", x=0.5, xanchor="center", y=1.08, yanchor="bottom", len=0.3, thickness=15))
+    fig.update_layout(height=max(500, 35*heatmap_data.shape[0]), plot_bgcolor="white", paper_bgcolor="white", xaxis=dict(tickangle=45, automargin=True), yaxis=dict(automargin=True, tickmode="array", tickvals=np.arange(heatmap_data.shape[0]), ticktext=heatmap_data.index), coloraxis_colorbar=dict(title="Beta", orientation="h", x=0.5, xanchor="center", y=1.08, yanchor="bottom", len=0.3, thickness=15))
     fig.update_yaxes(
         title_text="Haplotype",
         title_font=dict(size=20, family="Arial", color="black", weight="bold"),
