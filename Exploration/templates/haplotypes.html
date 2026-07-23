@@ -396,9 +396,9 @@
 {% if all_haplo_table %}
 <div class="haplo-card-table">
   <h3>Haplotype Associations for Selected Traits</h3>
-  {% if gwas_assoc_total %}
+  {% if all_haplo_total %}
     <small class="muted">
-      Showing top {{ gwas_assoc_table|length }} most significant rows (of {{ gwas_assoc_total }}). Download for full table.
+      Showing first {{ all_haplo_table|length }} rows (of {{ all_haplo_total }}). These haplotypes contain at least one association with p-value &lt; 5e-5. Download the complete tables below as TSV.
     </small>
   {% endif %}
 
@@ -423,18 +423,26 @@
     </table>
   </div>
 
-  <a class="btn-download" href="{{ url_for('haplo_download', which='all_haplo') }}">
-    Download full haplotype associations (CSV)
-  </a>
+  <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:10px;">
+    <a class="btn-download" href="{{ url_for('haplo_download', which='all_haplo_suggestive') }}">
+      Download suggestive haplotype associations (TSV)
+    </a>
+    <a class="btn-download" href="{{ url_for('haplo_download', which='all_haplo_established') }}">
+      Download established haplotype associations (TSV)
+    </a>
+  </div>
+  <small class="muted" style="display:block; margin-top:8px;">
+    Suggestive haplotype associations include haplotypes containing at least one association with p-value &lt; 5e-5. Established haplotype associations include the filtered subset used for the plot, i.e. haplotypes containing at least one SNP overlapping a GWAS association with p-value &lt; 5e-08.
+  </small>
 </div>
 {% endif %}
 
 {% if gwas_assoc_table %}
 <div class="haplo-card-table">
   <h3>GWAS Associations for Selected Traits</h3>
-  {% if all_haplo_total %}
+  {% if gwas_assoc_total %}
     <small class="muted">
-      Showing first {{ all_haplo_table|length }} rows (of {{ all_haplo_total }}). Download for full table.
+      Showing top {{ gwas_assoc_table|length }} most significant rows (of {{ gwas_assoc_total }}). Download the complete tables below as TSV.
     </small>
   {% endif %}
 
@@ -459,9 +467,17 @@
     </table>
   </div>
 
-  <a class="btn-download" href="{{ url_for('haplo_download', which='gwas_assoc') }}">
-    Download full GWAS associations (CSV)
-  </a>
+  <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:10px;">
+    <a class="btn-download" href="{{ url_for('haplo_download', which='gwas_assoc_suggestive') }}">
+      Download suggestive GWAS associations (TSV)
+    </a>
+    <a class="btn-download" href="{{ url_for('haplo_download', which='gwas_assoc_established') }}">
+      Download established GWAS associations (TSV)
+    </a>
+  </div>
+  <small class="muted" style="display:block; margin-top:8px;">
+    Suggestive GWAS associations include SNP associations with p-value &lt; 5e-5. Established GWAS associations include the subset of genome-wide significant SNP associations with p-value &lt; 5e-08.
+  </small>
 </div>
 {% endif %}
 

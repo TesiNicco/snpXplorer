@@ -122,6 +122,54 @@ def extract_numeric_id(fname):
     except:
         return None
 
+def subset_haplotype_rows_for_gwas_overlap(all_haplo_df, gwas_assoc_df):
+    if all_haplo_df is None or all_haplo_df.empty or gwas_assoc_df is None or gwas_assoc_df.empty:
+        return all_haplo_df.iloc[0:0].copy() if isinstance(all_haplo_df, pd.DataFrame) else pd.DataFrame()
+
+    gwas_tmp = gwas_assoc_df.copy()
+    gwas_tmp['chr'] = pd.to_numeric(gwas_tmp['chr'], errors='coerce')
+    gwas_tmp['position_hg38'] = pd.to_numeric(gwas_tmp['position_hg38'], errors='coerce')
+    gwas_tmp = gwas_tmp.dropna(subset=['chr', 'position_hg38']).copy()
+    gwas_tmp['chr'] = gwas_tmp['chr'].astype(int)
+    gwas_tmp['position_hg38'] = gwas_tmp['position_hg38'].astype(int)
+    gwas_pos_by_chr = (
+        gwas_tmp.groupby('chr')['position_hg38']
+        .apply(lambda s: set(s.tolist()))
+        .to_dict()
+    )
+
+    def haplotype_overlaps_gwas(row):
+        snps_value = row.get('SNPs')
+        if pd.isna(snps_value):
+            return False
+        snps = [s.strip() for s in str(snps_value).split('|') if s and s.strip()]
+        if not snps:
+            return False
+        first_parts = snps[0].split(':')
+        if len(first_parts) < 2:
+            return False
+        chrom_token = first_parts[0].strip().upper().replace('CHR', '')
+        try:
+            chrom = int(chrom_token)
+        except ValueError:
+            return False
+        if chrom not in gwas_pos_by_chr:
+            return False
+        gwas_positions = gwas_pos_by_chr[chrom]
+        for snp in snps:
+            parts = snp.split(':')
+            if len(parts) < 2:
+                continue
+            try:
+                pos = int(parts[1])
+            except ValueError:
+                continue
+            if pos in gwas_positions:
+                return True
+        return False
+
+    return all_haplo_df[all_haplo_df.apply(haplotype_overlaps_gwas, axis=1)].copy()
+
 # function to plot haplotype traits
 def plot_haplotype_traits(clusters_of_interest, all_indices, trait_list, cluster_index_map, umap, cluster_representatives, browse, sim_mat, names_sub, cluster_labels_for_index, cluster_trait, idx_trait, all_cluster_representatives, gwas_assoc_df, all_haplo_df):
     # ------------------------------------------------
@@ -322,6 +370,7 @@ def plot_haplotype_traits(clusters_of_interest, all_indices, trait_list, cluster
     # BOTTOM subplot: Manhattan of representative GWAS
     # -------------------------------
     chrom_lengths = {1 : 248956422, 2: 242193529, 3: 198295559, 4: 190214555, 5: 181538259, 6 : 170805979, 7: 159345973, 8: 145138636, 9: 138394717, 10: 133797422, 11 : 135086622, 12: 133275309, 13: 114364328, 14: 107043718, 15: 101991189, 16 : 90338345, 17: 83257441, 18: 80373285, 19: 58617616, 20: 64444167, 21 : 46709983, 22: 50818468}
+    plot_haplo_df = all_haplo_df.iloc[0:0].copy() if isinstance(all_haplo_df, pd.DataFrame) else pd.DataFrame()
     if not gwas_assoc_df.empty:
         # Prepare data
         gwas_assoc_df['position_hg38'] = gwas_assoc_df['position_hg38'].astype(int)
@@ -344,6 +393,8 @@ def plot_haplotype_traits(clusters_of_interest, all_indices, trait_list, cluster
         gwas_assoc_df['chr'] = gwas_assoc_df['chr'].astype(int)
         gwas_assoc_df['position_hg38'] = gwas_assoc_df['position_hg38'].astype(int)
         gwas_assoc_df = gwas_assoc_df.sort_values(by=['chr', 'position_hg38']).reset_index(drop=True)
+        # Keep only haplotypes containing at least one SNP overlapping a plotted GWAS association
+        plot_haplo_df = subset_haplotype_rows_for_gwas_overlap(all_haplo_df, gwas_assoc_df)
         # Compute cumulative positions -- for chr 1 it's the same, for chr 2 onwards, add the lengths of previous chromosomes
         cum_length = 0
         cum_positions = []
@@ -358,26 +409,29 @@ def plot_haplotype_traits(clusters_of_interest, all_indices, trait_list, cluster
         gwas_assoc_df["color"] = gwas_assoc_df["chr"] % 2
         gwas_assoc_df["color"] = gwas_assoc_df["color"].map({0: colors[0], 1: colors[1]})
         # Now prepare the haplotype associations
-        all_haplo_df['midpoint'] = (all_haplo_df['Start (hg38)'].astype(int) + all_haplo_df['End (hg38)'].astype(int)) // 2
+        plot_haplo_df['Chromosome'] = plot_haplo_df['Chromosome'].astype(int)
+        plot_haplo_df['Start (hg38)'] = plot_haplo_df['Start (hg38)'].astype(int)
+        plot_haplo_df['End (hg38)'] = plot_haplo_df['End (hg38)'].astype(int)
+        plot_haplo_df['midpoint'] = (plot_haplo_df['Start (hg38)'] + plot_haplo_df['End (hg38)']) // 2
         # Calculate cumulative positions for haplotypes
         cum_length = 0
         haplo_cum_positions = []
         for chrom in range(1, 23):
-            chrom_haplo = all_haplo_df[all_haplo_df['Chromosome'] == chrom]
+            chrom_haplo = plot_haplo_df[plot_haplo_df['Chromosome'] == chrom]
             for pos in chrom_haplo['midpoint']:
                 haplo_cum_positions.append(pos + cum_length)
             cum_length += chrom_lengths[chrom]
         # sort haplotypes by chromosome and Start (hg38)
-        all_haplo_df = all_haplo_df.sort_values(by=['Chromosome', 'Start (hg38)']).reset_index(drop=True)
-        all_haplo_df['cum_position'] = haplo_cum_positions
+        plot_haplo_df = plot_haplo_df.sort_values(by=['Chromosome', 'Start (hg38)']).reset_index(drop=True)
+        plot_haplo_df['cum_position'] = haplo_cum_positions
         # calculate distribution -- choose bin
         bin_size = 10_000_000  # 10 Mb bins
-        all_haplo_df['bin'] = (all_haplo_df['cum_position'] // bin_size).astype(int)
+        plot_haplo_df['bin'] = (plot_haplo_df['cum_position'] // bin_size).astype(int)
         # Add haplo ID
-        all_haplo_df['haplo_id'] = all_haplo_df['Chromosome'].astype(str) + ':' + all_haplo_df['Start (hg38)'].astype(str) + '-' + all_haplo_df['End (hg38)'].astype(str)
+        plot_haplo_df['haplo_id'] = plot_haplo_df['Chromosome'].astype(str) + ':' + plot_haplo_df['Start (hg38)'].astype(str) + '-' + plot_haplo_df['End (hg38)'].astype(str)
         # Count haplotypes per bin
         haplo_bin_counts = (
-            all_haplo_df
+            plot_haplo_df
             .groupby(["bin", "Chromosome"])
             .agg(
                 haplo_count = ("haplo_id", "count"),
@@ -393,7 +447,7 @@ def plot_haplotype_traits(clusters_of_interest, all_indices, trait_list, cluster
         haplo_bin_counts['color'] = haplo_bin_counts['Chromosome'] % 2
         haplo_bin_counts['color'] = haplo_bin_counts['color'].map({0: colors[0], 1: colors[1]})
         # Scale the y otherwise nothing is visible
-        max_haplo_count = haplo_bin_counts['haplo_count'].max()
+        max_haplo_count = haplo_bin_counts['haplo_count'].max() if not haplo_bin_counts.empty else 1
         # scale -negative log10 pvalues to max haplo count
         gwas_assoc_df['neg_log10_p'] = gwas_assoc_df['neg_log10_p'] * (max_haplo_count / gwas_assoc_df['neg_log10_p'].abs().max())
         # Negate the -log10 pvalues for better visualization
@@ -512,7 +566,7 @@ def plot_haplotype_traits(clusters_of_interest, all_indices, trait_list, cluster
     gwas_assoc_df.rename(columns={'id':'GWAS ID', 'trait':'Trait', 'chr':'Chromosome', 'position_hg38':'Position (hg38)', 'rsid':'RsID', 'ea':'Effect Allele', 'nea':'Other Allele', 'eaf':'EAF', 'beta':'Beta', 'se':'SE', 'p':'P-value', 'n':'N'}, inplace=True)
     # and sort by p-value
     gwas_assoc_df = gwas_assoc_df.sort_values(by='P-value').reset_index(drop=True)
-    return plot_url, gwas_assoc_df
+    return plot_url, gwas_assoc_df, plot_haplo_df
 
 # function to extract haplotype effect on traits
 def extract_haplotype_effect_on_traits(data_path, haplo_summary, chrom):
