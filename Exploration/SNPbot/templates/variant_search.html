@@ -482,6 +482,38 @@
       width: 1100px;                /* or 900, etc. */
     }
 
+    .gwas-forest-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .gwas-forest-header .gwas-heatmap-title { margin: 0; }
+
+    .gwas-unit-toggle {
+      display: inline-flex;
+      flex: 0 0 auto;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      overflow: hidden;
+      background: #ffffff;
+    }
+
+    .gwas-unit-toggle button {
+      border: 0;
+      border-right: 1px solid #cbd5e1;
+      padding: 4px 9px;
+      background: #ffffff;
+      color: #334155;
+      font-size: 11px;
+      cursor: pointer;
+    }
+
+    .gwas-unit-toggle button:last-child { border-right: 0; }
+    .gwas-unit-toggle button.active { background: #334155; color: #ffffff; }
+
     .af-section {
       display: flex;
       gap: 18px;
@@ -1200,7 +1232,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     gwasRows.forEach(row => {
       html += `<tr>`;
       gwasColumns.forEach(col => {
-        const val = row[col] ?? "";
+        let val = row[col] ?? "";
+        if ((col === "beta" || col === "se") && val !== "") {
+          const numericVal = Number(val);
+          if (Number.isFinite(numericVal)) val = numericVal.toPrecision(4);
+        }
         html += `<td>${val}</td>`;
       });
       html += `</tr>`;
@@ -1958,6 +1994,107 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   /* ---------- FOREST PLOT ---------- */
+  function renderGwasForestSvg(entries, mode) {
+    const isZ = mode === "z";
+    const traits = entries.map(e => e.trait);
+    const values = entries.map(e => isZ ? e.z : e.beta);
+    // Dividing the raw beta CI by SE gives Z ± 1.96. Raw effects
+    // without a usable SE remain visible, but do not receive a CI.
+    const errors = entries.map(e => {
+      if (isZ) return 1.96;
+      return Number.isFinite(e.se) && e.se > 0 ? 1.96 * e.se : null;
+    });
+    const maxLabelLen = traits.reduce((m, t) => Math.max(m, (t || "").length), 0);
+    const leftMargin = Math.min(360, Math.max(180, maxLabelLen * 7 + 40));
+    const rowH = 22;
+    const rightMargin = 20;
+    const topMargin = 20;
+    const bottomMargin = 40;
+    const plotW = Math.max(260, Math.min(600, window.innerWidth * 0.6));
+    const svgH = topMargin + traits.length * rowH + bottomMargin;
+    const ciLower = values.map((value, i) => errors[i] === null ? value : value - errors[i]);
+    const ciUpper = values.map((value, i) => errors[i] === null ? value : value + errors[i]);
+
+    // Invalid-SE effects must not determine the scale. They are retained as
+    // points and, when outside the reliable CI range, drawn at the boundary.
+    const scaleLower = ciLower.filter((_, i) => errors[i] !== null);
+    const scaleUpper = ciUpper.filter((_, i) => errors[i] !== null);
+    let minX = scaleLower.length ? Math.min(...scaleLower) : Math.min(...values);
+    let maxX = scaleUpper.length ? Math.max(...scaleUpper) : Math.max(...values);
+    if (minX === maxX) {
+      const fallback = Math.abs(minX) || 1;
+      minX -= fallback * 0.1;
+      maxX += fallback * 0.1;
+    } else {
+      const padding = (maxX - minX) * 0.05;
+      minX -= padding;
+      maxX += padding;
+    }
+    const scale = x => leftMargin + ((x - minX) / (maxX - minX)) * plotW;
+    let svg = `<svg width="${leftMargin + plotW + rightMargin}" height="${svgH}">`;
+
+    if (minX < 0 && maxX > 0) {
+      const zeroX = scale(0);
+      svg += `
+        <line x1="${zeroX}" y1="${topMargin}" x2="${zeroX}" y2="${svgH-bottomMargin}"
+              stroke="#9ca3af" stroke-width="1.2" stroke-dasharray="3,3"></line>
+      `;
+    }
+
+    traits.forEach((trait, i) => {
+      const y = topMargin + i * rowH + rowH / 2;
+      const value = values[i];
+      const lo = ciLower[i];
+      const hi = ciUpper[i];
+      const hasCi = errors[i] !== null;
+      const offScale = value < minX ? "left" : (value > maxX ? "right" : "");
+      const markerX = scale(Math.max(minX, Math.min(maxX, value)));
+      const markerData = `data-trait="${trait}" data-metric="${isZ ? "Z" : "β"}"
+                data-value="${value.toFixed(3)}" data-lo="${hasCi ? lo.toFixed(3) : ""}"
+                data-hi="${hasCi ? hi.toFixed(3) : ""}" data-off-scale="${offScale}"
+                data-p="${entries[i].p || ''}"`;
+      let marker;
+      if (offScale === "right") {
+        marker = `<polygon points="${markerX},${y} ${markerX-9},${y-5} ${markerX-9},${y+5}"
+                   fill="#1d4ed8" ${markerData}></polygon>`;
+      } else if (offScale === "left") {
+        marker = `<polygon points="${markerX},${y} ${markerX+9},${y-5} ${markerX+9},${y+5}"
+                   fill="#dc2626" ${markerData}></polygon>`;
+      } else {
+        marker = `<circle cx="${markerX}" cy="${y}" r="4"
+                   fill="${value > 0 ? "#1d4ed8" : "#dc2626"}" ${markerData}></circle>`;
+      }
+      svg += `
+        <text x="${leftMargin - 6}" y="${y}" text-anchor="end"
+              alignment-baseline="middle" font-size="11" fill="#111827">${trait}</text>
+        ${hasCi ? `<line x1="${scale(lo)}" y1="${y}" x2="${scale(hi)}" y2="${y}"
+              stroke="#111827" stroke-width="1.4"></line>` : ""}
+        ${marker}
+      `;
+    });
+
+    const ticks = 5;
+    for (let k = 0; k <= ticks; k++) {
+      const value = minX + (k / ticks) * (maxX - minX);
+      const x = scale(value);
+      svg += `
+        <line x1="${x}" y1="${svgH-bottomMargin}" x2="${x}" y2="${svgH-bottomMargin+4}"
+              stroke="#4b5563" stroke-width="1"></line>
+        <text x="${x}" y="${svgH-bottomMargin+16}" text-anchor="middle"
+              font-size="10" fill="#4b5563">${value.toFixed(2)}</text>
+      `;
+    }
+
+    svg += `
+      <text x="${leftMargin + plotW/2}" y="${svgH - 6}"
+            text-anchor="middle" font-size="11" fill="#111827">
+        ${isZ ? "Signed Z-score (β / SE)" : "Effect estimate (β / log OR; trait-specific units)"}
+      </text>
+      </svg>
+    `;
+    return svg;
+  }
+
   function buildGwasForestPlot(gwasRows) {
     if (!gwasRows || gwasRows.length === 0) {
       return `<p class="no-result-title">No GWAS associations found.</p>`;
@@ -1966,129 +2103,54 @@ document.addEventListener('DOMContentLoaded', async () => {
     const entries = gwasRows
       .map(r => ({
         trait: r.trait || r.gwas_id,
-        beta: parseFloat(r.beta),
-        se: parseFloat(r.se),
+        beta: r.beta === null || r.beta === "" ? NaN : Number(r.beta),
+        se: r.se === null || r.se === "" ? NaN : Number(r.se),
+        z: r.z === null || r.z === "" ? NaN : Number(r.z),
         p: r.p
-      }))
-      .filter(e => !isNaN(e.beta) && !isNaN(e.se));
+      }));
 
-    if (entries.length === 0) {
-      return `<p class="no-result-title">No valid beta/SE values for forest plot.</p>`;
+    const rawEntries = entries
+      .filter(e => Number.isFinite(e.beta))
+      .sort((a, b) => a.beta - b.beta);
+    const zEntries = entries
+      .filter(e => Number.isFinite(e.z))
+      .sort((a, b) => a.z - b.z);
+
+    if (rawEntries.length === 0) {
+      return `<p class="no-result-title">No valid beta values for forest plot.</p>`;
     }
 
-    // Sort by beta (ascending)
-    entries.sort((a, b) => a.beta - b.beta);
-
-    const traits = entries.map(e => e.trait);
-    const betas  = entries.map(e => e.beta);
-    const ses    = entries.map(e => e.se);
-
-    // --- NEW: dynamic left margin based on label length ---
-    const maxLabelLen = traits.reduce(
-      (m, t) => Math.max(m, (t || "").length),
-      0
-    );
-
-    const approxCharWidth = 7;   // was 6 – slightly wider per character
-    const extraPadding    = 40;  // extra pixels after the longest label
-    const minLeftMargin   = 180; // was 140 – shift everything a bit to the right
-    const maxLeftMargin   = 360; // allow more if labels are very long
-
-    const leftMargin = Math.min(
-      maxLeftMargin,
-      Math.max(minLeftMargin, maxLabelLen * approxCharWidth + extraPadding)
-    );
-    // ----------------------------------------------------
-
-    const rowH = 22;
-    const rightMargin = 20;
-    const topMargin = 20;
-    const bottomMargin = 40;
-
-    const plotW = Math.max(260, Math.min(600, window.innerWidth * 0.6));
-    const svgH = topMargin + traits.length * rowH + bottomMargin;
-
-    const ci_lower = betas.map((b, i) => b - 1.96 * ses[i]);
-    const ci_upper = betas.map((b, i) => b + 1.96 * ses[i]);
-
-    let minX = Math.min(...ci_lower);
-    let maxX = Math.max(...ci_upper);
-    if (minX === maxX) { minX -= 1; maxX += 1; }
-
-    const scale = x => leftMargin + ((x - minX) / (maxX - minX)) * plotW;
-
-    let svg = `
-      <div id="gwas-forest">
-        <div class="gwas-heatmap-title">Effect sizes across traits</div>
-        <svg width="${leftMargin + plotW + rightMargin}" height="${svgH}">
-    `;
-
-    // zero vertical line (if in range)
-    if (minX < 0 && maxX > 0) {
-      const zx = scale(0);
-      svg += `
-        <line x1="${zx}" y1="${topMargin}" x2="${zx}" y2="${svgH-bottomMargin}"
-              stroke="#9ca3af" stroke-width="1.2" stroke-dasharray="3,3"></line>
-      `;
-    }
-
-    traits.forEach((t, i) => {
-      const y  = topMargin + i * rowH + rowH / 2;
-      const b  = betas[i];
-      const lo = ci_lower[i];
-      const hi = ci_upper[i];
-
-      const x0 = scale(lo);
-      const x1 = scale(hi);
-      const xm = scale(b);
-
-      // trait label
-      svg += `
-        <text x="${leftMargin - 6}" y="${y}" text-anchor="end"
-              alignment-baseline="middle" font-size="11" fill="#111827">${t}</text>
-      `;
-
-      // CI line
-      svg += `
-        <line x1="${x0}" y1="${y}" x2="${x1}" y2="${y}"
-              stroke="#111827" stroke-width="1.4"></line>
-      `;
-
-      // beta point
-      svg += `
-        <circle cx="${xm}" cy="${y}" r="4"
-                fill="${b > 0 ? "#1d4ed8" : "#dc2626"}"
-                data-trait="${t}"
-                data-beta="${b.toFixed(3)}"
-                data-lo="${lo.toFixed(3)}"
-                data-hi="${hi.toFixed(3)}"
-                data-p="${entries[i].p || ''}"></circle>
-      `;
-    });
-
-    // x axis – ticks
-    const ticks = 5;
-    for (let k = 0; k <= ticks; k++) {
-      const v = minX + (k / ticks) * (maxX - minX);
-      const x = scale(v);
-      svg += `
-        <line x1="${x}" y1="${svgH-bottomMargin}" x2="${x}" y2="${svgH-bottomMargin+4}"
-              stroke="#4b5563" stroke-width="1"></line>
-        <text x="${x}" y="${svgH-bottomMargin+16}" text-anchor="middle"
-              font-size="10" fill="#4b5563">${v.toFixed(2)}</text>
-      `;
-    }
-
-    svg += `
-        <text x="${leftMargin + plotW/2}" y="${svgH - 6}"
-              text-anchor="middle" font-size="11" fill="#111827">
-          Effect size (beta)
-        </text>
-        </svg>
+    const defaultMode = zEntries.length > 0 ? "z" : "raw";
+    return `
+      <div id="gwas-forest" data-mode="${defaultMode}">
+        <div class="gwas-forest-header">
+          <div class="gwas-heatmap-title">Effects across traits</div>
+          <div class="gwas-unit-toggle" aria-label="Forest plot units">
+            <button type="button" class="${defaultMode === "raw" ? "active" : ""}" data-mode="raw">Raw effect</button>
+            <button type="button" class="${defaultMode === "z" ? "active" : ""}" data-mode="z"
+                    ${zEntries.length === 0 ? "disabled" : ""}>Z-score</button>
+          </div>
+        </div>
+        <div class="gwas-forest-view" data-mode="raw" style="display:${defaultMode === "raw" ? "block" : "none"}">
+          ${renderGwasForestSvg(rawEntries, "raw")}
+        </div>
+        <div class="gwas-forest-view" data-mode="z" style="display:${defaultMode === "z" ? "block" : "none"}">
+          ${zEntries.length > 0 ? renderGwasForestSvg(zEntries, "z") : ""}
+        </div>
       </div>
     `;
+  }
 
-    return svg;
+  function setGwasForestMode(mode) {
+    const forest = document.getElementById("gwas-forest");
+    if (!forest || (mode !== "raw" && mode !== "z")) return;
+    forest.dataset.mode = mode;
+    forest.querySelectorAll(".gwas-forest-view").forEach(view => {
+      view.style.display = view.dataset.mode === mode ? "block" : "none";
+    });
+    forest.querySelectorAll(".gwas-unit-toggle button").forEach(button => {
+      button.classList.toggle("active", button.dataset.mode === mode);
+    });
   }
 
   /* ---------- LD TABLE + HEATMAP ---------- */
@@ -2213,33 +2275,41 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   /* ---------- WIRE GWAS FOREST PLOT EVENTS ---------- */
   function wireGwasForestEvents() {
-    const svg = document.querySelector("#gwas-forest svg");
+    const forest = document.getElementById("gwas-forest");
     const tooltip = document.getElementById("gwas-tooltip");
-    if (!svg || !tooltip) return;
+    if (!forest || !tooltip) return;
 
-    svg.querySelectorAll("circle[data-trait]").forEach(circle => {
-      circle.addEventListener("mouseenter", () => {
-        const trait = circle.getAttribute("data-trait");
-        const beta  = circle.getAttribute("data-beta");
-        const lo    = circle.getAttribute("data-lo");
-        const hi    = circle.getAttribute("data-hi");
-        const p     = circle.getAttribute("data-p");
+    forest.querySelectorAll(".gwas-unit-toggle button").forEach(button => {
+      button.addEventListener("click", () => setGwasForestMode(button.dataset.mode));
+    });
+
+    forest.querySelectorAll("[data-trait]").forEach(marker => {
+      marker.addEventListener("mouseenter", () => {
+        const trait = marker.getAttribute("data-trait");
+        const metric = marker.getAttribute("data-metric");
+        const value = marker.getAttribute("data-value");
+        const lo    = marker.getAttribute("data-lo");
+        const hi    = marker.getAttribute("data-hi");
+        const offScale = marker.getAttribute("data-off-scale");
+        const p     = marker.getAttribute("data-p");
 
         tooltip.style.display = "block";
         tooltip.innerHTML = `
           <strong>${trait}</strong><br>
-          β = ${beta} (95% CI ${lo}, ${hi})${
+          ${metric} = ${value}${lo && hi ? ` (95% CI ${lo}, ${hi})` : " (95% CI unavailable)"}${
+            offScale ? `<br>Point shown at ${offScale} axis boundary (off scale)` : ""
+          }${
             p ? `<br>p = ${p}` : ""
           }
         `;
       });
 
-      circle.addEventListener("mousemove", (e) => {
+      marker.addEventListener("mousemove", (e) => {
         tooltip.style.left = (e.pageX + 12) + "px";
         tooltip.style.top  = (e.pageY + 12) + "px";
       });
 
-      circle.addEventListener("mouseleave", () => {
+      marker.addEventListener("mouseleave", () => {
         tooltip.style.display = "none";
       });
     });
@@ -3001,7 +3071,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function downloadGwasForestSvg() {
-    const svg = document.querySelector("#gwas-forest svg");
+    const activeView = Array.from(document.querySelectorAll("#gwas-forest .gwas-forest-view"))
+      .find(view => window.getComputedStyle(view).display !== "none");
+    const svg = activeView ? activeView.querySelector("svg") : null;
     if (!svg) return;
 
     let svgData = '<?xml version="1.0" encoding="UTF-8"?>\n' + svg.outerHTML;

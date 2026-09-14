@@ -57,11 +57,11 @@ from snpxplorer_functions import *
 
 # differences between local and server
 # local
-#data_path = '/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Data'
-#path_annot = '/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer'
+data_path = '/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Data'
+path_annot = '/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer'
 # server
-data_path = '/Data'
-path_annot = ''
+#data_path = '/Data'
+#path_annot = ''
 from pandasgwas import get_variants_by_variant_id
 
 # Initialize the App
@@ -1225,55 +1225,130 @@ def haplotype_detail():
     # ------------------------------------------------------------------
     # (4) TRAIT-TRAIT CORRELATION HEATMAP (RIGHT PANEL, rows 2-3, col 2)
     # ------------------------------------------------------------------
-    # correlation of the beta values between traits
+    # Correlate trait-effect patterns across SNPs. Missing SNP-trait
+    # associations remain missing and are excluded pairwise rather than being
+    # interpreted as zero effects.
     snps_df['beta'] = snps_df['beta'].astype(float)
     snps_df['p'] = snps_df['p'].astype(float)
     snps_df = (snps_df.loc[snps_df.groupby(["rsid", "trait"])["p"].idxmin()].reset_index(drop=True)).copy()
-    beta_matrix = snps_df.pivot(index='rsid', columns='trait', values='beta').fillna(0)
-    beta_corr = beta_matrix.corr().round(2)
-    if isinstance(beta_corr, pd.DataFrame):
-        corr_vals = beta_corr.values
-        traits = list(beta_corr.columns)
-    else:
-        corr_vals = beta_corr
-        traits = [f"T{i+1}" for i in range(corr_vals.shape[0])]
-    # clustering
-    if len(corr_vals) >1:
-        dist = 1 - corr_vals
-        # condensed form for linkage()
+    beta_matrix = snps_df.pivot(index='rsid', columns='trait', values='beta')
+    min_overlapping_snps = 3
+    pearson_corr = beta_matrix.corr(method='pearson', min_periods=min_overlapping_snps)
+    spearman_corr = beta_matrix.corr(method='spearman', min_periods=min_overlapping_snps)
+    overlap_counts = beta_matrix.notna().astype(int).T.dot(beta_matrix.notna().astype(int))
+    traits = list(beta_matrix.columns)
+
+    # Establish one fixed ordering from the Pearson matrix so switching the
+    # correlation method does not move traits around. Missing correlations are
+    # neutral only for this ordering step and stay missing in both heatmaps.
+    if len(traits) > 1:
+        corr_for_ordering = pearson_corr.to_numpy(dtype=float)
+        corr_for_ordering = np.nan_to_num(corr_for_ordering, nan=0.0)
+        corr_for_ordering = (corr_for_ordering + corr_for_ordering.T) / 2
+        corr_for_ordering = np.clip(corr_for_ordering, -1.0, 1.0)
+        np.fill_diagonal(corr_for_ordering, 1.0)
+        dist = 1 - corr_for_ordering
+        np.fill_diagonal(dist, 0.0)
         dist_condensed = squareform(dist, checks=False)
         Z = linkage(dist_condensed, method="average")
-        # Order of items according to the dendrogram leaves
         order = leaves_list(Z)
-        corr_clustered = corr_vals[np.ix_(order, order)]
-        # original trait labels (before wrapping)
-        traits_clustered = [traits[i] for i in order]
-        # shorten names and wrap long trait names
-        traits_wrapped = [t[:30] for t in traits_clustered]
     else:
-        corr_clustered = corr_vals
-        traits_wrapped = [t[:30] for t in traits]
+        order = np.arange(len(traits))
+
+    pearson_clustered = pearson_corr.to_numpy(dtype=float)[np.ix_(order, order)]
+    spearman_clustered = spearman_corr.to_numpy(dtype=float)[np.ix_(order, order)]
+    overlap_clustered = overlap_counts.to_numpy(dtype=int)[np.ix_(order, order)]
+    traits_clustered = [traits[i] for i in order]
+    traits_wrapped = [t[:30] for t in traits_clustered]
+
+    def json_safe_correlation_matrix(matrix):
+        return [
+            [float(value) if np.isfinite(value) else None for value in row]
+            for row in matrix
+        ]
+
+    pearson_plot_values = json_safe_correlation_matrix(pearson_clustered)
+    spearman_plot_values = json_safe_correlation_matrix(spearman_clustered)
+    pearson_na_text = np.where(np.isfinite(pearson_clustered), "", "/").tolist()
+    spearman_na_text = np.where(np.isfinite(spearman_clustered), "", "/").tolist()
 
     # define palette
     custom_corr_colorscale = [[0.0,  "#4B0082"], [0.5,  "#FFFFFF"], [1.0,  "#B22222"]]
 
-    # create heatmap
-    heatmap = go.Heatmap(
-        z=corr_clustered,
+    # Use separate traces for the two methods. The buttons only change the
+    # visibility of these traces, keeping their payloads JSON-safe and leaving
+    # every other subplot trace untouched.
+    pearson_heatmap = go.Heatmap(
+        z=pearson_plot_values,
         x=traits_wrapped,
         y=traits_wrapped,
+        customdata=overlap_clustered.tolist(),
+        text=pearson_na_text,
+        texttemplate="%{text}",
+        textfont=dict(color="darkgrey", size=18, family="Arial Black"),
         colorscale=custom_corr_colorscale,
         zmin=-1,
         zmax=1,
         zmid=0,
-        colorbar=dict(title="r", orientation="v", x=1.02, y=0.30, len=0.3, thickness=15),
+        colorbar=dict(title="Pearson r", orientation="v", x=1.02, y=0.30, len=0.3, thickness=15),
         hovertemplate=(
             "Trait 1: %{y}<br>"
             "Trait 2: %{x}<br>"
-            "r = %{z:.2f}<extra></extra>"
+            "Pearson r: %{z:.2f}<br>"
+            "Overlapping SNPs: %{customdata}<extra></extra>"
         ),
+        visible=True,
     )
-    fig.add_trace(heatmap, row=2, col=2)
+    pearson_trace_index = len(fig.data)
+    fig.add_trace(pearson_heatmap, row=2, col=2)
+
+    spearman_heatmap = go.Heatmap(
+        z=spearman_plot_values,
+        x=traits_wrapped,
+        y=traits_wrapped,
+        customdata=overlap_clustered.tolist(),
+        text=spearman_na_text,
+        texttemplate="%{text}",
+        textfont=dict(color="darkgrey", size=18, family="Arial Black"),
+        colorscale=custom_corr_colorscale,
+        zmin=-1,
+        zmax=1,
+        zmid=0,
+        colorbar=dict(title="Spearman ρ", orientation="v", x=1.02, y=0.30, len=0.3, thickness=15),
+        hovertemplate=(
+            "Trait 1: %{y}<br>"
+            "Trait 2: %{x}<br>"
+            "Spearman ρ: %{z:.2f}<br>"
+            "Overlapping SNPs: %{customdata}<extra></extra>"
+        ),
+        visible=False,
+    )
+    spearman_trace_index = len(fig.data)
+    fig.add_trace(spearman_heatmap, row=2, col=2)
+
+    fig.update_layout(
+        updatemenus=[dict(
+            type="buttons",
+            direction="right",
+            active=0,
+            x=1.0,
+            xanchor="right",
+            y=0.54,
+            yanchor="bottom",
+            buttons=[
+                dict(
+                    label="Pearson",
+                    method="restyle",
+                    args=[{"visible": [True, False]}, [pearson_trace_index, spearman_trace_index]],
+                ),
+                dict(
+                    label="Spearman",
+                    method="restyle",
+                    args=[{"visible": [False, True]}, [pearson_trace_index, spearman_trace_index]],
+                ),
+            ],
+        )]
+    )
 
     # shrink the heatmap panel inside column 2 (rows 2-3)
     fig.update_xaxes(row=2, col=2, domain=[0.48, 1.00], tickangle=45, title_text="", tickfont=dict(size=10))

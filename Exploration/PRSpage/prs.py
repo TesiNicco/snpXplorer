@@ -34,8 +34,8 @@ prs_bp = Blueprint('prs', __name__, template_folder='templates')
 # ---------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------
-#DATA_PATH = Path("/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Data")
-DATA_PATH = Path('/Data')
+DATA_PATH = Path("/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Data")
+#DATA_PATH = Path('/Data')
 DB_FILE = DATA_PATH / "databases/Genes/variant_info.db"
 trait_names = pd.read_csv(DATA_PATH / "databases/haplotypes/trait_names_and_ids.txt", sep="\t")
 TRAIT_LIST = trait_names["name"].astype(str).tolist()
@@ -157,7 +157,7 @@ def plot_haplotype_traits(clusters_of_interest, all_indices, trait_list, cluster
             continue
         fig.add_trace(go.Scatter(x=umap[idxs, 0], y=umap[idxs, 1], mode="markers", marker=dict(size=9, color=color_map[cid]), name=all_cluster_representatives.loc[all_cluster_representatives['Cluster Label'] == cid, 'Final Representative'].values[0], text=[trait_list[i] for i in idxs], hoverinfo="text",), row=1, col=1)
     # Highlight queried trait with a star
-    fig.add_trace(go.Scatter(x=[umap[idx_trait, 0]], y=[umap[idx_trait, 1]], mode="markers+text", text=["★"], textposition="top center", marker=dict(size=15, color="black", symbol="star", line=dict(width=2, color="yellow")), name=browse, hovertext=browse, hoverinfo="text",), row=1, col=1)
+    fig.add_trace(go.Scatter(x=[umap[idx_trait, 0]], y=[umap[idx_trait, 1]], mode="markers", marker=dict(size=15, color="black", symbol="star", line=dict(width=2, color="yellow")), name=browse, hovertext=browse, hoverinfo="text",), row=1, col=1)
     # Update axes
     fig.update_xaxes(title_text="UMAP-1", row=1, col=1, showticklabels=False, title_font=dict(size=20, family="Arial", color="black", weight="bold"))
     fig.update_yaxes(title_text="UMAP-2", row=1, col=1, showticklabels=False, title_font=dict(size=20, family="Arial", color="black", weight="bold"))

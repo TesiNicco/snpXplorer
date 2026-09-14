@@ -24,8 +24,8 @@ snpbot_bp = Blueprint('snpbot', __name__, template_folder='templates')
 # ---------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------
-#DATA_PATH = Path("/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Data")
-DATA_PATH = Path('/Data')
+DATA_PATH = Path("/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Data")
+#DATA_PATH = Path('/Data')
 DB_FILE = DATA_PATH / "databases/Genes/variant_info.db"
 
 # Liftover object (hg19 → hg38)
@@ -702,10 +702,17 @@ def query_gwas_associations(chrom, pos38):
         df = pd.read_csv(io.StringIO(result), sep="\t", header=None)
         df.columns = ['gwas_id', 'trait', 'chrom', 'pos_hg19', 'rsid', 'ea', 'nea', 'eaf', 'beta', 'se', 'p', 'n', 'study_id', 'position_hg38']
         # subset columns to return
-        df = df[['trait', 'ea', 'nea', 'eaf', 'beta', 'se', 'p', 'n', 'gwas_id', 'rsid']]
-        # 2 decimal places for beta and se and eaf
-        df['beta'] = df['beta'].round(2)
-        df['se'] = df['se'].round(2)
+        df = df[['trait', 'ea', 'nea', 'eaf', 'beta', 'se', 'p', 'n', 'gwas_id', 'rsid']].copy()
+        # Preserve full precision for confidence intervals and signed Z-scores.
+        # Rounding small GWAS effects before plotting can materially distort both.
+        df['beta'] = pd.to_numeric(df['beta'], errors='coerce')
+        df['se'] = pd.to_numeric(df['se'], errors='coerce')
+        # SE is strictly positive by definition. Preserve invalid reported
+        # values in the table, but do not use them for Z-scores or intervals.
+        valid_se = df['se'].notna() & (df['se'] > 0)
+        df['z'] = None
+        df.loc[valid_se, 'z'] = df.loc[valid_se, 'beta'] / df.loc[valid_se, 'se']
+        # EAF is display-only in this view.
         df['eaf'] = df['eaf'].round(3)
         # 2 decimal places for p-value in scientific notation
         df['p'] = df['p'].apply(lambda x: f"{x:.2e}")

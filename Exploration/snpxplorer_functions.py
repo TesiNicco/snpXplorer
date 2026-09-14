@@ -53,11 +53,11 @@ import plotly.express as px
 # differences between local and server
 # local
 #from pandasgwas.get_SNPs import get_variants_by_variant_id
-#data_path = '/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Data'
-#path_server = '/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer'
+data_path = '/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Data'
+path_server = '/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer'
 # server
-data_path = '/Data'
-path_server = ''
+#data_path = '/Data'
+#path_server = ''
 
 # Global functions
 # function to get all haplotypes associated with a trait
@@ -200,8 +200,8 @@ def plot_haplotype_traits(clusters_of_interest, all_indices, trait_list, cluster
             [{"colspan": 2, "type": "xy"}, None]   # Row 2: NEW PLOT ACROSS BOTH COLUMNS
         ],
         subplot_titles=(
-            "UMAP Trait Projection",
-            "Trait Similarity Heatmap",
+            "UMAP semantic trait projection",
+            "Semantic trait similarity",
             "Manhattan plot of representative GWAS"                     # Title for row 2
         )
     )
@@ -254,9 +254,7 @@ def plot_haplotype_traits(clusters_of_interest, all_indices, trait_list, cluster
         go.Scatter(
             x=[umap[idx_trait, 0]],
             y=[umap[idx_trait, 1]],
-            mode="markers+text",
-            text=["★"],
-            textposition="top center",
+            mode="markers",
             marker=dict(
                 size=15,
                 color="black",
@@ -591,10 +589,27 @@ def extract_haplotype_effect_on_traits(data_path, haplo_summary, chrom):
         cmd = "tabix %s/databases/haplotypes/All_indep_gwas_sumstats_AI_hg38.txt.gz %s" %(data_path.replace(' ', '\ '), snps)
         snps_data = [x.rstrip().split('\t') for x in os.popen(cmd)]
         snps_df = pd.DataFrame(snps_data, columns=["id", "trait", "chr", "position", "rsid", "ea", "nea", "eaf", "beta", "se", "p", "n", "study_id", "position_hg38"])
-        # make betas numeric
+        # Make effect estimates numeric and derive a signed association Z-score.
+        # Invalid or zero standard errors cannot yield a finite Z-score and are
+        # therefore treated as missing in the standardized view.
         snps_df['beta'] = pd.to_numeric(snps_df['beta'], errors='coerce')
-        # average betas across all SNPs in the haplotype for each trait
-        trait_effects = snps_df.groupby('trait')['beta'].mean().reset_index()
+        snps_df['se'] = pd.to_numeric(snps_df['se'], errors='coerce')
+        valid_se = snps_df['se'].notna() & np.isfinite(snps_df['se']) & (snps_df['se'] != 0)
+        snps_df['z'] = np.nan
+        snps_df.loc[valid_se, 'z'] = snps_df.loc[valid_se, 'beta'] / snps_df.loc[valid_se, 'se']
+        snps_df.loc[~np.isfinite(snps_df['z']), 'z'] = np.nan
+        # Average raw effects and signed Z-scores across the SNP associations
+        # available for each haplotype-trait pair. Both are unweighted means.
+        trait_effects = (
+            snps_df.groupby('trait')
+            .agg(
+                beta=('beta', 'mean'),
+                z=('z', 'mean'),
+                n_beta=('beta', 'count'),
+                n_z=('z', 'count'),
+            )
+            .reset_index()
+        )
         # add haplo id
         trait_effects['haplo_id'] = haplo_id
         # append to list
@@ -603,32 +618,135 @@ def extract_haplotype_effect_on_traits(data_path, haplo_summary, chrom):
     haplo_effects = pd.concat(haplo_effects, ignore_index=True)
     # add haplotype index by merging with haplo_tmp
     haplo_effects = haplo_effects.merge(haplo_tmp[['ID', 'haplo_index']], left_on='haplo_id', right_on='ID', how='left')
-    # then the plot -- plotly heatmap to show haplotypes on the y-axis and traits on the x-axis, with color representing the average beta effect
-    # get heatmap data
-    heatmap_data = haplo_effects.pivot(index="haplo_index", columns="trait", values="beta")
+    # Build matching matrices so the figure can switch between raw effects and
+    # signed association Z-scores without changing the displayed traits.
+    heatmap_beta = haplo_effects.pivot(index="haplo_index", columns="trait", values="beta")
+    heatmap_z = haplo_effects.pivot(index="haplo_index", columns="trait", values="z")
+    heatmap_n_beta = haplo_effects.pivot(index="haplo_index", columns="trait", values="n_beta")
+    heatmap_n_z = haplo_effects.pivot(index="haplo_index", columns="trait", values="n_z")
     # preserve haplotype order from the original dataframe
     haplo_order = haplo_effects["haplo_index"].drop_duplicates()
-    heatmap_data = heatmap_data.reindex(haplo_order)
-    # if >30 traits, limit to top 30 by number of haplotypes associated
-    if heatmap_data.shape[1] > 40:
+    heatmap_beta = heatmap_beta.reindex(haplo_order)
+    heatmap_z = heatmap_z.reindex(index=haplo_order, columns=heatmap_beta.columns)
+    heatmap_n_beta = heatmap_n_beta.reindex(index=haplo_order, columns=heatmap_beta.columns)
+    heatmap_n_z = heatmap_n_z.reindex(index=haplo_order, columns=heatmap_beta.columns)
+    # If >40 traits, limit both views to the same top 40 by number of
+    # associated haplotypes.
+    if heatmap_beta.shape[1] > 40:
         trait_counts = haplo_effects.groupby("trait")["haplo_id"].nunique().reset_index(name="haplo_count")
-        top_traits = trait_counts.sort_values(by="haplo_count", ascending=False).head(40)["trait"]
-        heatmap_data = heatmap_data[top_traits]
-    # if the labels of traits are too long, truncate them to 40 characters
-    heatmap_data.columns = [col if len(col) <= 40 else col[:40] + "..." for col in heatmap_data.columns]
-    # Symmetric colour scale around zero
-    max_abs_beta = np.nanmax(np.abs(heatmap_data.to_numpy()))
-    fig = px.imshow(heatmap_data, color_continuous_scale="RdBu_r", color_continuous_midpoint=0, zmin=-max_abs_beta, zmax=max_abs_beta, aspect="auto", labels={"x": "", "y": "Haplotype", "color": "Beta"})
-    na_text = np.where(heatmap_data.isna(), "/", "")
-    fig.update_traces(
-        xgap=1,
-        ygap=1,
-        text=na_text,
-        texttemplate="%{text}",
-        textfont=dict(color="lightgrey", size=12),
+        top_traits = trait_counts.sort_values(by="haplo_count", ascending=False).head(40)["trait"].tolist()
+        heatmap_beta = heatmap_beta.loc[:, top_traits]
+        heatmap_z = heatmap_z.loc[:, top_traits]
+        heatmap_n_beta = heatmap_n_beta.loc[:, top_traits]
+        heatmap_n_z = heatmap_n_z.loc[:, top_traits]
+
+    trait_labels = [col if len(col) <= 40 else col[:40] + "..." for col in heatmap_beta.columns]
+
+    def symmetric_limit(matrix):
+        values = matrix.to_numpy(dtype=float)
+        finite_values = values[np.isfinite(values)]
+        if finite_values.size == 0:
+            return 1.0
+        limit = float(np.max(np.abs(finite_values)))
+        return limit if limit > 0 else 1.0
+
+    max_abs_beta = symmetric_limit(heatmap_beta)
+    max_abs_z = symmetric_limit(heatmap_z)
+    beta_values = heatmap_beta.to_numpy(dtype=float)
+    z_values = heatmap_z.to_numpy(dtype=float)
+    customdata = np.dstack((
+        beta_values,
+        z_values,
+        heatmap_n_beta.to_numpy(dtype=float),
+        heatmap_n_z.to_numpy(dtype=float),
+    ))
+    beta_na_text = np.where(heatmap_beta.isna(), "/", "")
+    z_na_text = np.where(heatmap_z.isna(), "/", "")
+
+    fig = go.Figure(
+        data=go.Heatmap(
+            z=z_values,
+            x=trait_labels,
+            y=heatmap_z.index.tolist(),
+            customdata=customdata,
+            colorscale="RdBu_r",
+            zmin=-max_abs_z,
+            zmax=max_abs_z,
+            zmid=0,
+            xgap=1,
+            ygap=1,
+            text=z_na_text,
+            texttemplate="%{text}",
+            textfont=dict(color="lightgrey", size=12),
+            colorbar=dict(
+                title="Mean signed Z-score",
+                orientation="h",
+                x=0.5,
+                xanchor="center",
+                y=1.08,
+                yanchor="bottom",
+                len=0.3,
+                thickness=15,
+            ),
+            hovertemplate=(
+                "Haplotype: %{y}<br>"
+                "Trait: %{x}<br>"
+                "Mean raw effect: %{customdata[0]:.4g}<br>"
+                "Mean signed Z-score: %{customdata[1]:.4g}<br>"
+                "Associations contributing to raw mean: %{customdata[2]:.0f}<br>"
+                "Associations contributing to Z-score mean: %{customdata[3]:.0f}"
+                "<extra></extra>"
+            ),
+        )
     )
-    fig.update_layout(height=max(500, 35*heatmap_data.shape[0]), plot_bgcolor="white", paper_bgcolor="white", xaxis=dict(tickangle=45, automargin=True), yaxis=dict(automargin=True, tickmode="array", tickvals=np.arange(heatmap_data.shape[0]), ticktext=heatmap_data.index), coloraxis_colorbar=dict(title="Beta", orientation="h", x=0.5, xanchor="center", y=1.08, yanchor="bottom", len=0.3, thickness=15))
+    fig.update_layout(
+        height=max(500, 35 * heatmap_beta.shape[0]),
+        plot_bgcolor="white",
+        paper_bgcolor="white",
+        margin=dict(t=150),
+        xaxis=dict(tickangle=45, automargin=True),
+        yaxis=dict(
+            automargin=True,
+            tickmode="array",
+            tickvals=heatmap_beta.index.tolist(),
+            ticktext=heatmap_beta.index.tolist(),
+        ),
+        updatemenus=[dict(
+            type="buttons",
+            direction="right",
+            active=0,
+            x=1.0,
+            xanchor="right",
+            y=1.22,
+            yanchor="bottom",
+            buttons=[
+                dict(
+                    label="Association Z-score",
+                    method="restyle",
+                    args=[{
+                        "z": [z_values],
+                        "zmin": [-max_abs_z],
+                        "zmax": [max_abs_z],
+                        "text": [z_na_text],
+                        "colorbar.title.text": ["Mean signed Z-score"],
+                    }],
+                ),
+                dict(
+                    label="Raw effect",
+                    method="restyle",
+                    args=[{
+                        "z": [beta_values],
+                        "zmin": [-max_abs_beta],
+                        "zmax": [max_abs_beta],
+                        "text": [beta_na_text],
+                        "colorbar.title.text": ["Mean raw effect"],
+                    }],
+                ),
+            ],
+        )],
+    )
     fig.update_yaxes(
+        autorange="reversed",
         title_text="Haplotype",
         title_font=dict(size=20, family="Arial", color="black", weight="bold"),
         tickfont=dict(size=16, family="Arial", color="black"),

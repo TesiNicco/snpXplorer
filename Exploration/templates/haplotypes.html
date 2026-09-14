@@ -371,10 +371,10 @@
     <div class="info-wrap">
       <span class="info-icon">ⓘ</span>
       <div class="info-tip">
-        This heatmap summarizes the average beta effect of the top haplotypes across their associated traits, helping compare whether different haplotypes tend to show similar or opposite directions of effect.
+        This heatmap summarizes the mean signed association Z-score or mean raw effect of SNP associations in the top haplotypes across their associated traits. Use the buttons above the heatmap to switch views.
       </div>
     </div>
-    <h3>Average effect of haplotypes on phenotypes</h3>
+    <h3>Average SNP associations in haplotypes across phenotypes</h3>
     <div id="plotly-haplotype-effects" style="width:100%; margin:24px 0; height:auto;">
       {{ fig_url | safe }}
     </div>
@@ -382,7 +382,7 @@
       <figure style="max-width:100%; text-align:left;">
         <figcaption style="font-size:0.95rem; color:#444;">
           <strong>Figure description:</strong>
-          This interactive heatmap shows average beta values for haplotype-trait pairs. Rows correspond to haplotypes, columns correspond to associated traits, and the color scale is centered at zero so positive and negative effects can be compared at a glance. For visibility, a maximum of 10 haplotypes with more than 1 trait association and a maximum of 40 traits are shown.
+          This interactive heatmap summarizes SNP associations for each haplotype-trait pair. The default view shows the unweighted mean signed Z-score (beta divided by its standard error), which places associations for different traits on a common statistical scale. The raw-effect view shows the unweighted mean beta or log odds ratio in the units reported by the source GWAS; magnitudes in that view may not be directly comparable between traits with different measurement scales. Rows correspond to haplotypes, columns to associated traits, and both color scales are centered at zero. Hovering reports both means and their contributing association counts. For visibility, a maximum of 10 haplotypes with at least 1 trait association and a maximum of 40 traits are shown.
         </figcaption>
       </figure>
     </div>
@@ -676,7 +676,7 @@
               <div class="haplo-card-table">
                 <h3 style="margin-top:24px;">Haplotype plots</h3>
                 <p class="muted" style="margin-top:6px;">
-                  Interactive plot showing haplotype structure and their association signals. The top heatmap displays LD between SNPs in the haplotype, the small regional plot below (left) shows SNP positions and association p-values colored by trait, and the heatmap (right) visualizes correlation of the SNP effects in the haplotype across traits.
+                  Interactive plot showing haplotype structure and association signals. The top heatmap displays LD between SNPs in the haplotype, and the small regional plot below (left) shows SNP positions and association p-values colored by trait. The heatmap on the right shows descriptive Pearson or Spearman correlations between trait-effect patterns; use its buttons to switch method. SNPs are the nominal observations, and each trait pair uses only SNPs with effect estimates available for both traits. Hovering reports the number of overlapping SNPs. Because SNPs within the haplotype proxy are correlated through LD, these coefficients describe pattern similarity and are not interpreted as correlations between independent observations.
                 </p>
                 <div id="haplo-detail-plot"></div>
               </div>
