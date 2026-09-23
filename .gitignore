@@ -1,6 +1,9 @@
 .DS_Store
 Data/databases/
-Data/monitor/
+Data/monitor/exploration_logs.txt
+Data/monitor/haplotypes_logs.txt
+Data/monitor/prs_logs.txt
+Data/monitor/single_query_logs.txt
 Exploration/__pycache__/
 Annotation/.DS_Store
 Exploration/.DS_Store
