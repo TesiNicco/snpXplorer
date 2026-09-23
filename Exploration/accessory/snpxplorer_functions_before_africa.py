@@ -37,6 +37,7 @@ from liftover import get_lifter
 import os
 from scipy.cluster.hierarchy import linkage, leaves_list
 from scipy.spatial.distance import squareform
+from scipy.ndimage import rotate as scipy_rotate
 from ieugwaspy import api, query
 import sqlite3
 import plotly.graph_objs as go
@@ -909,6 +910,343 @@ def summarize_traits_with_counts(traits_value):
         counts[t] += 1
     return "; ".join([f"{t} ({counts[t]} SNPs)" for t in order])
 
+
+def build_haplotype_ld_matrix(data_path, chrom, haplo_df, haplo_label_map, max_variants=1000):
+    """Build an allele-aware LD matrix ordered by haplotype and position."""
+    ordered_haplotypes = list(haplo_label_map.items())
+    haplotype_rank = {hap_id: rank for rank, (hap_id, _) in enumerate(ordered_haplotypes)}
+    label_by_haplotype = dict(ordered_haplotypes)
+
+    variants = {}
+    selected = haplo_df[haplo_df['ID'].isin(haplotype_rank)].copy()
+    selected['__rank'] = selected['ID'].map(haplotype_rank)
+    selected = selected.sort_values(['__rank', 'BP1'])
+    for _, row in selected.iterrows():
+        hap_id = row['ID']
+        for variant_id in str(row['SNPS']).split('|'):
+            parts = variant_id.split(':')
+            if len(parts) != 4:
+                continue
+            variant_chrom, position, ref, alt = parts
+            try:
+                position = int(position)
+            except ValueError:
+                continue
+            key = (str(variant_chrom).upper().replace('CHR', ''), position, ref.upper(), alt.upper())
+            if key not in variants:
+                variants[key] = {
+                    'variant_id': variant_id,
+                    'position': position,
+                    'ref': ref.upper(),
+                    'alt': alt.upper(),
+                    'haplotype_id': hap_id,
+                    'haplotype_label': label_by_haplotype[hap_id],
+                    'haplotype_rank': haplotype_rank[hap_id],
+                    'db_id': None,
+                }
+
+    ordered_variants = sorted(
+        variants.values(),
+        key=lambda item: (
+            item['haplotype_rank'],
+            item['position'],
+            item['ref'],
+            item['alt'],
+        ),
+    )
+    if len(ordered_variants) > max_variants:
+        raise ValueError(
+            f"Regional LD contains {len(ordered_variants):,} variants; "
+            f"the interactive limit is {max_variants:,}."
+        )
+    if len(ordered_variants) < 2:
+        raise ValueError("At least two variants are required for the regional LD plot.")
+
+    db_path = Path(data_path) / 'databases' / 'LD_db' / f"ld_chr{str(chrom).upper().replace('CHR', '')}.sqlite"
+    if not db_path.is_file():
+        raise ValueError(f"LD database is unavailable for chromosome {chrom}.")
+
+    positions = sorted({variant['position'] for variant in ordered_variants})
+    rows_by_position = {}
+    connection = sqlite3.connect(f"file:{db_path.resolve()}?mode=ro", uri=True)
+    try:
+        for offset in range(0, len(positions), 900):
+            position_chunk = positions[offset:offset + 900]
+            placeholders = ','.join('?' for _ in position_chunk)
+            query_sql = f"SELECT id, uniq, pos FROM variants WHERE pos IN ({placeholders})"
+            for db_id, uniq, position in connection.execute(query_sql, position_chunk):
+                rows_by_position.setdefault(int(position), []).append((int(db_id), str(uniq)))
+
+        for variant in ordered_variants:
+            candidates = []
+            for db_id, uniq in rows_by_position.get(variant['position'], []):
+                uniq_parts = uniq.split(':')
+                if len(uniq_parts) != 3:
+                    continue
+                observed_alleles = (uniq_parts[1].upper(), uniq_parts[2].upper())
+                expected = (variant['ref'], variant['alt'])
+                if observed_alleles in {expected, expected[::-1]}:
+                    candidates.append((db_id, uniq))
+            if candidates:
+                variant['db_id'] = min(candidates, key=lambda item: item[0])[0]
+
+        matrix_size = len(ordered_variants)
+        matrix = np.full((matrix_size, matrix_size), np.nan, dtype=float)
+        np.fill_diagonal(matrix, 1.0)
+        matrix_index_by_db_id = {
+            variant['db_id']: index
+            for index, variant in enumerate(ordered_variants)
+            if variant['db_id'] is not None
+        }
+        selected_db_ids = set(matrix_index_by_db_id)
+        seen_pairs = set()
+        for db_id in sorted(selected_db_ids):
+            ld_rows = connection.execute(
+                "SELECT v1, v2, r2_milli FROM ld WHERE v1 = ? "
+                "UNION ALL "
+                "SELECT v1, v2, r2_milli FROM ld WHERE v2 = ?",
+                (db_id, db_id),
+            )
+            for v1, v2, r2_milli in ld_rows:
+                v1 = int(v1)
+                v2 = int(v2)
+                if v1 not in selected_db_ids or v2 not in selected_db_ids or v1 == v2:
+                    continue
+                pair = (min(v1, v2), max(v1, v2))
+                if pair in seen_pairs:
+                    continue
+                seen_pairs.add(pair)
+                row_index = matrix_index_by_db_id[v1]
+                column_index = matrix_index_by_db_id[v2]
+                r2 = int(r2_milli) / 1000.0
+                matrix[row_index, column_index] = r2
+                matrix[column_index, row_index] = r2
+    finally:
+        connection.close()
+
+    return matrix, ordered_variants
+
+
+def haplotype_ld_roof_plotly(matrix, ordered_variants):
+    """Rotate a lower LD matrix into a Plotly roof with a haplotype strip."""
+    observed_matrix = np.isfinite(matrix)
+    display_matrix = np.nan_to_num(matrix, nan=0.0)
+    lower_matrix = np.where(
+        np.tri(matrix.shape[0], matrix.shape[1], dtype=bool),
+        display_matrix,
+        np.nan,
+    )
+    observed_lower = np.where(
+        np.tri(matrix.shape[0], matrix.shape[1], dtype=bool),
+        observed_matrix.astype(float),
+        np.nan,
+    )
+    rotated = scipy_rotate(
+        lower_matrix,
+        45,
+        reshape=True,
+        order=0,
+        mode='constant',
+        cval=np.nan,
+        prefilter=False,
+    )
+    rotated_observed = scipy_rotate(
+        observed_lower,
+        45,
+        reshape=True,
+        order=0,
+        mode='constant',
+        cval=np.nan,
+        prefilter=False,
+    )
+
+    diagonal_marker = np.full(matrix.shape, np.nan, dtype=float)
+    np.fill_diagonal(diagonal_marker, 1.0)
+    rotated_diagonal = scipy_rotate(
+        diagonal_marker,
+        45,
+        reshape=True,
+        order=0,
+        mode='constant',
+        cval=np.nan,
+        prefilter=False,
+    )
+    diagonal_counts = np.sum(np.isfinite(rotated_diagonal), axis=1)
+    diagonal_row = int(np.argmax(diagonal_counts))
+    roof = rotated[diagonal_row:, :]
+    roof_observed = rotated_observed[diagonal_row:, :]
+    diagonal_columns = np.where(np.isfinite(rotated_diagonal[diagonal_row]))[0]
+    if len(diagonal_columns) < 2:
+        raise ValueError("The regional LD matrix could not be transformed for plotting.")
+
+    if not np.any(np.isfinite(roof)):
+        raise ValueError("No LD values are available for the selected haplotypes.")
+    roof_height, roof_width = roof.shape
+    diagonal_start = int(diagonal_columns.min())
+    diagonal_end = int(diagonal_columns.max())
+    diagonal_x = np.linspace(diagonal_start, diagonal_end, len(ordered_variants))
+
+    haplotype_labels = [variant['haplotype_label'] for variant in ordered_variants]
+    label_order = list(dict.fromkeys(haplotype_labels))
+    label_rank = {label: index for index, label in enumerate(label_order)}
+    annotation = np.full((1, roof_width), np.nan, dtype=float)
+    group_centers = []
+    group_boundaries = []
+    group_start = 0
+    for index in range(1, len(haplotype_labels) + 1):
+        if index == len(haplotype_labels) or haplotype_labels[index] != haplotype_labels[group_start]:
+            start_x = diagonal_x[group_start]
+            end_x = diagonal_x[index - 1]
+            left = int(round(start_x if group_start == 0 else (diagonal_x[group_start - 1] + start_x) / 2))
+            right = int(round(end_x if index == len(haplotype_labels) else (end_x + diagonal_x[index]) / 2))
+            annotation[0, max(0, left):min(roof_width, right + 1)] = label_rank[haplotype_labels[group_start]]
+            group_centers.append((start_x + end_x) / 2)
+            if index < len(haplotype_labels):
+                group_boundaries.append((end_x + diagonal_x[index]) / 2)
+            group_start = index
+
+    ld_colorscale = [
+        [0.0, 'navy'], [0.2, 'navy'],
+        [0.20001, 'lightblue'], [0.4, 'lightblue'],
+        [0.40001, 'green'], [0.6, 'green'],
+        [0.60001, 'orange'], [0.8, 'orange'],
+        [0.80001, 'red'], [1.0, 'red'],
+    ]
+    haplotype_colors = pc.qualitative.Plotly + pc.qualitative.Safe + pc.qualitative.Set3
+    n_labels = max(1, len(label_order))
+    if n_labels == 1:
+        annotation_colorscale = [
+            [0.0, haplotype_colors[0]],
+            [1.0, haplotype_colors[0]],
+        ]
+    else:
+        annotation_colorscale = []
+        for index in range(n_labels):
+            start = max(0.0, (index - 0.5) / (n_labels - 1))
+            end = min(1.0, (index + 0.5) / (n_labels - 1))
+            color = haplotype_colors[index % len(haplotype_colors)]
+            annotation_colorscale.extend([[start, color], [end, color]])
+
+    hover_text = np.full(roof.shape, '', dtype=object)
+    plotted_cells = np.isfinite(roof)
+    observed_cells = plotted_cells & (roof_observed >= 0.5)
+    missing_cells = plotted_cells & ~observed_cells
+    hover_text[observed_cells] = [
+        f'LD r²: {value:.3f}' for value in roof[observed_cells]
+    ]
+    hover_text[missing_cells] = 'LD r²: NA (not stored)'
+
+    figure = make_subplots(
+        rows=2,
+        cols=1,
+        shared_xaxes=True,
+        vertical_spacing=0.01,
+        row_heights=[0.94, 0.06],
+    )
+    figure.add_trace(
+        go.Heatmap(
+            z=roof,
+            zmin=0,
+            zmax=1,
+            colorscale=ld_colorscale,
+            showscale=True,
+            colorbar=dict(
+                title=dict(text='LD r²', font=dict(size=17)),
+                orientation='h',
+                x=0.5,
+                xanchor='center',
+                y=1.08,
+                yanchor='bottom',
+                len=0.52,
+                thickness=20,
+                tickmode='array',
+                tickvals=[0.1, 0.3, 0.5, 0.7, 0.9],
+                ticktext=['NA and 0–0.2', '>0.2–0.4', '>0.4–0.6', '>0.6–0.8', '>0.8–1.0'],
+                tickfont=dict(size=14),
+            ),
+            text=hover_text,
+            hovertemplate='%{text}<extra></extra>',
+        ),
+        row=1,
+        col=1,
+    )
+    figure.add_trace(
+        go.Heatmap(
+            z=annotation,
+            zmin=0,
+            zmax=max(1, len(label_order) - 1),
+            colorscale=annotation_colorscale,
+            showscale=False,
+            hoverinfo='skip',
+        ),
+        row=2,
+        col=1,
+    )
+    for boundary in group_boundaries:
+        figure.add_vline(x=boundary, line_width=1, line_color='white', row=1, col=1)
+    figure.update_xaxes(
+        tickmode='array',
+        tickvals=group_centers,
+        ticktext=[f'<b>{label}</b>' for label in label_order],
+        tickfont=dict(size=20),
+        ticks='',
+        showgrid=False,
+        zeroline=False,
+        row=2,
+        col=1,
+    )
+    figure.update_xaxes(showticklabels=False, showgrid=False, zeroline=False, row=1, col=1)
+    figure.update_yaxes(
+        showticklabels=False,
+        showgrid=False,
+        zeroline=False,
+        scaleanchor='x',
+        scaleratio=1,
+        constrain='domain',
+        row=1,
+        col=1,
+    )
+    figure.update_yaxes(showticklabels=False, showgrid=False, zeroline=False, row=2, col=1)
+    figure.update_layout(
+        height=850,
+        margin=dict(l=30, r=30, t=115, b=65),
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        showlegend=False,
+        hovermode='closest',
+    )
+    return figure
+
+
+def build_haplotype_ld_roof(data_path, chrom, haplo_df, haplo_label_map):
+    """Return the regional haplotype LD roof, or an explanatory Plotly panel."""
+    try:
+        matrix, ordered_variants = build_haplotype_ld_matrix(
+            data_path, chrom, haplo_df, haplo_label_map
+        )
+        return haplotype_ld_roof_plotly(matrix, ordered_variants)
+    except Exception as exc:
+        logging.exception("Unable to create regional haplotype LD plot")
+        figure = go.Figure()
+        figure.add_annotation(
+            text=f"Regional LD plot unavailable: {exc}",
+            x=0.5,
+            y=0.5,
+            xref='paper',
+            yref='paper',
+            showarrow=False,
+            font=dict(size=16, color='#666666'),
+        )
+        figure.update_layout(
+            height=260,
+            margin=dict(l=20, r=20, t=20, b=20),
+            plot_bgcolor='white',
+            paper_bgcolor='white',
+            xaxis=dict(visible=False),
+            yaxis=dict(visible=False),
+        )
+        return figure
+
 # function to guide haplotype plots with snps/genes as inputs
 def guide_haplotypes_snps_genes(data_path, browse, window, refGen):
     # Derive chromosome and position
@@ -939,6 +1277,11 @@ def guide_haplotypes_snps_genes(data_path, browse, window, refGen):
     # prepare plotting labels/order: cap at top 50 by #traits
     plot_df = haplo_summary.head(50).copy()
     haplo_label_map = dict(zip(plot_df['ID'], plot_df['haplo_index']))
+    # Start the regional LD panel with the six highest-ranked haplotypes. The
+    # interactive selector can subsequently request any haplotypes in the
+    # complete regional summary.
+    ld_plot_df = haplo_summary.head(6).copy()
+    ld_haplo_label_map = dict(zip(ld_plot_df['ID'], ld_plot_df['haplo_index']))
     # keep first matching haplotype for highlighting if available
     if hap_id_interest == []:
         hap_id_interest = 'Not found'
@@ -947,7 +1290,28 @@ def guide_haplotypes_snps_genes(data_path, browse, window, refGen):
     # create plot
     fig = haplotype_plotly_regional(haplo_df, haplo_dict, genes, refGen=refGen, haplo_label_map=haplo_label_map)
     plot_url = pio.to_html(fig, include_plotlyjs='cdn', full_html=False)
-    return browse, plot_url, haplo_summary, chrom, start_pos, end_pos, hap_id_interest
+    ld_fig = build_haplotype_ld_roof(
+        data_path,
+        chrom,
+        haplo_df[haplo_df['ID'].isin(ld_haplo_label_map)].copy(),
+        ld_haplo_label_map,
+    )
+    ld_plot_url = pio.to_html(
+        ld_fig,
+        include_plotlyjs=False,
+        full_html=False,
+        config={'responsive': True, 'displaylogo': False},
+    )
+    return (
+        browse,
+        plot_url,
+        ld_plot_url,
+        haplo_summary,
+        chrom,
+        start_pos,
+        end_pos,
+        hap_id_interest,
+    )
 
 # function to query cadd scores
 def query_cadd_score(snps, data_path):

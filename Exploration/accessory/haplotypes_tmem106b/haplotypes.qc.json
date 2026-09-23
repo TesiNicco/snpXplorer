@@ -1,0 +1,47 @@
+{
+  "haplotype_source": "/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Data/databases/haplotypes/ld_clusters_with_gwas_AI_latest.tsv.gz",
+  "ld_source": "/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Data/databases/LD_db/ld_chr7.sqlite",
+  "ld_source_note": "All LD edges stored for the selected variants were retrieved from SQLite. No additional r2 threshold was applied by this script. An absent edge is not distinguishable from an edge omitted when the database was built.",
+  "missing_edge_matrix_value": "0",
+  "heatmap_dpi": 300,
+  "heatmap_shape": "lower_triangle_including_diagonal",
+  "position_heatmap_shape": "roof_with_genomic_position_axis",
+  "position_heatmap_missing_pairs": "navy (combined with observed r2 0-0.2)",
+  "haplotype_heatmap_order": [
+    "A",
+    "B",
+    "C",
+    "D",
+    "E",
+    "F"
+  ],
+  "multi_haplotype_variant_plot_assignment": "Earliest natural-sorted haplotype label; each variant is plotted once",
+  "heatmap_ld_bands": {
+    "0.0-0.2": "navy",
+    ">0.2-0.4": "lightblue",
+    ">0.4-0.6": "green",
+    ">0.6-0.8": "orange",
+    ">0.8-1.0": "red"
+  },
+  "n_haplotypes": 6,
+  "n_unique_variants": 316,
+  "n_variants_in_multiple_haplotypes": 0,
+  "n_variants_mapped_to_ld_database": 316,
+  "n_variants_not_mapped_to_ld_database": 0,
+  "n_ambiguous_variant_mappings": 0,
+  "n_all_possible_variant_pairs": 49770,
+  "n_possible_pairs_among_mapped_variants": 49770,
+  "n_pairs_observed_in_ld_database": 17422,
+  "n_pairs_absent_among_mapped_variants": 32348,
+  "outputs": {
+    "matrix": "/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Exploration/accessory/haplotypes_tmem106b/haplotypes.ld_matrix.tsv.gz",
+    "mask": "/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Exploration/accessory/haplotypes_tmem106b/haplotypes.ld_observed_mask.tsv.gz",
+    "pairs": "/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Exploration/accessory/haplotypes_tmem106b/haplotypes.ld_observed_pairs.tsv.gz",
+    "heatmap": "/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Exploration/accessory/haplotypes_tmem106b/haplotypes.ld_heatmap.png",
+    "haplotype_heatmap": "/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Exploration/accessory/haplotypes_tmem106b/haplotypes.ld_heatmap_by_haplotype.png",
+    "position_heatmap": "/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Exploration/accessory/haplotypes_tmem106b/haplotypes.ld_heatmap_genomic_position.png",
+    "variants": "/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Exploration/accessory/haplotypes_tmem106b/haplotypes.variants.tsv",
+    "haplotypes": "/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Exploration/accessory/haplotypes_tmem106b/haplotypes.haplotypes.tsv",
+    "qc": "/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Exploration/accessory/haplotypes_tmem106b/haplotypes.qc.json"
+  }
+}

@@ -2681,7 +2681,7 @@ def scatterplot_plotly(df, chrom, start_pos, end_pos, gwas, genes, svs, browse_t
             sig = tmp[tmp['Pvalue'] > hover_cut]
             if not sig.empty:
                 fig.add_trace(
-                    go.Scattergl(
+                    go.Scatter(
                         x=sig['Position_plot'], 
                         y=sig[yaxis_interest],
                         mode='markers',
@@ -2713,7 +2713,7 @@ def scatterplot_plotly(df, chrom, start_pos, end_pos, gwas, genes, svs, browse_t
             nonsig = tmp[tmp['Pvalue'] <= hover_cut]
             if not nonsig.empty:
                 fig.add_trace(
-                    go.Scattergl(
+                    go.Scatter(
                         x=nonsig['Position_plot'], y=nonsig[yaxis_interest],
                         mode='markers',
                         marker=dict(color=nonsig['base_color'], size=8, opacity=0.8),
@@ -2729,7 +2729,7 @@ def scatterplot_plotly(df, chrom, start_pos, end_pos, gwas, genes, svs, browse_t
                 if not sig.empty:
                     colors = normalize_color(list(sig['Gwas'].map(color_map)))
                     fig.add_trace(
-                        go.Scattergl(
+                        go.Scatter(
                             x=sig['Position_plot'], y=sig[yaxis_interest],
                             mode='markers',
                             marker=dict(color=colors, size=6),
@@ -2746,7 +2746,7 @@ def scatterplot_plotly(df, chrom, start_pos, end_pos, gwas, genes, svs, browse_t
                 if not nonsig.empty:
                     colors = normalize_color(list(nonsig['Gwas'].map(color_map)))
                     fig.add_trace(
-                        go.Scattergl(
+                        go.Scatter(
                             x=nonsig['Position_plot'], y=nonsig[yaxis_interest],
                             mode='markers',
                             marker=dict(color=colors, size=5, opacity=0.8),
@@ -2805,7 +2805,7 @@ def scatterplot_plotly(df, chrom, start_pos, end_pos, gwas, genes, svs, browse_t
         if not subset_rsid.empty:
             colors = normalize_color(list(subset_rsid['Gwas'].map(color_map)))
             fig.add_trace(
-                go.Scattergl(
+                go.Scatter(
                     x=subset_rsid['Position_plot'],
                     y=subset_rsid[yaxis_interest],
                     mode='markers',

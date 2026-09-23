@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM python:3.10-slim-bullseye
+FROM python:3.10-slim-bookworm
 
 WORKDIR /
 
@@ -25,7 +25,7 @@ RUN apt-get update \
         libfontconfig1-dev \
         libfreetype6-dev \
         libpng-dev \
-        libtiff5-dev \
+        libtiff-dev \
         libjpeg-dev \
         libfribidi-dev \
         libharfbuzz-dev \
@@ -47,13 +47,9 @@ COPY Exploration /Exploration
 # R from CRAN (for Debian bullseye)
 # -------------------------------------------------------------------
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends gnupg2 ca-certificates \
-    && apt-key adv --keyserver keyserver.ubuntu.com \
-                   --recv-keys '95C0FAF38DB3CCAD0C080A7BDC78B2DDEABC47B7' \
-    && echo "deb http://cloud.r-project.org/bin/linux/debian bullseye-cran40/" \
-         > /etc/apt/sources.list.d/cran.list \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends r-base \
+    && apt-get install -y --no-install-recommends \
+        r-base \
+        r-base-dev \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -81,7 +77,8 @@ WORKDIR /Exploration
 # Start Redis + Flask
 # -------------------------------------------------------------------
 # Original execution with dev server (not for production)
-CMD service redis-server start && python3 -m flask run --host=82.165.237.220 -p 8001
+#CMD service redis-server start && python3 -m flask run --host=88.99.91.126 -p 8001
+CMD service redis-server start && python3 -m flask run --host=0.0.0.0 -p 8001
 
 # Use the following line for deployment with gunicorn
 #CMD service redis-server start && gunicorn -w 1 --threads 4 -b 0.0.0.0:8007 --timeout 300 app:app
