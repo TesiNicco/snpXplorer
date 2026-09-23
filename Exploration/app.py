@@ -2,6 +2,8 @@ from flask import Flask, request, render_template, send_file, session, make_resp
 from queue import Queue, Empty
 from uuid import uuid4
 import json
+import requests
+from urllib.parse import urljoin
 from flask_sqlalchemy import SQLAlchemy
 from flask_session import Session
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -14,6 +16,7 @@ import polars as pl
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap, to_hex
 import io
+from contextlib import redirect_stdout
 from pathlib import Path
 from datetime import datetime, timezone
 from io import StringIO
@@ -36,7 +39,8 @@ from liftover import get_lifter
 import os
 from scipy.cluster.hierarchy import linkage, leaves_list
 from scipy.spatial.distance import squareform
-from ieugwaspy import api, query
+with redirect_stdout(io.StringIO()):
+    from ieugwaspy import api, query, config as ieugwas_config
 from datetime import timedelta
 import sqlite3
 import plotly.graph_objs as go
@@ -57,11 +61,11 @@ from snpxplorer_functions import *
 
 # differences between local and server
 # local
-data_path = '/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Data'
-path_annot = '/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer'
+#data_path = '/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Data'
+#path_annot = '/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer'
 # server
-#data_path = '/Data'
-#path_annot = ''
+data_path = '/Data'
+path_annot = ''
 from pandasgwas import get_variants_by_variant_id
 
 # Initialize the App
@@ -97,10 +101,6 @@ def publish(msg, console_id="default"):
     if q:
         q.put_nowait(str(msg))
 
-# Read IEU Open GWAS database
-meta = pd.DataFrame(query.gwasinfo())
-# Make it accessible in blueprints
-app.config["GWAS_META"] = meta
 # function to make a search row for the IEU Open GWAS database
 def build_search_row(meta: pd.DataFrame, fields=('id','trait','author','population', 'pmid')) -> None:
     """Create a new row '_search' that concatenates colname + selected rows per column."""
@@ -112,8 +112,124 @@ def build_search_row(meta: pd.DataFrame, fields=('id','trait','author','populati
     tmp = pd.concat(pieces, axis=1).astype(str)
     search_series = tmp.apply(lambda r: " ".join(x for x in r.values if x and x.lower() != "nan"), axis=1).str.lower()
     meta.loc['_search'] = search_series
-# Build a search row once to allow fast searching
-build_search_row(meta)
+
+# Cache the OpenGWAS catalogue so an unavailable API cannot block every start.
+GWAS_META_CACHE = Path(data_path) / "monitor" / "opengwas_metadata.pkl.gz"
+GWAS_META_CACHE_MAX_AGE = timedelta(days=7)
+GWAS_META_LOCK = threading.RLock()
+GWAS_META_REFRESH_STARTED = False
+
+
+def _validate_gwas_metadata(candidate: pd.DataFrame) -> pd.DataFrame:
+    if not isinstance(candidate, pd.DataFrame) or candidate.empty:
+        raise ValueError("OpenGWAS returned an empty metadata catalogue.")
+    if "id" not in candidate.index or "trait" not in candidate.index:
+        raise ValueError("OpenGWAS metadata is missing the required id/trait rows.")
+    return candidate
+
+
+def _fetch_gwas_metadata() -> pd.DataFrame:
+    headers = {
+        "X-API-SOURCE": f"ieugwaspy/{ieugwas_config.__version__}",
+    }
+    if ieugwas_config.env.get("jwt"):
+        headers["Authorization"] = f"Bearer {ieugwas_config.env['jwt']}"
+    if ieugwas_config.env.get("test_mode_key"):
+        headers["X-TEST-MODE-KEY"] = ieugwas_config.env["test_mode_key"]
+
+    response = requests.get(
+        urljoin(ieugwas_config.env["base_url"], "gwasinfo"),
+        headers=headers,
+        timeout=(5, 60),
+    )
+    response.raise_for_status()
+    return _validate_gwas_metadata(pd.DataFrame(response.json()))
+
+
+def _write_gwas_metadata_cache(candidate: pd.DataFrame) -> None:
+    GWAS_META_CACHE.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path = GWAS_META_CACHE.with_name(
+        f".{GWAS_META_CACHE.name}.{os.getpid()}.tmp"
+    )
+    try:
+        candidate.drop(index="_search", errors="ignore").to_pickle(
+            temporary_path,
+            compression="gzip",
+        )
+        os.replace(temporary_path, GWAS_META_CACHE)
+    finally:
+        if temporary_path.exists():
+            temporary_path.unlink()
+
+
+def _load_initial_gwas_metadata():
+    cache_is_stale = True
+    if GWAS_META_CACHE.exists():
+        try:
+            cached = _validate_gwas_metadata(
+                pd.read_pickle(GWAS_META_CACHE, compression="gzip")
+            )
+            cache_age = datetime.now(timezone.utc) - datetime.fromtimestamp(
+                GWAS_META_CACHE.stat().st_mtime,
+                tz=timezone.utc,
+            )
+            cache_is_stale = cache_age > GWAS_META_CACHE_MAX_AGE
+            build_search_row(cached)
+            logging.info(
+                "Loaded OpenGWAS metadata from %s (age: %s).",
+                GWAS_META_CACHE,
+                cache_age,
+            )
+            return cached, cache_is_stale
+        except Exception:
+            logging.exception("Could not read the OpenGWAS metadata cache; refreshing it.")
+
+    fresh = _fetch_gwas_metadata()
+    _write_gwas_metadata_cache(fresh)
+    build_search_row(fresh)
+    return fresh, False
+
+
+def get_gwas_metadata() -> pd.DataFrame:
+    with GWAS_META_LOCK:
+        return meta
+
+
+def _refresh_gwas_metadata_cache() -> None:
+    global meta
+    try:
+        refreshed = _fetch_gwas_metadata()
+        _write_gwas_metadata_cache(refreshed)
+        build_search_row(refreshed)
+        with GWAS_META_LOCK:
+            meta = refreshed
+            app.config["GWAS_META"] = refreshed
+        logging.info("OpenGWAS metadata cache refreshed successfully.")
+    except Exception:
+        logging.exception(
+            "OpenGWAS metadata refresh failed; continuing with the cached catalogue."
+        )
+
+
+meta, GWAS_META_CACHE_IS_STALE = _load_initial_gwas_metadata()
+app.config["GWAS_META"] = meta
+
+
+@app.before_request
+def refresh_stale_gwas_metadata():
+    """Refresh stale metadata after Flask is already ready to serve requests."""
+    global GWAS_META_REFRESH_STARTED
+    if not GWAS_META_CACHE_IS_STALE or GWAS_META_REFRESH_STARTED:
+        return
+    with GWAS_META_LOCK:
+        if GWAS_META_REFRESH_STARTED:
+            return
+        GWAS_META_REFRESH_STARTED = True
+    threading.Thread(
+        target=_refresh_gwas_metadata_cache,
+        name="opengwas-metadata-refresh",
+        daemon=True,
+    ).start()
 
 # Read browsing options for genes and rsids
 genes_map = pd.read_csv('%s/databases/Genes/gene_names.txt' %(Path(data_path)), sep='\t')
@@ -262,25 +378,25 @@ def index():
 # API endpoint to search GWAS traits
 @app.get("/api/gwas")
 def api_gwas():
+    meta_snapshot = get_gwas_metadata()
     q = (request.args.get("q") or "").strip().lower()
     page = int(request.args.get("page", 1))
     page_size = 50
     if not q:
         return jsonify({"results": [], "pagination": {"more": False}})
     # build _search row if missing
-    if "_search" not in meta.index:
-        build_search_row(meta)
-    mask = meta.loc["_search"].str.contains(q, na=False, regex=False)
-    cols = meta.columns[mask]
+    mask = meta_snapshot.loc["_search"].str.contains(q, na=False, regex=False)
+    cols = meta_snapshot.columns[mask]
     total = len(cols)
     start = (page - 1) * page_size
     end = min(start + page_size, total)
     results = []
     for cid in cols[start:end]:
-        trait = str(meta.at["trait", cid]) if "trait" in meta.index else ""
-        author = str(meta.at["author", cid]) if "author" in meta.index else ""
-        year = str(meta.at["year", cid]) if "year" in meta.index else ""
-        label = f"{trait} — {author} ({year}) [{cid}]".strip()
+        trait = str(meta_snapshot.at["trait", cid]) if "trait" in meta_snapshot.index else ""
+        author = str(meta_snapshot.at["author", cid]) if "author" in meta_snapshot.index else ""
+        year = str(meta_snapshot.at["year", cid]) if "year" in meta_snapshot.index else ""
+        ancestry = gwas_ancestry_code(meta_snapshot, cid)
+        label = f"[{ancestry}] {trait} — {author} ({year}) [{cid}]".strip()
         results.append({"id": label, "text": label})
     return jsonify({"results": results, "pagination": {"more": end < total}})
 
@@ -338,16 +454,24 @@ def api_traits():
     page_size = 50
     if not q:
         return jsonify({"results": [], "pagination": {"more": False}})
-    # Read traits (you can optimize by loading once globally if you want)
-    trait_names = pd.read_csv(f"{data_path}/databases/haplotypes/trait_names_and_ids.txt", sep="\t")
-    trait_list = trait_names['name'].dropna().astype(str).tolist()
+    trait_names = combined_trait_names[combined_trait_names['name'].notna()].copy()
     q_lower = q.lower()
-    matches = [t for t in trait_list if q_lower in t.lower()]
+    matches = trait_names[
+        trait_names['name'].astype(str).str.lower().str.contains(q_lower, regex=False)
+        | trait_names['gwas_id'].astype(str).str.lower().str.contains(q_lower, regex=False)
+    ]
     start = (page - 1) * page_size
     end = start + page_size
-    slice_ = matches[start:end]
+    slice_ = matches.iloc[start:end]
     more = end < len(matches)
-    results = [{"id": t, "text": t} for t in slice_]
+    results = [
+        {
+            "id": row.selection_id,
+            "text": f"[{SEMANTIC_ANCESTRY_CODES.get(row.ancestry, row.ancestry.upper())}] {row.name}",
+            "ancestry": row.ancestry,
+        }
+        for row in slice_.itertuples(index=False)
+    ]
     return jsonify({"results": results, "pagination": {"more": more}})
 
 # Function to run the pipeline in a separate thread
@@ -357,6 +481,7 @@ def run_pipeline(console_id, formdata):
     """Background runner that mirrors your current POST body and
     stores the final render context in RESULTS[console_id]."""
     try:
+        meta_snapshot = get_gwas_metadata()
         # --- read inputs (same as your POST branch) ---
         refGen = formdata.get("refGenome")
         browse = formdata.get("browse", "")
@@ -372,6 +497,7 @@ def run_pipeline(console_id, formdata):
         yrange_type = formdata.get("y_range", "Auto")
         yrange = [int(formdata.get("y_min")), int(formdata.get("y_max"))] if yrange_type == "Manual" else "Auto"
         plotHaplo = formdata.get("plotHaplo", "No")
+        reference_ancestry = reference_ancestry_for_studies(gwas, meta_snapshot)
 
         # --- your original steps, with logs ---
         publish("Finding genomic location...", console_id)
@@ -382,13 +508,13 @@ def run_pipeline(console_id, formdata):
         add_search_to_file(data_path, chrom, start_pos, end_pos, refGen, gwas, browse_type)
 
         publish("Gathering data of interest...", console_id)
-        df, df_info = get_data_plot(data_path=data_path, gwas=gwas, chrom=chrom, start_pos=start_pos, end_pos=end_pos, refGen=refGen, meta=meta, window=window)
+        df, df_info = get_data_plot(data_path=data_path, gwas=gwas, chrom=chrom, start_pos=start_pos, end_pos=end_pos, refGen=refGen, meta=meta_snapshot, window=window)
         genes = extract_genes(data_path, chrom, start_pos, end_pos, refGen)
         svs, svs_df = extract_sv(data_path, chrom, start_pos, end_pos, refGen, svtypes)
         recomb_data = extract_recomb(data_path, chrom, start_pos, end_pos, refGen) if recomb == 'Yes' else "None"
         gtex_df = get_gtex(data_path, genes, refGen)
-        ld_df = extract_ld(data_path, chrom, df, refGen, browse_type, browse) if ld == "Yes" else "None"
-        haplo_df = extract_haplo(data_path, df, chrom, refGen) if plotHaplo == "Yes" else "None"
+        ld_df = extract_ld(data_path, chrom, df, refGen, browse_type, browse, reference_ancestry) if ld == "Yes" else "None"
+        haplo_df = extract_haplo(data_path, df, chrom, refGen, reference_ancestry) if plotHaplo == "Yes" else "None"
         logging.info("All good with data extraction")
 
         publish("Rendering plots...", console_id)
@@ -415,7 +541,9 @@ def run_pipeline(console_id, formdata):
         snps_table = df_sorted.to_dict(orient='records')
         logging.info("All good with SNPs table")
         # GWAS table
-        df_info_sub = df_info[['trait', 'id', 'pmid', 'author', 'year', 'sample_size', 'build']].drop_duplicates()
+        df_info_sub = df_info[['trait', 'population', 'id', 'pmid', 'author', 'year', 'sample_size', 'build']].drop_duplicates()
+        df_info_sub['Ancestry'] = df_info_sub['population'].apply(normalize_gwas_ancestry)
+        df_info_sub = df_info_sub[['trait', 'Ancestry', 'id', 'pmid', 'author', 'year', 'sample_size', 'build']]
         df_info_sub = df_info_sub.rename(columns={'trait':'Trait', 'id':'ID', 'pmid':'PMID', 'author':'Author', 'year':'Year', 'sample_size':'Sample Size', 'build':'Build'})
         df_info_table = df_info_sub.to_dict(orient='records')
         logging.info("All good with GWAS table")
@@ -468,6 +596,7 @@ def run_pipeline(console_id, formdata):
                 "yrange_type": yrange_type,
                 "yrange": (yrange if yrange == "Auto" else json.dumps(yrange)),
                 "plotHaplo": plotHaplo,
+                "reference_ancestry": reference_ancestry,
                 "haplo_df": (haplo_df.to_csv(index=False) if plotHaplo == "Yes" else "None"),
             }
         }
@@ -540,6 +669,7 @@ def exploration():
             recomb=session.get("recomb", "No"),
             ld=session.get("ld", "No"),
             plotHaplo=session.get("plotHaplo", "No"),
+            reference_ancestry=session.get("reference_ancestry", "European"),
             svtypes=session.get("svtypes", ['tr']),
             y_range = session.get("yrange_type", "Auto"),
             y_min = session.get("yrange", [0, 10])[0] if session.get("yrange_type", "Auto") == "Manual" else "",
@@ -573,6 +703,7 @@ def exploration():
         svtypes = session['svtypes']
         ld_df = pd.read_csv(StringIO(session['ld_df'])) if 'ld_df' in session and session['ld_df'] != "None" else "None"
         plotHaplo = session['plotHaplo']
+        reference_ancestry = session.get('reference_ancestry', 'European')
         haplo_df = pd.read_csv(StringIO(session['haplo_df'])) if 'haplo_df' in session and session['haplo_df'] != "None" else "None"
         yrange_type = session['yrange_type']
         yrange = [int(x) for x in json.loads(session['yrange'])] if yrange_type == "Manual" else "Auto"
@@ -616,6 +747,7 @@ def exploration():
             recomb=session.get("recomb", "No"),
             ld=session.get("ld", "No"),
             plotHaplo=session.get("plotHaplo", "No"),
+            reference_ancestry=reference_ancestry,
             svtypes=session.get("svtypes", ['tr']),
             y_range = session.get("yrange_type", "Auto"),
             y_min = session.get("yrange", [0, 10])[0] if session.get("yrange_type", "Auto") == "Manual" else "",
@@ -782,9 +914,9 @@ def annotation():
     # modify the message linked to submission
     messageSubmission = ''
     success_message = 'Your job has been submitted! Check your email shortly.'
-    limit_message = ('Input limits: Annotation allows up to 10000 SNPs and '
-                     'Gene-set Enrichment Analysis allows up to 1000 SNPs. '
-                     'Please provide one variant per line.')
+    limit_message = ('Input limits: Annotation allows up to 10000 selected variants and '
+                     'Gene-set Enrichment Analysis allows up to 1000 explicitly entered variants. '
+                     'Please provide one rsID, coordinate, or interval per line.')
     if request.method == "POST":
         # Read inputs
         # list of variants
@@ -796,22 +928,46 @@ def annotation():
         inpType = 'rsid'  # for now, only rsid
         # if the input type is not rsid, then read also the reference genome
         refGeno = request.form["annotRefGen"]
+        ancestry = (
+            'African'
+            if request.form.get('annotAncestry', 'European').strip().lower() == 'african'
+            else 'European'
+        )
         # analysis type
         analType = request.form["analType"]
         # if the analysis type is GSEA, then look at the enrichment sources
         gsea_source = request.form.getlist("EnrichSource") if analType == 'GSEA' else []
         # QTL tissues
         qtl_tissues = request.form.getlist('QTLtissuesAnnot')
-        # update message
+        # Intervals are expanded by the standalone annotation pipeline, where
+        # the definitive post-expansion limit is enforced. This route only
+        # provides immediate validation for explicitly entered variants.
+        interval_pattern = re.compile(
+            r'^(?:chr)?(?:[1-9]|1[0-9]|2[0-2]|X|Y|MT|M):\d+-\d+$',
+            re.IGNORECASE,
+        )
+        interval_inputs = [value for value in my_list if interval_pattern.fullmatch(value)]
+        explicit_inputs = [value for value in my_list if value not in interval_inputs]
         snp_limit = 10000 if analType == 'Annot' else 1000
         if not my_list:
-            messageSubmission = f'Please enter at least one SNP. {limit_message}'
-        elif len(my_list) > snp_limit:
-            messageSubmission = f'Too many SNPs provided for the selected analysis. {limit_message}'
+            messageSubmission = f'Please enter at least one variant or interval. {limit_message}'
+        elif analType == 'GSEA' and interval_inputs:
+            messageSubmission = 'Genomic intervals are available for Annotation only. Please remove the interval or select Annotation.'
+        elif len(set(explicit_inputs)) > snp_limit:
+            messageSubmission = f'Too many explicit variants provided for the selected analysis. {limit_message}'
         elif emailResponse == True:
             messageSubmission = success_message
             # run the script here
-            command = run_annotation(my_list, inpType, refGeno, analType, gsea_source, qtl_tissues, email)
+            command = run_annotation(
+                my_list,
+                inpType,
+                refGeno,
+                analType,
+                gsea_source,
+                qtl_tissues,
+                email,
+                ancestry,
+            )
             print(command)
             command_run = subprocess.Popen(command, shell=True)
         else:
@@ -845,7 +1001,8 @@ def download_results(run_id):
 # Haplotype tab
 @app.route('/haplotype/', methods=["GET", "POST"])
 def haplotypes():
-    trait_names = pd.read_csv(f"{data_path}/databases/haplotypes/trait_names_and_ids.txt", sep="\t")
+    meta_snapshot = get_gwas_metadata()
+    trait_names = combined_trait_names.copy()
     trait_list = trait_names['name'].values.tolist()
     if request.method == "POST":
         # Clear previous detail state on new query
@@ -853,19 +1010,25 @@ def haplotypes():
         # Read inputs
         browse = (request.form.get("browse") or "").strip()
         browse_type = request.form.get("browse_type")
+        region_ancestry = (
+            'African'
+            if (request.form.get('region_ancestry') or '').strip().lower() == 'african'
+            else 'European'
+        )
         window = 50000 if browse_type == 'gene' else 100000
         refGen = 'GRCh38'
         # Monitor searches
         add_haplo_to_file(data_path, browse, refGen, browse_type)
         if browse_type == 'trait':
             # get info to plot umap and heatmap
-            clusters_of_interest, all_indices, trait_list, cluster_index_map, umap, cluster_representatives, browse_resolved, sim_mat, names_sub, cluster_labels_for_index, cluster_traits, traits_interest, idx_trait,all_cluster_representatives = guide_haplotypes_traits(data_path, browse, window, refGen, trait_names)
+            clusters_of_interest, all_indices, trait_list, cluster_index_map, umap, cluster_representatives, browse_resolved, browse_label, sim_mat, names_sub, cluster_labels_for_index, cluster_traits, traits_interest, idx_trait, all_cluster_representatives, semantic_artifact, selected_trait, combined_context = guide_haplotypes_traits(data_path, browse, window, refGen, trait_names)
+            ancestry = selected_trait['ancestry']
             # get table of trait info and gwas associations
-            traits_info_table, gwas_assoc_df, all_haplo_df = get_traits_info(data_path, traits_interest, cluster_representatives, meta)
+            traits_info_table, gwas_assoc_df, all_haplo_df = get_traits_info(data_path, traits_interest, cluster_representatives, meta_snapshot, ancestry=ancestry)
             traits_info_csv = traits_info_table.drop(columns=['__is_representative'], errors='ignore')
             gwas_assoc_df_all = gwas_assoc_df.copy()
             # get plot
-            plot_url, gwas_assoc_df, plot_haplo_df = plot_haplotype_traits(clusters_of_interest, all_indices, trait_list, cluster_index_map, umap, cluster_representatives, browse, sim_mat, names_sub, cluster_labels_for_index, cluster_traits, idx_trait, all_cluster_representatives, gwas_assoc_df, all_haplo_df)
+            plot_url, gwas_assoc_df, plot_haplo_df = plot_haplotype_traits(clusters_of_interest, all_indices, trait_list, cluster_index_map, umap, cluster_representatives, browse_label, sim_mat, names_sub, cluster_labels_for_index, cluster_traits, idx_trait, all_cluster_representatives, gwas_assoc_df, all_haplo_df, semantic_artifact, selected_trait, combined_context)
             # show only top rows in tables
             MAX_ROWS = 100
             gwas_assoc_df_show = top_gwas_rows(gwas_assoc_df, MAX_ROWS)
@@ -880,23 +1043,34 @@ def haplotypes():
             }
             session.modified = True
             # store last state in session
-            session['haplo_last'] = {"mode": "trait", "browse": browse_resolved, "browse_type": browse_type, "refGen": refGen, "window": window, "plot_url": plot_url, "fig_url": None, "haplo_summary": [], "chrom": None, "start_pos": None, "end_pos": None, "hap_id_interest": None, "table_traits": traits_info_table.to_dict(orient="records"), "gwas_assoc_table": gwas_assoc_df_show.to_dict(orient="records"), "all_haplo_table": all_haplo_df_show.to_dict(orient="records"), "gwas_assoc_total": int(len(gwas_assoc_df)), "all_haplo_total": int(len(all_haplo_df))}
-            return render_template("haplotypes.html", browse_value=browse_resolved, traits=trait_list, plot_url=plot_url, fig_url=None, haplo_summary=[], chrom=None, start_pos=None, end_pos=None, hap_id_interest=None, table_traits=traits_info_table.to_dict(orient="records"), gwas_assoc_table=gwas_assoc_df_show.to_dict(orient="records"), all_haplo_table=all_haplo_df_show.to_dict(orient="records"), gwas_assoc_total=len(gwas_assoc_df), all_haplo_total=len(all_haplo_df))
+            session['haplo_last'] = {"mode": "trait", "browse": browse_resolved, "browse_label": browse_label, "ancestry": ancestry, "browse_type": browse_type, "refGen": refGen, "window": window, "plot_url": plot_url, "ld_plot_url": None, "fig_url": None, "haplo_summary": [], "chrom": None, "start_pos": None, "end_pos": None, "hap_id_interest": None, "table_traits": traits_info_table.to_dict(orient="records"), "gwas_assoc_table": gwas_assoc_df_show.to_dict(orient="records"), "all_haplo_table": all_haplo_df_show.to_dict(orient="records"), "gwas_assoc_total": int(len(gwas_assoc_df)), "all_haplo_total": int(len(all_haplo_df))}
+            return render_template("haplotypes.html", browse_value=browse_resolved, browse_label=browse_label, trait_ancestry=ancestry, traits=trait_list, plot_url=plot_url, ld_plot_url=None, fig_url=None, haplo_summary=[], chrom=None, start_pos=None, end_pos=None, hap_id_interest=None, table_traits=traits_info_table.to_dict(orient="records"), gwas_assoc_table=gwas_assoc_df_show.to_dict(orient="records"), all_haplo_table=all_haplo_df_show.to_dict(orient="records"), gwas_assoc_total=len(gwas_assoc_df), all_haplo_total=len(all_haplo_df))
         elif browse_type == 'chromosome':
-            session['haplo_last'] = {"mode": "chromosome", "browse": browse, "browse_type": browse_type, "refGen": refGen, "window": window, "plot_url": None, "fig_url": None, "haplo_summary": [], "chrom": None, "start_pos": None, "end_pos": None, "hap_id_interest": None, "table_traits": None, "gwas_assoc_table": None, "all_haplo_table": None, "gwas_assoc_total": None, "all_haplo_total": None}
+            session['haplo_last'] = {"mode": "chromosome", "browse": browse, "browse_type": browse_type, "refGen": refGen, "window": window, "plot_url": None, "ld_plot_url": None, "fig_url": None, "haplo_summary": [], "chrom": None, "start_pos": None, "end_pos": None, "hap_id_interest": None, "table_traits": None, "gwas_assoc_table": None, "all_haplo_table": None, "gwas_assoc_total": None, "all_haplo_total": None}
             return render_template("haplotypes.html", browse_value=browse, traits=trait_list, plot_url=None, fig_url=None, haplo_summary=[])
         else:
-            browse_resolved, plot_url, haplo_summary, chrom, start_pos, end_pos, hap_id_interest = guide_haplotypes_snps_genes(data_path, browse, window, refGen)
+            browse_resolved, plot_url, ld_plot_url, haplo_summary, chrom, start_pos, end_pos, hap_id_interest = guide_haplotypes_snps_genes(
+                data_path,
+                browse,
+                window,
+                refGen,
+                ancestry=region_ancestry,
+            )
             haplo_summary_records = haplo_summary.to_dict(orient="records")
-            fig_url = extract_haplotype_effect_on_traits(data_path, haplo_summary, chrom)
-            session['haplo_last'] = {"mode": "region", "browse": browse_resolved, "browse_type": browse_type, "refGen": refGen, "window": window, "plot_url": plot_url, "fig_url": fig_url, "haplo_summary": haplo_summary_records, "chrom": chrom, "start_pos": start_pos, "end_pos": end_pos, "hap_id_interest": hap_id_interest, "table_traits": None, "gwas_assoc_table": None, "all_haplo_table": None, "gwas_assoc_total": None,"all_haplo_total": None}
-            return render_template("haplotypes.html", browse_value=browse_resolved, traits=trait_list, plot_url=plot_url, fig_url=fig_url, haplo_summary=haplo_summary_records, chrom=chrom, start_pos=start_pos, end_pos=end_pos, hap_id_interest=hap_id_interest,table_traits=None, gwas_assoc_table=None, all_haplo_table=None)
+            fig_url = extract_haplotype_effect_on_traits(
+                data_path,
+                haplo_summary,
+                chrom,
+                ancestry=region_ancestry,
+            )
+            session['haplo_last'] = {"mode": "region", "browse": browse_resolved, "ancestry": region_ancestry, "browse_type": browse_type, "refGen": refGen, "window": window, "plot_url": plot_url, "ld_plot_url": ld_plot_url, "fig_url": fig_url, "haplo_summary": haplo_summary_records, "chrom": chrom, "start_pos": start_pos, "end_pos": end_pos, "hap_id_interest": hap_id_interest, "table_traits": None, "gwas_assoc_table": None, "all_haplo_table": None, "gwas_assoc_total": None,"all_haplo_total": None}
+            return render_template("haplotypes.html", browse_value=browse_resolved, region_browse_type=browse_type, region_ancestry=region_ancestry, traits=trait_list, plot_url=plot_url, ld_plot_url=ld_plot_url, fig_url=fig_url, haplo_summary=haplo_summary_records, chrom=chrom, start_pos=start_pos, end_pos=end_pos, hap_id_interest=hap_id_interest,table_traits=None, gwas_assoc_table=None, all_haplo_table=None)
     # ---- Restore from session ----
     last = session.get('haplo_last')
     if last:
-        return render_template("haplotypes.html", traits=trait_list, browse_value=last.get("browse"), plot_url=last.get("plot_url"), fig_url=last.get("fig_url"), haplo_summary=last.get("haplo_summary") or [], chrom=last.get("chrom"), start_pos=last.get("start_pos"), end_pos=last.get("end_pos"), hap_id_interest=last.get("hap_id_interest"), table_traits=last.get("table_traits"), gwas_assoc_table=last.get("gwas_assoc_table"), all_haplo_table=last.get("all_haplo_table"), gwas_assoc_total=last.get("gwas_assoc_total"), all_haplo_total=last.get("all_haplo_total"))
+        return render_template("haplotypes.html", traits=trait_list, browse_value=last.get("browse"), browse_label=last.get("browse_label"), trait_ancestry=last.get("ancestry") if last.get('mode') == 'trait' else None, region_ancestry=last.get("ancestry") if last.get('mode') == 'region' else None, region_browse_type=last.get("browse_type") if last.get('mode') == 'region' else None, plot_url=last.get("plot_url"), ld_plot_url=last.get("ld_plot_url"), fig_url=last.get("fig_url"), haplo_summary=last.get("haplo_summary") or [], chrom=last.get("chrom"), start_pos=last.get("start_pos"), end_pos=last.get("end_pos"), hap_id_interest=last.get("hap_id_interest"), table_traits=last.get("table_traits"), gwas_assoc_table=last.get("gwas_assoc_table"), all_haplo_table=last.get("all_haplo_table"), gwas_assoc_total=last.get("gwas_assoc_total"), all_haplo_total=last.get("all_haplo_total"))
     # First load
-    return render_template("haplotypes.html", traits=trait_list, plot_url=None, fig_url=None, haplo_summary=[], chrom=None, start_pos=None, end_pos=None, hap_id_interest=None, table_traits=None, gwas_assoc_table=None, all_haplo_table=None, gwas_assoc_total=None, all_haplo_total=None)
+    return render_template("haplotypes.html", traits=trait_list, plot_url=None, ld_plot_url=None, fig_url=None, haplo_summary=[], chrom=None, start_pos=None, end_pos=None, hap_id_interest=None, table_traits=None, gwas_assoc_table=None, all_haplo_table=None, gwas_assoc_total=None, all_haplo_total=None)
 
 @app.get("/haplotype/download/<which>")
 def haplo_download(which):
@@ -907,6 +1081,53 @@ def haplo_download(which):
     filename = f"{which}.tsv"
     return Response(table_text, mimetype="text/tab-separated-values", headers={"Content-Disposition": f"attachment; filename={filename}"})
 
+
+@app.post("/haplotypes/regional-ld")
+def haplotype_regional_ld():
+    """Rebuild the regional LD roof for a user-selected haplotype subset."""
+    last = session.get('haplo_last') or {}
+    if last.get('mode') != 'region':
+        return jsonify(error='No active regional haplotype query.'), 400
+
+    payload = request.get_json(silent=True) or {}
+    requested_ids = payload.get('haplotypes')
+    if not isinstance(requested_ids, list):
+        return jsonify(error='Haplotypes must be provided as a list.'), 400
+
+    summary_records = last.get('haplo_summary') or []
+    label_by_id = {
+        str(record.get('ID')): str(record.get('haplo_index'))
+        for record in summary_records
+        if record.get('ID') is not None and record.get('haplo_index') is not None
+    }
+    requested_set = {str(hap_id) for hap_id in requested_ids}
+    selected_ids = [hap_id for hap_id in label_by_id if hap_id in requested_set]
+    if not selected_ids:
+        return jsonify(error='Select at least one available haplotype.'), 400
+    if len(selected_ids) != len(requested_set):
+        return jsonify(error='One or more selected haplotypes are not available in this region.'), 400
+
+    chrom = last.get('chrom')
+    start_pos = last.get('start_pos')
+    end_pos = last.get('end_pos')
+    if chrom is None or start_pos is None or end_pos is None:
+        return jsonify(error='The active regional query is incomplete.'), 400
+
+    ancestry = last.get('ancestry', 'European')
+    haplo_df, _ = extract_haplo_data(
+        data_path, chrom, start_pos, end_pos, ancestry=ancestry
+    )
+    selected_map = {hap_id: label_by_id[hap_id] for hap_id in selected_ids}
+    selected_df = haplo_df[haplo_df['ID'].astype(str).isin(selected_ids)].copy()
+    figure = build_haplotype_ld_roof(
+        data_path,
+        chrom,
+        selected_df,
+        selected_map,
+        ancestry=ancestry,
+    )
+    return Response(pio.to_json(figure), mimetype='application/json')
+
 @app.route("/haplotypes/detail")
 def haplotype_detail():
     hap_id = request.args.get("hap_id")
@@ -914,19 +1135,39 @@ def haplotype_detail():
     chrom = request.args.get("chrom")
     start_pos = int(request.args.get("start_pos"))
     end_pos = int(request.args.get("end_pos"))
+    ancestry = (
+        'African'
+        if (request.args.get('ancestry') or '').strip().lower() == 'african'
+        else 'European'
+    )
     refGen = 'GRCh38'
     # get data of the region of interest
-    haplo_df, haplo_dict = extract_haplo_data(data_path, chrom, start_pos-1_000_000, end_pos+1_000_000)
+    haplo_df, haplo_dict = extract_haplo_data(
+        data_path,
+        chrom,
+        start_pos-1_000_000,
+        end_pos+1_000_000,
+        ancestry=ancestry,
+    )
     haplo_df = haplo_df[haplo_df['ID'] == hap_id]   
     # get snps
     snps = ' '.join([str(chrom).upper().replace('CHR', '') + ':' + x.split(':')[1] + '-' + x.split(':')[1] for x in haplo_dict[hap_id]])
     # get ld between snps
-    ld_df = get_ld_between_snps(snps, data_path, chrom)
+    ld_df = get_ld_between_snps(snps, data_path, chrom, ancestry=ancestry)
     
     # get genes
     genes = extract_genes(data_path, chrom, start_pos-250_000, end_pos+250_000, refGen)
     # gather snp association
-    cmd = "tabix %s/databases/haplotypes/All_indep_gwas_sumstats_AI_hg38.txt.gz %s" %(data_path.replace(' ', '\ '), snps)
+    association_file = (
+        '20260917_All_indep_gwas_sumstats_AI_hg38_African.txt.gz'
+        if ancestry == 'African'
+        else 'All_indep_gwas_sumstats_AI_hg38.txt.gz'
+    )
+    cmd = "tabix %s/databases/haplotypes/%s %s" %(
+        data_path.replace(' ', '\ '),
+        association_file,
+        snps,
+    )
     snps_data = [x.rstrip().split('\t') for x in os.popen(cmd)]
     # convert to dataframe
     snps_df = pd.DataFrame(snps_data, columns=["id", "trait", "chr", "position", "rsid", "ea", "nea", "eaf", "beta", "se", "p", "n", "study_id", "position_hg38"])
@@ -1427,7 +1668,7 @@ def haplotype_detail():
     )
     
     # Remember which detail was last opened
-    session['haplo_last_detail'] = {"hap_id": hap_id, "chrom": chrom, "start_pos": start_pos, "end_pos": end_pos}
+    session['haplo_last_detail'] = {"hap_id": hap_id, "chrom": chrom, "start_pos": start_pos, "end_pos": end_pos, "ancestry": ancestry}
 
     # Return as Plotly JSON dict
     return jsonify(fig=fig.to_dict(), haplo_table=haplo_table_html, snps_table=snps_table_html, snps_cadd_table=snps_cadd_table_html)

@@ -2,13 +2,14 @@
 
 This directory contains offline preprocessing, analysis, and reporting scripts associated with SNPXplorer. These files are not imported by the current web application during normal operation. Some of them generate data products that can subsequently be copied into `Data/` and used by the application.
 
-The scripts currently use constants and hard-coded paths rather than command-line arguments. Consequently, paths and analysis settings should be reviewed before each run. Python scripts should be run from the repository root unless their paths are updated.
+Several legacy scripts use constants and hard-coded paths rather than command-line arguments. Consequently, paths and analysis settings should be reviewed before each run. Python scripts should be run from the repository root unless their paths are updated. `haplotype_region_ld.py` instead has a command-line interface and repository-relative defaults.
 
 ## Contents
 
 | Script | Purpose | Runtime component? |
 | --- | --- | --- |
 | `R2cluster.py` | Identifies proxy haplotypes by clustering variants according to pairwise LD within recombination-defined intervals. | No; offline data generation |
+| `haplotype_region_ld.py` | Extracts the SQLite-stored LD between every variant in a supplied set of haplotypes for regional validation and plotting. | No; offline analysis |
 | `sumstats_allele_match.py` | Harmonizes the allele orientation of repeated GWAS associations at each genomic locus. | No; offline database preparation |
 | `semantic_similarity_LLM.py` | Groups semantically similar GWAS traits and creates trait embeddings and a UMAP projection. | No; offline model/data generation |
 | `plot_usage.R` | Draws a bar chart from manually entered cumulative SNPXplorer usage counts. | No; offline reporting |
@@ -63,6 +64,61 @@ The commented final lines show an optional bgzip/Tabix workflow, but they are no
 - The output filename contains `thr0.5`, but the effective clustering threshold in the current code is `thresh = 0.2`. The filename should not be used to infer the analysis setting.
 - The script has no `if __name__ == "__main__"` guard. Importing it executes the complete analysis.
 - `process_interval()` catches all exceptions and returns no result for a failed interval. Therefore, failures are currently silent.
+
+## `haplotype_region_ld.py`
+
+### Brief description
+
+Creates a single, physical-position-ordered LD matrix containing the union of all variants assigned to one or more specified SNPXplorer haplotypes. Haplotype labels such as `A` and `B` are supplied explicitly because those display labels are assigned dynamically by the web application and are not stored in the haplotype table.
+
+LD is read directly from the chromosome-specific SNPXplorer SQLite database. The script retrieves every stored LD edge between the selected variants and does not apply an additional r² threshold. It does not run PLINK or recalculate LD from genotypes. Because an edge absent from SQLite may have been omitted when that database was created, a separate observed-pair mask is always written.
+
+### Inputs
+
+- Haplotype selection, supplied in exactly one of two ways:
+  - Repeat `--haplotype LABEL=CHR:START-END`, for example `--haplotype B=7:12194394-12246599`.
+  - Use `--manifest` with a tab-separated file containing the columns `label` and `haplotype_id`.
+- `--haplotype-table`: bgzip-compressed, Tabix-indexed SNPXplorer haplotype table. The default is `Data/databases/haplotypes/ld_clusters_with_gwas_AI_latest.tsv.gz`. Its first six columns must be `CHR`, `BP1`, `BP2`, `KB`, `NSNPS`, and pipe-separated `SNPS` identifiers in `CHR:POS:REF:ALT` form.
+- `--ld-directory`: directory containing chromosome-specific databases named `ld_chr<CHR>.sqlite`. The default is `Data/databases/LD_db`.
+- All selected haplotypes must be located on the same chromosome. Overlapping haplotypes are supported, and a variant belonging to multiple haplotypes appears only once in the matrix.
+
+### Outputs
+
+For an `--output-prefix` of `results/tmem106b`, the script writes:
+
+- `results/tmem106b.ld_matrix.tsv.gz`: symmetric r² matrix with variants ordered by genomic position.
+- `results/tmem106b.ld_observed_mask.tsv.gz`: symmetric binary matrix identifying pairs actually present in SQLite. The diagonal is one.
+- `results/tmem106b.ld_observed_pairs.tsv.gz`: long-form table of stored variant pairs, r² values, and physical distances.
+- `results/tmem106b.ld_heatmap.png`: borderless, lower-triangular SNP-by-SNP heatmap in physical-position order, without individual SNP tick labels.
+- `results/tmem106b.ld_heatmap_by_haplotype.png`: borderless, lower-triangular SNP-by-SNP heatmap grouped by natural haplotype-label order (`A`, `B`, and so on), with position ordering within each haplotype. Aligned colored annotation strips and enlarged labels identify haplotype blocks to the left and below the matrix.
+- `results/tmem106b.ld_heatmap_genomic_position.png`: position-constrained roof-shaped LD plot. The matrix is coordinate-transformed so its diagonal lies on a true genomic-position X-axis. Cells receive a small minimum display width for visibility. Pairs absent from SQLite share the navy “NA and 0–0.2” display category with observed low-LD pairs, matching the conventional heatmap.
+- `results/tmem106b.variants.tsv`: physical matrix order, haplotype-grouped plot order, genomic coordinates, complete and primary plot haplotype memberships, SQLite identifiers, and mapping status for every variant.
+- `results/tmem106b.haplotypes.tsv`: requested labels and IDs plus declared and retrieved variant counts.
+- `results/tmem106b.qc.json`: source paths, mapping counts, overlapping-membership counts, possible/observed pair counts, missing-edge policy, and output paths.
+
+### Parameters
+
+- `--haplotype LABEL=CHR:START-END`: labeled haplotype selection; may be repeated.
+- `--manifest FILE`: alternative multi-haplotype input. It is mutually exclusive with `--haplotype`.
+- `--haplotype-table FILE`: override the default haplotype-membership table.
+- `--ld-directory DIRECTORY`: override the default SQLite directory.
+- `--output-prefix PATH`: basename and optional destination directory for all outputs; default `./haplotype_region_ld`.
+- `--missing-value {zero,nan}`: represent pairs absent from SQLite as `0` or `NA` in the LD matrix; default `zero`, matching the current web-app convention. The observed-mask file distinguishes absent edges in either mode.
+- `--heatmap-dpi INTEGER`: PNG resolution; default `300` and minimum `72`.
+- `--verbose`: enable debug-level logging.
+
+Both heatmaps place a compact horizontal LD legend above the matrix and use the same discrete colors as SNPXplorer: navy (≤0.2), light blue (>0.2–0.4), green (>0.4–0.6), orange (>0.6–0.8), and red (>0.8). If a variant belongs to more than one supplied haplotype, it is plotted once and assigned to the earliest natural-sorted label in the grouped heatmap; all memberships remain recorded in `variants.tsv`.
+
+Example for haplotypes A and B:
+
+```bash
+python Exploration/accessory/haplotype_region_ld.py \
+  --haplotype A=7:START-END \
+  --haplotype B=7:12194394-12246599 \
+  --output-prefix results/tmem106b_all_haplotypes
+```
+
+The literal `START-END` in this example must be replaced by haplotype A's stored coordinates.
 
 ## `sumstats_allele_match.py`
 

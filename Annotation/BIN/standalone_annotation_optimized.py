@@ -39,17 +39,40 @@ import alphagenome
 # Configuration
 # ---------------------------------------------------------
 # Local data path
-DATA_PATH = Path("/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Data")
-PATH_SCRIPT = Path("/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Annotation/BIN/")
+#DATA_PATH = Path("/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Data")
+#PATH_SCRIPT = Path("/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Annotation/BIN/")
 # Server data path
-#DATA_PATH = Path("/Data")
-#PATH_SCRIPT = '/Annotation/BIN/'
+DATA_PATH = Path("/Data")
+PATH_SCRIPT = '/Annotation/BIN/'
 
 DB_FILE = DATA_PATH / "databases/Genes/variant_info.db"
 GTEX_ALPHAGENOME_MAPPING_FILE = Path(str(PATH_SCRIPT).replace("/Annotation/BIN", "/Exploration/SNPbot/")) / "gtex_alphagenome_mapping.py"
 
+MAX_ANNOTATION_VARIANTS = 10_000
+MAX_ENRICHMENT_VARIANTS = 1_000
+MAX_INTERVAL_SPAN_BP = 1_000_000
+INTERVAL_MAF_CUTOFF = 0.01
+VALID_CHROMOSOMES = {str(chrom) for chrom in range(1, 23)} | {"X", "Y", "MT"}
+
 # Liftover object (hg19 → hg38)
 lifter = get_lifter("hg19", "hg38")
+
+
+def normalize_ancestry(ancestry: str) -> str:
+    """Normalize the supported reference ancestries used for GWAS and LD."""
+    value = str(ancestry or "European").strip().lower()
+    if value in {"european", "eur"}:
+        return "European"
+    if value in {"african", "afr"}:
+        return "African"
+    raise ValueError("Ancestry must be European or African.")
+
+
+def ancestry_ld_database(chrom, ancestry: str) -> Path:
+    base = DATA_PATH / "databases/LD_db"
+    if normalize_ancestry(ancestry) == "African":
+        base = base / "African"
+    return base / f"ld_chr{str(chrom).upper().replace('CHR', '')}.sqlite"
 
 def load_gtex_alphagenome_mapping():
     try:
@@ -437,6 +460,47 @@ def fetch_by_position(DB_FILE, chrom, pos38):
         info['AF'] = None
     return {"query_type": "coord", "input_chr": chrom, "input_pos_hg38": pos38, "rsid": info['rsID'], "chr_hg38": chrom, "pos_hg38": pos38, "pos_hg19": info['Position_hg19'], "ref": info['REF'], "alt": info['ALT'], "af": info['AF']}
 
+
+def fetch_by_position_and_alleles(DB_FILE, chrom, pos38, ref, alt):
+    """Return one exact hg38 chromosome-position-allele record."""
+    chrom = str(chrom).upper().replace("CHR", "")
+    if chrom == "M":
+        chrom = "MT"
+    query = """
+        SELECT *
+        FROM variant_info
+        WHERE Chromosome = ?
+          AND Position_hg38 = ?
+          AND UPPER(REF) = ?
+          AND UPPER(ALT) = ?
+        LIMIT 1
+    """
+    with sqlite3.connect(str(DB_FILE)) as conn:
+        row = pd.read_sql_query(
+            query,
+            conn,
+            params=(chrom, int(pos38), str(ref).upper(), str(alt).upper()),
+        ).to_dict(orient="records")
+    if not row:
+        return None
+    info = row[0]
+    try:
+        af = round(float(info.get("AF")), 2)
+    except Exception:
+        af = None
+    return {
+        "query_type": "coord_alleles",
+        "input_chr": chrom,
+        "input_pos_hg38": int(pos38),
+        "rsid": info["rsID"],
+        "chr_hg38": chrom,
+        "pos_hg38": int(pos38),
+        "pos_hg19": info["Position_hg19"],
+        "ref": info["REF"],
+        "alt": info["ALT"],
+        "af": af,
+    }
+
 # ---------------------------------------------------------
 # Liftover wrapper using get_lifter()
 # ---------------------------------------------------------
@@ -453,6 +517,336 @@ def liftover_hg19_to_hg38(chrom: str, pos19: int):
         return None
     chr38, pos38, _strand = lifted[0]
     return chr38, int(pos38)
+
+
+def normalize_chromosome(chrom):
+    """Normalize a chromosome label to the representation used in variant_info."""
+    normalized = str(chrom).strip().upper().replace("CHR", "")
+    return "MT" if normalized == "M" else normalized
+
+
+def classify_submission_line(value):
+    """Classify one submitted line without querying any annotation source."""
+    compact = re.sub(r"\s+", "", str(value))
+    if re.fullmatch(r"rs\d+", compact, flags=re.IGNORECASE):
+        return {"type": "rsid", "query": compact.lower(), "original": value}
+
+    interval_match = re.fullmatch(
+        r"(?:chr)?([0-9]+|X|Y|MT|M):(\d+)-(\d+)",
+        compact,
+        flags=re.IGNORECASE,
+    )
+    if interval_match:
+        chrom = normalize_chromosome(interval_match.group(1))
+        start, end = int(interval_match.group(2)), int(interval_match.group(3))
+        if chrom not in VALID_CHROMOSOMES:
+            return {"type": "invalid", "query": value, "reason": "unsupported_chromosome"}
+        if start < 1 or end < start:
+            return {"type": "invalid", "query": value, "reason": "invalid_interval_coordinates"}
+        if end - start > MAX_INTERVAL_SPAN_BP:
+            return {"type": "invalid", "query": value, "reason": "interval_exceeds_1mb"}
+        return {
+            "type": "interval",
+            "query": f"chr{chrom}:{start}-{end}",
+            "chrom": chrom,
+            "start": start,
+            "end": end,
+            "original": value,
+        }
+
+    allele_match = re.fullmatch(
+        r"(?:chr)?([0-9]+|X|Y|MT|M):(\d+):([ACGT]+):([ACGT]+)",
+        compact,
+        flags=re.IGNORECASE,
+    )
+    if allele_match:
+        chrom = normalize_chromosome(allele_match.group(1))
+        if chrom in VALID_CHROMOSOMES:
+            return {
+                "type": "coord_alleles",
+                "query": compact,
+                "chrom": chrom,
+                "pos": int(allele_match.group(2)),
+                "ref": allele_match.group(3).upper(),
+                "alt": allele_match.group(4).upper(),
+                "original": value,
+            }
+
+    coordinate_match = re.fullmatch(
+        r"(?:chr)?([0-9]+|X|Y|MT|M):(\d+)",
+        compact,
+        flags=re.IGNORECASE,
+    )
+    if coordinate_match:
+        chrom = normalize_chromosome(coordinate_match.group(1))
+        if chrom in VALID_CHROMOSOMES:
+            return {
+                "type": "coord",
+                "query": compact,
+                "chrom": chrom,
+                "pos": int(coordinate_match.group(2)),
+                "original": value,
+            }
+    return {"type": "invalid", "query": value, "reason": "invalid_input_format"}
+
+
+def read_submission_lines(query):
+    """Read a query argument or query file while preserving input order."""
+    if Path(query).is_file():
+        with open(query) as source:
+            values = [line.strip() for line in source if line.strip()]
+    else:
+        values = [str(query).strip()] if str(query).strip() else []
+    return list(dict.fromkeys(values))
+
+
+def variant_key(record):
+    """Return a stable identity that preserves multiallelic variants."""
+    return (
+        normalize_chromosome(record["Chromosome"]),
+        int(record["Position_hg38"]),
+        str(record["REF"]).upper(),
+        str(record["ALT"]).upper(),
+    )
+
+
+def resolve_explicit_variant(parsed, build, db_file=DB_FILE):
+    """Resolve an explicit input to a database variant for deduplication."""
+    if parsed["type"] == "rsid":
+        query = """
+            SELECT * FROM variant_info
+            WHERE rsID = ?
+            ORDER BY Chromosome, Position_hg38, REF, ALT
+            LIMIT 1
+        """
+        params = (parsed["query"],)
+    elif parsed["type"] in {"coord", "coord_alleles"}:
+        chrom, pos = parsed["chrom"], parsed["pos"]
+        if build == "hg19":
+            lifted = liftover_hg19_to_hg38(f"chr{chrom}", pos)
+            if lifted is None:
+                return None
+            chrom, pos = normalize_chromosome(lifted[0]), lifted[1]
+        allele_clause = ""
+        params = [chrom, int(pos)]
+        if parsed["type"] == "coord_alleles" and build == "hg38":
+            allele_clause = " AND UPPER(REF) = ? AND UPPER(ALT) = ?"
+            params.extend([parsed["ref"], parsed["alt"]])
+        query = f"""
+            SELECT * FROM variant_info
+            WHERE Chromosome = ? AND Position_hg38 = ?{allele_clause}
+            ORDER BY REF, ALT
+            LIMIT 1
+        """
+        params = tuple(params)
+    else:
+        return None
+    with sqlite3.connect(str(db_file)) as conn:
+        rows = pd.read_sql_query(query, conn, params=params).to_dict(orient="records")
+    return rows[0] if rows else None
+
+
+def fetch_interval_variants(parsed, build, db_file=DB_FILE):
+    """Retrieve all database variants in an interval using the indexed hg38 position."""
+    chrom = parsed["chrom"]
+    start, end = parsed["start"], parsed["end"]
+    source_start, source_end = start, end
+    if build == "hg19":
+        lifted_start = liftover_hg19_to_hg38(f"chr{chrom}", start)
+        lifted_end = liftover_hg19_to_hg38(f"chr{chrom}", end)
+        if lifted_start is None or lifted_end is None:
+            raise ValueError(f"Could not lift interval endpoints to hg38: {parsed['query']}")
+        lifted_chroms = {normalize_chromosome(lifted_start[0]), normalize_chromosome(lifted_end[0])}
+        if len(lifted_chroms) != 1:
+            raise ValueError(f"Interval endpoints map to different hg38 chromosomes: {parsed['query']}")
+        chrom = lifted_chroms.pop()
+        start, end = sorted((lifted_start[1], lifted_end[1]))
+
+    query = """
+        SELECT Chromosome, Position_hg38, Position_hg19, rsID, REF, ALT, AF
+        FROM variant_info
+        WHERE Chromosome = ? AND Position_hg38 BETWEEN ? AND ?
+        ORDER BY AF DESC, Position_hg38, REF, ALT
+    """
+    with sqlite3.connect(str(db_file)) as conn:
+        variants = pd.read_sql_query(query, conn, params=(chrom, int(start), int(end)))
+    if build == "hg19" and not variants.empty:
+        positions_hg19 = pd.to_numeric(variants["Position_hg19"], errors="coerce")
+        variants = variants[positions_hg19.between(source_start, source_end)].copy()
+    return variants.reset_index(drop=True)
+
+
+def allocate_interval_variants(interval_candidates, capacity):
+    """Select variants round-robin from independently MAF-ranked intervals."""
+    selected = []
+    selected_keys = set()
+    cursors = [0] * len(interval_candidates)
+    while len(selected) < capacity:
+        added_this_round = False
+        for interval_index, candidates in enumerate(interval_candidates):
+            while cursors[interval_index] < len(candidates):
+                candidate = candidates[cursors[interval_index]]
+                cursors[interval_index] += 1
+                key = candidate["variant_key"]
+                if key in selected_keys:
+                    candidate["selection_status"] = "excluded_duplicate_interval"
+                    continue
+                selected.append(candidate)
+                selected_keys.add(key)
+                candidate["selection_status"] = "selected"
+                added_this_round = True
+                break
+            if len(selected) >= capacity:
+                break
+        if not added_this_round:
+            break
+    for candidates in interval_candidates:
+        for candidate in candidates:
+            if "selection_status" not in candidate:
+                candidate["selection_status"] = "excluded_variant_limit"
+    return selected
+
+
+def prepare_annotation_queries(query, build, analysis_type, db_file=DB_FILE):
+    """Resolve mixed explicit/interval input and enforce final analysis limits."""
+    raw_entries = read_submission_lines(query)
+    parsed_entries = [classify_submission_line(value) for value in raw_entries]
+    intervals = [entry for entry in parsed_entries if entry["type"] == "interval"]
+    explicit = [entry for entry in parsed_entries if entry["type"] != "interval"]
+
+    if intervals and analysis_type != "annotation":
+        raise ValueError("Genomic intervals are supported for annotation only")
+    limit = MAX_ANNOTATION_VARIANTS if analysis_type == "annotation" else MAX_ENRICHMENT_VARIANTS
+    if len(explicit) > limit:
+        raise ValueError(f"The submission contains more than {limit:,} explicit inputs")
+
+    selected_items = []
+    explicit_keys = set()
+    explicit_audit = []
+    for entry in explicit:
+        resolved = resolve_explicit_variant(entry, build, db_file) if entry["type"] != "invalid" else None
+        key = variant_key(resolved) if resolved is not None else None
+        status = "selected"
+        if key is not None and key in explicit_keys:
+            status = "excluded_duplicate_explicit"
+        if status == "selected":
+            if key is not None:
+                explicit_keys.add(key)
+            selected_items.append({
+                "query": entry["query"],
+                "build": build,
+                "include_ld": True,
+                "source": "explicit",
+                "source_interval": "",
+                "variant_key": key,
+            })
+        explicit_audit.append({
+            "input": entry["query"],
+            "source": "explicit",
+            "maf": resolved.get("AF") if resolved else None,
+            "status": status if entry["type"] != "invalid" else entry.get("reason", "invalid_input"),
+        })
+
+    if len(selected_items) > limit:
+        raise ValueError(f"The submission resolves to more than {limit:,} explicit variants")
+
+    interval_candidates = []
+    interval_audit = []
+    summary_rows = []
+    for interval in intervals:
+        variants = fetch_interval_variants(interval, build, db_file)
+        candidates = []
+        counts = Counter()
+        for record in variants.to_dict(orient="records"):
+            key = variant_key(record)
+            maf = pd.to_numeric(record.get("AF"), errors="coerce")
+            base = {
+                "input": record.get("rsID") or f"chr{key[0]}:{key[1]}:{key[2]}:{key[3]}",
+                "source": "interval",
+                "source_interval": interval["query"],
+                "chromosome": key[0],
+                "position_hg38": key[1],
+                "position_hg19": record.get("Position_hg19"),
+                "rsid": record.get("rsID"),
+                "ref": key[2],
+                "alt": key[3],
+                "maf": maf,
+                "variant_key": key,
+            }
+            if pd.isna(maf) or float(maf) <= INTERVAL_MAF_CUTOFF:
+                base["selection_status"] = "excluded_maf"
+                interval_audit.append(base)
+                counts["excluded_maf"] += 1
+            elif key in explicit_keys:
+                base["selection_status"] = "excluded_duplicate_explicit"
+                interval_audit.append(base)
+                counts["excluded_duplicate_explicit"] += 1
+            else:
+                candidates.append(base)
+                interval_audit.append(base)
+                counts["eligible"] += 1
+        candidates.sort(key=lambda row: (-float(row["maf"]), row["position_hg38"], row["ref"], row["alt"]))
+        interval_candidates.append(candidates)
+        summary_rows.append({
+            "source": interval["query"],
+            "supported_variants": len(variants),
+            "eligible_maf_gt_0.01": counts["eligible"],
+            "excluded_maf": counts["excluded_maf"],
+            "excluded_duplicate_explicit": counts["excluded_duplicate_explicit"],
+        })
+
+    capacity = max(0, limit - len(selected_items))
+    selected_interval = allocate_interval_variants(interval_candidates, capacity)
+    for candidate in selected_interval:
+        key = candidate["variant_key"]
+        selected_items.append({
+            "query": f"chr{key[0]}:{key[1]}:{key[2]}:{key[3]}",
+            "build": "hg38",
+            "include_ld": False,
+            "source": "interval",
+            "source_interval": candidate["source_interval"],
+            "variant_key": key,
+            "maf": candidate["maf"],
+        })
+
+    for row in summary_rows:
+        source_rows = [item for item in interval_audit if item["source_interval"] == row["source"]]
+        row["selected"] = sum(item.get("selection_status") == "selected" for item in source_rows)
+        row["excluded_duplicate_interval"] = sum(item.get("selection_status") == "excluded_duplicate_interval" for item in source_rows)
+        row["excluded_variant_limit"] = sum(item.get("selection_status") == "excluded_variant_limit" for item in source_rows)
+
+    overall = {
+        "source": "OVERALL",
+        "submitted_explicit_inputs": len(explicit),
+        "submitted_intervals": len(intervals),
+        "selected_explicit": sum(item["source"] == "explicit" for item in selected_items),
+        "selected_interval": sum(item["source"] == "interval" for item in selected_items),
+        "selected_total": len(selected_items),
+        "variant_limit": limit,
+        "interval_maf_rule": f"MAF > {INTERVAL_MAF_CUTOFF}",
+    }
+    return selected_items, explicit_audit + interval_audit, summary_rows + [overall]
+
+
+def write_selection_audit(output_folder, selected_items, audit_rows, summary_rows):
+    """Write reproducible input-selection records into the downloadable result."""
+    audit_dir = Path(output_folder) / "input_selection"
+    audit_dir.mkdir(parents=True, exist_ok=True)
+    selected_rows = [{key: value for key, value in item.items() if key != "variant_key"} for item in selected_items]
+    pd.DataFrame(selected_rows).to_csv(audit_dir / "selected_variants.tsv", sep="\t", index=False, na_rep="NA")
+    excluded_rows = [
+        {key: value for key, value in row.items() if key != "variant_key"}
+        for row in audit_rows
+        if not str(row.get("status", row.get("selection_status", ""))).startswith("selected")
+        and row.get("selection_status") != "selected"
+    ]
+    pd.DataFrame(excluded_rows).to_csv(audit_dir / "excluded_variants.tsv", sep="\t", index=False, na_rep="NA")
+    excluded_by_maf = [
+        row for row in excluded_rows
+        if row.get("selection_status") == "excluded_maf"
+    ]
+    pd.DataFrame(excluded_by_maf).to_csv(audit_dir / "excluded_by_maf.tsv", sep="\t", index=False, na_rep="NA")
+    pd.DataFrame(summary_rows).to_csv(audit_dir / "selection_summary.tsv", sep="\t", index=False, na_rep="NA")
 
 # ---------------------------------------------------------
 # Variant type detection
@@ -472,6 +866,22 @@ def parse_variant_query(q: str):
         if snp.lower().startswith("rs") and snp[2:].isdigit():
             snpinfo.append({"type": "rsid", "rsid": snp})
         else:
+            allele_match = re.match(
+                r"^(chr)?([0-9]+|X|Y|MT|M):(\d+):([ACGT]+):([ACGT]+)$",
+                snp,
+                flags=re.IGNORECASE,
+            )
+            if allele_match:
+                chrom = normalize_chromosome(allele_match.group(2))
+                snpinfo.append({
+                    "type": "coord",
+                    "chrom": f"chr{chrom}",
+                    "pos": int(allele_match.group(3)),
+                    "ref": allele_match.group(4).upper(),
+                    "alt": allele_match.group(5).upper(),
+                    "query": snp,
+                })
+                continue
             m = re.match(r"^(chr)?(\w+)[\:\s]+(\d+)$", snp, flags=re.IGNORECASE)
             if m:
                 chrom = m.group(2).upper()
@@ -680,7 +1090,7 @@ def partners_by_position(db_path: str, pos: int, r2_min: float = 0.0, limit: Opt
 # ---------------------------------------------------------
 # Query LD
 # ---------------------------------------------------------
-def query_ld(chrom, pos38, ld_threshold):
+def query_ld(chrom, pos38, ld_threshold, ancestry="European"):
     """
     Query LD partners for given chromosome and position.
     Returns:
@@ -689,7 +1099,7 @@ def query_ld(chrom, pos38, ld_threshold):
     """
     try:
         chrom_clean = str(chrom).upper().replace("CHR", "")
-        db_path = DATA_PATH / f"databases/LD_db/ld_chr{chrom_clean}.sqlite"
+        db_path = ancestry_ld_database(chrom_clean, ancestry)
         ld_partners = partners_by_position(db_path, int(pos38), r2_min=ld_threshold)
         if not ld_partners:
             return [], []
@@ -733,19 +1143,19 @@ def query_ld(chrom, pos38, ld_threshold):
         if df_ld.empty:
             return [], []
         # otherwise add also query info
-        ld_query_alleles = query_ld_query(chrom_clean, pos38)
+        ld_query_alleles = query_ld_query(chrom_clean, pos38, ancestry=ancestry)
         df_ld["query"] = chrom + ':' + str(pos38) + ':' + ld_query_alleles
         return df_ld.to_dict(orient="records"), all_partner_positions
     except Exception as e:
         print("Error in query_ld:", e, file=sys.stderr, flush=True)
         return [], []
 
-def query_ld_query(chrom, pos38):
+def query_ld_query(chrom, pos38, ancestry="European"):
     """
     Query query-SNP for given chromosome and position.
     """
     try:
-        db_path = DATA_PATH / f"databases/LD_db/ld_chr{chrom}.sqlite"
+        db_path = ancestry_ld_database(chrom, ancestry)
         with _open_db_for_query(db_path) as conn:
             rows = conn.execute("SELECT id, uniq FROM variants WHERE pos = ? ORDER BY uniq",(pos38,)).fetchall()
         if not rows:
@@ -761,14 +1171,19 @@ def query_ld_query(chrom, pos38):
 # ---------------------------------------------------------
 # Query GWAS associations
 # ---------------------------------------------------------
-def query_gwas_associations(chrom, pos38):
+def query_gwas_associations(chrom, pos38, ancestry="European"):
     """
     Query GWAS associations for a given hg38 chromosome and position.
     Returns a list of dictionaries (JSON-serializable).
     """
     try:
         chrom_clean = str(chrom).upper().replace("CHR", "")
-        GWAS_DB_FILE = DATA_PATH / "databases/haplotypes/All_indep_gwas_sumstats_AI_hg38.txt.gz"
+        gwas_filename = (
+            "20260917_All_indep_gwas_sumstats_AI_hg38_African.txt.gz"
+            if normalize_ancestry(ancestry) == "African"
+            else "All_indep_gwas_sumstats_AI_hg38.txt.gz"
+        )
+        GWAS_DB_FILE = DATA_PATH / "databases/haplotypes" / gwas_filename
         region = f"{chrom_clean}:{pos38}-{pos38}"
         result = subprocess.run(
             ["tabix", str(GWAS_DB_FILE), region],
@@ -859,7 +1274,8 @@ def annotate_ld_partners(chrom, ld_rows, pos38, qtl_tissues):
 # ---------------------------------------------------------
 # Core logic for querying a variant
 # ---------------------------------------------------------
-def run_variant_query(q: str, build: str = "hg38", qtl_tissues: List[str] = ["all"], email: str = "", output_folder: str = "", ld_threshold: float = 0.2) -> dict:
+def run_variant_query(q: str, build: str = "hg38", qtl_tissues: List[str] = ["all"], email: str = "", output_folder: str = "", ld_threshold: float = 0.2, include_ld: bool = True, ancestry: str = "European") -> dict:
+    ancestry = normalize_ancestry(ancestry)
     print(f"Running variant query for: {q} (build={build})", file=sys.stderr, flush=True)
     # Parse query
     parsed = parse_variant_query(q)
@@ -911,14 +1327,17 @@ def run_variant_query(q: str, build: str = "hg38", qtl_tissues: List[str] = ["al
                 sqtl_dic = query_sqtls(chr38, pos38, qtl_tissues)
             except Exception:
                 sqtl_dic = None
-            try:
-                # Add LD annotation
-                ld_dic, all_vars = query_ld(chr38, pos38, ld_threshold)
-            except Exception:
-                ld_dic = None
+            if include_ld:
+                try:
+                    # Add LD annotation
+                    ld_dic, all_vars = query_ld(chr38, pos38, ld_threshold, ancestry=ancestry)
+                except Exception:
+                    ld_dic = None
+            else:
+                ld_dic = []
             try:
                 # Add GWAS associations
-                gwas_dic = query_gwas_associations(chr38, pos38)
+                gwas_dic = query_gwas_associations(chr38, pos38, ancestry=ancestry)
             except Exception:
                 gwas_dic = None
             try:
@@ -956,7 +1375,10 @@ def run_variant_query(q: str, build: str = "hg38", qtl_tissues: List[str] = ["al
         pos = p["pos"]
         if build == "hg38":
             try:
-                info = fetch_by_position(DB_FILE, chrom, pos)
+                if p.get("ref") and p.get("alt"):
+                    info = fetch_by_position_and_alleles(DB_FILE, chrom, pos, p["ref"], p["alt"])
+                else:
+                    info = fetch_by_position(DB_FILE, chrom, pos)
             except Exception:
                 info = None
             if info is None:
@@ -990,14 +1412,17 @@ def run_variant_query(q: str, build: str = "hg38", qtl_tissues: List[str] = ["al
                 sqtl_dic = query_sqtls(chr38, pos38, qtl_tissues)
             except Exception:
                 sqtl_dic = None
-            try:
-                # Add LD annotation
-                ld_dic, all_vars = query_ld(chr38, pos38, ld_threshold)
-            except Exception:
-                ld_dic = None
+            if include_ld:
+                try:
+                    # Add LD annotation
+                    ld_dic, all_vars = query_ld(chr38, pos38, ld_threshold, ancestry=ancestry)
+                except Exception:
+                    ld_dic = None
+            else:
+                ld_dic = []
             try:
                 # Add GWAS associations
-                gwas_dic = query_gwas_associations(chr38, pos38)
+                gwas_dic = query_gwas_associations(chr38, pos38, ancestry=ancestry)
             except Exception:
                 gwas_dic = None
             try:
@@ -1070,14 +1495,17 @@ def run_variant_query(q: str, build: str = "hg38", qtl_tissues: List[str] = ["al
                 sqtl_dic = query_sqtls(chr38, pos38, qtl_tissues)
             except Exception:
                 sqtl_dic = None
-            try:
-                # Add LD annotation based on hg38 location
-                ld_dic, all_vars = query_ld(chr38, pos38, ld_threshold)
-            except Exception:
-                ld_dic = None
+            if include_ld:
+                try:
+                    # Add LD annotation based on hg38 location
+                    ld_dic, all_vars = query_ld(chr38, pos38, ld_threshold, ancestry=ancestry)
+                except Exception:
+                    ld_dic = None
+            else:
+                ld_dic = []
             try:
                 # Add GWAS associations
-                gwas_dic = query_gwas_associations(chr38, pos38)
+                gwas_dic = query_gwas_associations(chr38, pos38, ancestry=ancestry)
             except Exception:
                 gwas_dic = None
             try:
@@ -1767,7 +2195,7 @@ def derive_pathway_prs_weights(clustered_go_terms, merged_df, enrichment_df):
 # ---------------------------------------------------------
 # Function to send email at start of analysis
 # ---------------------------------------------------------
-def email_at_start(email: str, output_folder: str, query: str, analysis_type: str, build: str, qtl_tissues: List[str], gsea_sets: List[str], random_number: str = None):
+def email_at_start(email: str, output_folder: str, query: str, analysis_type: str, build: str, qtl_tissues: List[str], gsea_sets: List[str], ancestry: str = "European", random_number: str = None):
     # First read configuration file values for the emails
     cfg = pd.read_table(f"{DATA_PATH}/../Annotation/config_email.txt")
     sender = str(cfg['username'].values[0])
@@ -1776,7 +2204,7 @@ def email_at_start(email: str, output_folder: str, query: str, analysis_type: st
     host = str(cfg['host'].values[0])
     cc_add = 'snpxplorer@gmail.com'
     # Send email to myself to notify a new request has been received
-    message_email = f"Dear user, \nsnpXplorer received an annotation request from you. \n You receive thie email to confirm that your request is being processed. A typical job takes about 30 minutes to complete, however, due to the high number of requests, jobs may be delayed. \n\n The following settings were requested: \n input --> {query} \n analysis_type --> {analysis_type} \n analysis mode --> {gsea_sets} \n interest_tissue --> {qtl_tissues} \n ref_version --> {build} \n run_ID --> {random_number} \n\n Thanks for using snpXplorer! \n\n snpXplorer Team"
+    message_email = f"Dear user, \nsnpXplorer received an annotation request from you. \n You receive thie email to confirm that your request is being processed. A typical job takes about 30 minutes to complete, however, due to the high number of requests, jobs may be delayed. \n\n The following settings were requested: \n input --> {query} \n analysis_type --> {analysis_type} \n analysis mode --> {gsea_sets} \n interest_tissue --> {qtl_tissues} \n ref_version --> {build} \n ancestry --> {ancestry} \n run_ID --> {random_number} \n\n Thanks for using snpXplorer! \n\n snpXplorer Team"
     msg = MIMEMultipart()
     msg["From"] = sender
     msg["To"] = ", ".join(email) if isinstance(email, list) else email
@@ -1804,7 +2232,7 @@ def email_at_start(email: str, output_folder: str, query: str, analysis_type: st
 # ---------------------------------------------------------
 # Function to send email at end of analysis
 # ---------------------------------------------------------
-def email_at_end(email: str, random_number: str = None):    
+def email_at_end(email: str, random_number: str = None, ancestry: str = "European"):
     # First read configuration file values for the emails
     cfg = pd.read_table(f"{DATA_PATH}/../Annotation/config_email.txt")
     sender = str(cfg['username'].values[0])
@@ -1813,7 +2241,7 @@ def email_at_end(email: str, random_number: str = None):
     host = str(cfg['host'].values[0])
     cc_add = 'snpxplorer@gmail.com'
     # Send email to myself to notify a new request has been received
-    message_email = f"Dear user, \n\n Thanks so much for using snpXplorer and its annotation pipeline. \n We hope you find the tool useful. \n\n We now implemented a new way to download your results directly from the web-server. Please open https://snpxplorer.net/download/ and follow the instructions to get your results. \n\nYour Run ID --> {random_number}\n\nBest wishes, \n snpXplorer Team."
+    message_email = f"Dear user, \n\n Thanks so much for using snpXplorer and its annotation pipeline. \n We hope you find the tool useful. \n\n We now implemented a new way to download your results directly from the web-server. Please open https://snpxplorer.net/download/ and follow the instructions to get your results. \n\nAncestry --> {ancestry}\nYour Run ID --> {random_number}\n\nBest wishes, \n snpXplorer Team."
     msg = MIMEMultipart()
     msg["From"] = sender
     msg["To"] = ", ".join(email) if isinstance(email, list) else email
@@ -1841,7 +2269,7 @@ def email_at_end(email: str, random_number: str = None):
 # ---------------------------------------------------------
 # Function to send email for errors
 # ---------------------------------------------------------
-def send_email_error(email, q, output_folder):
+def send_email_error(email, q, output_folder, ancestry="European"):
     # First read configuration file values for the emails
     cfg = pd.read_table(f"{DATA_PATH}/../Annotation/config_email.txt")
     sender = str(cfg['username'].values[0])
@@ -1850,7 +2278,7 @@ def send_email_error(email, q, output_folder):
     host = str(cfg['host'].values[0])
     cc_add = 'snpxplorer@gmail.com'
     # Send email to myself to notify a new request has been received
-    message_email = f"Dear user, \nsnpXplorer encountered an error while processing your annotation request. \n Please check your input query: {q} \n\n If the problem persists, please contact us at {sender}. \n\n Best wishes, \n snpXplorer Team"
+    message_email = f"Dear user, \nsnpXplorer encountered an error while processing your annotation request. \n Please check your input query: {q} \n Ancestry: {ancestry} \n\n If the problem persists, please contact us at {sender}. \n\n Best wishes, \n snpXplorer Team"
     msg = MIMEMultipart()
     msg["From"] = sender
     msg["To"] = ", ".join(email) if isinstance(email, list) else email
@@ -1887,7 +2315,7 @@ def send_email_error(email, q, output_folder):
 # ---------------------------------------------------------
 # Function to send email for errors when too many variants
 # ---------------------------------------------------------
-def send_email_error_toomany(email, q, output_folder):
+def send_email_error_toomany(email, q, output_folder, ancestry="European"):
     # First read configuration file values for the emails
     cfg = pd.read_table(f"{DATA_PATH}/../Annotation/config_email.txt")
     sender = str(cfg['username'].values[0])
@@ -1896,7 +2324,7 @@ def send_email_error_toomany(email, q, output_folder):
     host = str(cfg['host'].values[0])
     cc_add = 'snpxplorer@gmail.com'
     # Send email to myself to notify a new request has been received
-    message_email = f"Dear user, \nThanks for using snpXplorer and its annotation procedure. \nUnfortunately, your run contained too many SNPs for the enrichment job, which is limited to 1000 SNPs at the moment. \nWe are working hard to make the gene-set enrichment to work with a larger number of SNPs, but it’s still currently not available. \nPlease get in touch with us for custom runs like this. \nBest wishes \nsnpXplorer Team"    
+    message_email = f"Dear user, \nThanks for using snpXplorer and its annotation procedure. \nAncestry: {ancestry}\nUnfortunately, your run contained too many SNPs for the enrichment job, which is limited to 1000 SNPs at the moment. \nWe are working hard to make the gene-set enrichment to work with a larger number of SNPs, but it’s still currently not available. \nPlease get in touch with us for custom runs like this. \nBest wishes \nsnpXplorer Team"
     msg = MIMEMultipart()
     msg["From"] = sender
     msg["To"] = ", ".join(email) if isinstance(email, list) else email
@@ -2021,9 +2449,10 @@ def cleanRedundantFiles(output_folder):
 # ---------------------------------------------------------
 def main():
     # Parse arguments
-    parser = argparse.ArgumentParser(description="Variant annotation query (standalone CLI). Outputs a pickled list of pandas DataFrames to stdout.")
-    parser.add_argument("-q", "--query", required=True, help="Variant query (rsID like rs7412 or coordinate like 19:45411941 or chr19 45411941). Can be a file with one variant per line.")
+    parser = argparse.ArgumentParser(description="Variant annotation query (standalone CLI).")
+    parser.add_argument("-q", "--query", required=True, help="Variant query (rsID, coordinate, or interval) or a file containing one mixed input per line.")
     parser.add_argument("-b", "--build", default="hg38", choices=["hg19", "hg38", 'grch38', 'grch37'], help="Reference genome build of the input query (default: hg38).")
+    parser.add_argument("-a", "--ancestry", default="European", help="Reference ancestry for GWAS and LD annotation: European or African (default: European).")
     parser.add_argument("-o", "--output", default=".", help="Output directory for results (Default is current working directory).")
     parser.add_argument("-r", "--random", required=False, help="Random number to create folder for results (Default is AnnotateMe_results).")
     parser.add_argument("-t", "--type", default="annotation", choices=["annotation", "enrichment"], help="Type of analysis to perform (default: annotation).")
@@ -2034,6 +2463,10 @@ def main():
     # Place arguments into variables
     query = args.query
     build = args.build.lower()
+    try:
+        ancestry = normalize_ancestry(args.ancestry)
+    except ValueError as error:
+        parser.error(str(error))
     output_folder = args.output
     random_number = args.random
     analysis_type = args.type
@@ -2055,6 +2488,22 @@ def main():
         build = 'hg38'
     elif build == 'grch37':
         build = 'hg19'
+
+    # Expand intervals, apply MAF/capacity rules, and enforce the definitive
+    # post-expansion limit before starting expensive annotation work.
+    try:
+        selected_items, selection_audit, selection_summary = prepare_annotation_queries(
+            query,
+            build,
+            analysis_type,
+            DB_FILE,
+        )
+    except ValueError as error:
+        print(f"Input selection error: {error}", file=sys.stderr, flush=True)
+        sys.exit(1)
+    if not selected_items:
+        print("Input selection error: no inputs were selected", file=sys.stderr, flush=True)
+        sys.exit(1)
     
     # Compile output folder name
     if random_number:
@@ -2076,7 +2525,7 @@ def main():
     
     # Email notification
     if email:
-        email_at_start(email, output_folder, query, analysis_type, build, qtl_tissues, gsea_sets, random_number)
+        email_at_start(email, output_folder, query, analysis_type, build, qtl_tissues, gsea_sets, ancestry, random_number)
     
     # Decide whether to run the process or not
     wait_for_memory(analysis_type)
@@ -2100,6 +2549,7 @@ def main():
     invalid_queries_path = f"{output_folder}/invalid_queries.txt"
     os.makedirs(f"{output_folder}/target_annotations", exist_ok=True)
     os.makedirs(f"{output_folder}/ld_partner_annotations", exist_ok=True)
+    write_selection_audit(output_folder, selected_items, selection_audit, selection_summary)
 
     # Buffering settings to write to disk every N queries
     FLUSH_EVERY = 30
@@ -2118,27 +2568,25 @@ def main():
     buf_gnomad = []
     buf_alphagenome = []
     
-    # If query is a file: process line-by-line
-    if Path(query).is_file():
-        with open(query) as f:
-            queries = [l.strip() for l in f if l.strip()]
-            queries = list(set(queries))  # Remove duplicates
-    else:
-        queries = [query]
+    queries = selected_items
 
     # Set ld threshold
     ld_threshold = 0.4
     
-    # If gene-set enrichment analysis is requested and >1000 variants, stop execution and notify user
-    if analysis_type == "enrichment" and len(queries) > 1000:
-        if email:
-            send_email_error_toomany(email, query, output_folder)
-        sys.exit(1)
-    
     # Iterate over elements in queries
-    for q_line in queries:
+    for query_item in queries:
+        q_line = query_item["query"]
         # Run query
-        info_single = run_variant_query(q_line, build, qtl_tissues, email, output_folder, ld_threshold)
+        info_single = run_variant_query(
+            q_line,
+            query_item["build"],
+            qtl_tissues,
+            email,
+            output_folder,
+            ld_threshold,
+            include_ld=query_item["include_ld"],
+            ancestry=ancestry,
+        )
         # Identify most likely gene
         most_likely_gene_single, info_single_filtered, invalid_queries_single = identify_most_likely_gene(info_single)
         if not most_likely_gene_single.empty:
@@ -2245,7 +2693,7 @@ def main():
     # If all queries were invalid, send error email and exit
     if len(invalid_queries) == len(queries):
         if email:
-            send_email_error(email, query, output_folder)
+            send_email_error(email, query, output_folder, ancestry)
         sys.exit(1)
     
     # At this point, combine all most likely genes into a single DataFrame
@@ -2305,7 +2753,7 @@ def main():
         os.system(cmd)
         
         # Send email notification at the end
-        email_at_end(email, random_number)    
+        email_at_end(email, random_number, ancestry)
         
 if __name__ == "__main__":
     main()

@@ -48,6 +48,68 @@
                 .form-error-message.show {
                     display: block;
                 }
+                #exploration_form .submit-container {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    flex-wrap: wrap;
+                    gap: 20px;
+                }
+                .analysis-status {
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    max-width: 520px;
+                    margin: 0;
+                    padding: 0;
+                    border: 0;
+                    background: transparent;
+                    color: #374151;
+                    text-align: left;
+                    transition: color .2s ease;
+                }
+                .analysis-status.running {
+                    color: #1d4ed8;
+                }
+                .analysis-status.completed {
+                    color: #14532d;
+                }
+                .analysis-status.failed {
+                    color: #7f1d1d;
+                }
+                .analysis-status-spinner {
+                    display: none;
+                    width: 20px;
+                    height: 20px;
+                    flex: 0 0 20px;
+                    border: 4px solid rgba(37, 99, 235, .22);
+                    border-top-color: #2563eb;
+                    border-radius: 50%;
+                    animation: analysis-spin .8s linear infinite;
+                }
+                .analysis-status.running .analysis-status-spinner { display: inline-block; }
+                .analysis-status-copy { min-width: 0; }
+                .analysis-status-title {
+                    display: block;
+                    margin-bottom: 2px;
+                    font-size: 17px;
+                    font-weight: 700;
+                }
+                .analysis-status-detail {
+                    display: block;
+                    font-size: 14px;
+                    line-height: 1.35;
+                }
+                #submit_button:disabled {
+                    cursor: wait;
+                    opacity: .72;
+                }
+                @keyframes analysis-spin {
+                    to { transform: rotate(360deg); }
+                }
+                @media (prefers-reduced-motion: reduce) {
+                    .analysis-status-spinner { animation-duration: 1.8s; }
+                }
                 .options-wrapper { display:flex; flex-wrap:nowrap; gap:20px; }
 
                 /* proportions (sum ≈ 100; gap will cause some shrink, that’s OK) */
@@ -132,6 +194,17 @@
                                 $sel.on('select2:open select2:close', fixWidth);
                                 fixWidth.call($sel[0]);  // run once after init
 
+                            function updateReferenceAncestryLabels() {
+                                const selectedStudies = $sel.val() || [];
+                                const reference = selectedStudies.length > 0 && selectedStudies.every(function (study) {
+                                    return /^\[AFR\]\s/i.test(study);
+                                }) ? 'African' : 'European';
+                                document.querySelectorAll('.reference-ancestry-value').forEach(function (element) {
+                                    element.textContent = reference;
+                                });
+                            }
+                            $sel.on('change', updateReferenceAncestryLabels);
+
                             // --- Preselect previously chosen studies from Flask context (if any) ---
                             // 'gwas' should be a list of study IDs you stored in the session or passed into the template
                             const preselected = {{ (gwas or []) | tojson | safe }};
@@ -141,6 +214,7 @@
                                 const opt = new Option(id, id, true, true);
                                 $sel.append(opt).trigger('change');
                             });
+                            updateReferenceAncestryLabels();
                         });
                     </script>
 
@@ -213,6 +287,13 @@
                         <span class="btn-icon">🚀</span>
                         <span class="btn-text">Show region!</span>
                     </button>
+                    <div id="analysis-status" class="analysis-status idle" role="status" aria-live="polite" aria-atomic="true">
+                        <span class="analysis-status-spinner" aria-hidden="true"></span>
+                        <span class="analysis-status-copy">
+                            <span class="analysis-status-title">Ready to start</span>
+                            <span class="analysis-status-detail">Choose a GWAS and region, then launch the analysis.</span>
+                        </span>
+                    </div>
                 </div>
                 <!-- Small text explaining the console -->
                 <div style="text-align:center; font-size:14px; color:gray;">
@@ -221,7 +302,7 @@
 
                 <script>
                     (function () {
-                        const defaultGwas = "Alzheimer's disease — Bellenguez C (2022) [ebi-a-GCST90027158]";
+                        const defaultGwas = "[EUR] Alzheimer's disease — Bellenguez C (2022) [ebi-a-GCST90027158]";
                         const defaultBrowse = "PLCG2";
                         const defaultRefGenome = "GRCh37";
                         const presetButton = document.getElementById('use-default-example');
@@ -258,6 +339,55 @@
                         });
                     })();
 
+                    let currentAnalysisState = 'idle';
+                    let resultRedirectScheduled = false;
+
+                    function setAnalysisState(state, detail='') {
+                        const panel = document.getElementById('analysis-status');
+                        const submitButton = document.getElementById('submit_button');
+                        const buttonText = submitButton?.querySelector('.btn-text');
+                        const title = panel?.querySelector('.analysis-status-title');
+                        const detailText = panel?.querySelector('.analysis-status-detail');
+                        const states = {
+                            idle: {
+                                title: 'Ready to start',
+                                detail: 'Choose a GWAS and region, then launch the analysis.',
+                                button: 'Show region!'
+                            },
+                            running: {
+                                title: 'Analysis running',
+                                detail: 'Please keep this page open. Detailed progress is shown in the console.',
+                                button: 'Analysis running…'
+                            },
+                            completed: {
+                                title: 'Analysis completed',
+                                detail: 'Loading your results…',
+                                button: 'Analysis completed'
+                            },
+                            failed: {
+                                title: 'Analysis failed',
+                                detail: 'Please review the console message and try again.',
+                                button: 'Try again'
+                            }
+                        };
+                        const config = states[state] || states.idle;
+                        currentAnalysisState = state;
+                        if (panel) panel.className = `analysis-status ${state}`;
+                        if (title) title.textContent = config.title;
+                        if (detailText) detailText.textContent = detail || config.detail;
+                        if (buttonText) buttonText.textContent = config.button;
+                        if (submitButton) submitButton.disabled = state === 'running' || state === 'completed';
+                    }
+
+                    function completeAnalysisAndRedirect() {
+                        setAnalysisState('completed');
+                        if (resultRedirectScheduled) return;
+                        resultRedirectScheduled = true;
+                        setTimeout(() => {
+                            window.location.href = `/exploration/?cid=${encodeURIComponent('{{ console_id }}')}`;
+                        }, 700);
+                    }
+
                     document.getElementById('exploration_form').addEventListener('submit', async (e) => {
                         e.preventDefault();
                         const errorBox = document.getElementById('exploration-form-error');
@@ -288,29 +418,24 @@
                             errorBox.classList.remove('show');
                         }
 
+                        setAnalysisState('running', 'Starting the analysis…');
+                        consoleInitPhases();
                         const fd = new FormData(e.target);
-                        // (no consoleAppend here)
-                        const resp = await fetch('/exploration/run', { method: 'POST', body: fd });
-                        if (!resp.ok) {
-                            consoleAppend('[error] failed to start job'); 
-                            return;
-                        }
-
-                        startStatusPolling();
-                    });
-
-                    // After your existing EventSource setup:
-                    // reload when the background job signals completion
-                    // (only if you want the page to render results automatically)
-                    evt.onmessage = (e) => {
                         try {
-                        const payload = JSON.parse(e.data);
-                        if (payload.message) consoleAppend(payload.message);
-                        if (payload.message === '[done]') {
-                            location.href = `/exploration/?cid=${encodeURIComponent('{{ console_id }}')}`;
+                            const resp = await fetch('/exploration/run', { method: 'POST', body: fd });
+                            if (!resp.ok) {
+                                const message = 'Failed to start the analysis.';
+                                consoleAppend(`[error] ${message}`);
+                                setAnalysisState('failed', message);
+                                return;
+                            }
+                            startStatusPolling();
+                        } catch (error) {
+                            const message = 'Could not contact the server to start the analysis.';
+                            consoleAppend(`[error] ${message}`);
+                            setAnalysisState('failed', message);
                         }
-                        } catch { consoleAppend(e.data || '[event]'); }
-                    };
+                    });
                 </script>
             </div> 
 
@@ -499,11 +624,26 @@
                             if (!msg || msg === '__hello__') return;
                             if (msg === 'Starting…') return;
 
+                            if (msg === '[done]') {
+                                markAllDone();
+                                consoleAppend(msg);
+                                stopStatusPolling();
+                                completeAnalysisAndRedirect();
+                                return;
+                            }
+
+                            if (/^\[error\]/i.test(msg)) {
+                                consoleAppend(msg);
+                                stopStatusPolling();
+                                const errorDetail = msg.replace(/^\[error\]\s*/i, '') || 'The analysis could not be completed.';
+                                setAnalysisState('failed', errorDetail);
+                                return;
+                            }
+
                             const phase = matchPhase(msg);
                             if (phase) {
                                 markActive(phase);
-                            } else if (/^\[error\]/i.test(msg)) {
-                                consoleAppend(msg);
+                                setAnalysisState('running', `${phase}…`);
                             } else {
                                 consoleAppend(msg);
                             }
@@ -514,9 +654,19 @@
 
                     evt.onerror = () => {
                         consoleAppend('[connection lost, retrying…]');
+                        if (currentAnalysisState === 'running') {
+                            setAnalysisState('running', 'Connection interrupted; attempting to reconnect…');
+                        }
                     };
 
                     let statusTimer = null;
+
+                    function stopStatusPolling() {
+                        if (statusTimer) {
+                            clearInterval(statusTimer);
+                            statusTimer = null;
+                        }
+                    }
 
                     function startStatusPolling() {
                         // avoid multiple timers if user spam-clicks
@@ -531,9 +681,9 @@
 
                                 const data = await res.json();
                                 if (data.done) {
-                                    clearInterval(statusTimer);
-                                    statusTimer = null;
-                                    window.location.href = `/exploration/?cid=${encodeURIComponent(cid)}`;
+                                    stopStatusPolling();
+                                    markAllDone();
+                                    completeAnalysisAndRedirect();
                                 }
                             } catch (err) {
                                 // ignore network hiccups, try again on next tick
@@ -549,6 +699,7 @@
                     <thead>
                         <tr>
                         <th>Trait</th>
+                        <th>Ancestry</th>
                         <th>ID</th>
                         <th>PMID</th>
                         <th>Author</th>
@@ -561,6 +712,7 @@
                         {% for row in table_info %}
                         <tr>
                         <td>{{ row['Trait'] }}</td>
+                        <td>{{ row['Ancestry'] }}</td>
                         <td>{{ row['ID'] }}</td>
                         <td>{{ row['PMID'] }}</td>
                         <td>{{ row['Author'] }}</td>
@@ -698,7 +850,7 @@
                 </div>
                     <small style="text-align: left; color: red; font-weight: bold;">LD is shown only when a single study is visualized.</small>
                     <br>
-                    <small style="text-align: left; color: blue;">LD is calculated in European individuals.</small>
+                    <small style="text-align: left; color: blue;">LD reference population: <span class="reference-ancestry-value">{{ reference_ancestry|default('European') }}</span>.</small>
                 <br><br>
 
                 <!-- Haplotypes -->
@@ -709,7 +861,7 @@
                 </div>
                     <small style="text-align: left; color: red; font-weight: bold;">Haplotypes can be shown with multiple studies.</small>
                     <br>
-                    <small style="text-align: left; color: blue;">Haplotypes are derived from European individuals.</small>
+                    <small style="text-align: left; color: blue;">Haplotype reference population: <span class="reference-ancestry-value">{{ reference_ancestry|default('European') }}</span>.</small>
                 <br><br>
                 <hr style="margin: 12px 0;">
 

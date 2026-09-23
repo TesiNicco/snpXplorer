@@ -4,6 +4,8 @@
 
 {% block content %}
 
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+
   <style>
     * {
       box-sizing: border-box;
@@ -15,6 +17,13 @@
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
       background: #ffffff;
       color: #111827;
+    }
+
+    /* Match the Exploration module: oversized children must not make the
+       document itself horizontally scrollable. */
+    html, body {
+      max-width: 100%;
+      overflow-x: hidden;
     }
 
     .no-result-title {
@@ -171,8 +180,20 @@
       margin-top: 4px;
     }
 
-    .tissue-selector-wrap {
+    .annotation-options-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 12px;
       margin-top: 12px;
+    }
+
+    .tissue-selector-wrap {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .ancestry-selector-wrap {
+      flex: 0 0 170px;
     }
 
     .tissue-selector-label {
@@ -185,6 +206,24 @@
 
     .tissue-selector-label strong {
       font-weight: 600;
+    }
+
+    .ancestry-selector-wrap select {
+      box-sizing: border-box;
+      width: 100%;
+      height: 40px;
+      border: 1px solid #d1d5db;
+      border-radius: 12px;
+      padding: 0 10px;
+      background: #ffffff;
+      color: #111827;
+      font-size: 12px;
+      outline: none;
+    }
+
+    .ancestry-selector-wrap select:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18);
     }
 
     .tissue-selector-wrap .select2-container {
@@ -569,7 +608,47 @@
       text-decoration: underline;
     }
 
+    .variant-locus-section {
+      margin-top: 22px;
+      width: 100%;
+    }
+
+    .variant-locus-card {
+      background: #ffffff;
+      border-radius: 12px;
+      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+      box-sizing: border-box;
+      min-height: 420px;
+      overflow: hidden;
+      padding: 10px 12px;
+      width: 100%;
+    }
+
+    #variant-locus-plot,
+    #variant-locus-plot .plot-container,
+    #variant-locus-plot .svg-container {
+      max-width: 100%;
+      width: 100% !important;
+    }
+
+    .variant-locus-description {
+      color: #4b5563;
+      font-size: 12px;
+      line-height: 1.45;
+      margin: 8px 2px 0;
+    }
+
     @media (max-width: 960px) {
+      .annotation-options-row {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .ancestry-selector-wrap {
+        flex-basis: auto;
+        width: 100%;
+      }
+
       .af-section {
         flex-direction: column;
       }
@@ -610,7 +689,7 @@
         <input
           id="query-input"
           type="text"
-          placeholder="e.g. rs7412 -- 19:45411941 -- 19-45411941 -- SPDI format"
+          placeholder="e.g. rs7412 -- 19:44908684 -- 19-44908684 -- SPDI format"
         >
 
         <div class="build-select">
@@ -631,9 +710,10 @@
         Press <strong>Enter</strong> in the input or click <strong>Search</strong>.
       </div>
 
-      <div class="tissue-selector-wrap">
-        <label class="tissue-selector-label" for="tissue-select">Optional: select <strong>tissue</strong> of interest</label>
-        <select id="tissue-select" name="QTLtissuesAnnot" multiple class="form-control">
+      <div class="annotation-options-row">
+        <div class="tissue-selector-wrap">
+          <label class="tissue-selector-label" for="tissue-select">Optional: select <strong>tissue</strong> of interest</label>
+          <select id="tissue-select" name="QTLtissuesAnnot" multiple class="form-control">
           <option value=""></option>
           <optgroup label="Tissues">
             <option value="all_tissues" selected>All tissues</option>
@@ -685,7 +765,16 @@
             <option value="Vagina">Vagina</option>
             <option value="Whole_Blood">Whole Blood</option>
           </optgroup>
-        </select>
+          </select>
+        </div>
+
+        <div class="ancestry-selector-wrap">
+          <label class="tissue-selector-label" for="ancestry-select"><strong>Ancestry</strong></label>
+          <select id="ancestry-select" name="ancestry">
+            <option value="European" selected>European</option>
+            <option value="African">African</option>
+          </select>
+        </div>
       </div>
     </div>
 
@@ -738,12 +827,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   const urlParams = new URLSearchParams(window.location.search);
   const queryFromUrl = (urlParams.get("query") || "").trim();
   const buildFromUrl = (urlParams.get("build") || "hg38").toLowerCase();
+  const ancestryFromUrl = (urlParams.get("ancestry") || "European").toLowerCase();
   if (queryFromUrl) {
     const queryInput = document.getElementById("query-input");
     const buildSelect = document.getElementById("build-select");
+    const ancestrySelect = document.getElementById("ancestry-select");
     if (queryInput) queryInput.value = queryFromUrl;
     if (buildSelect && ["hg38", "hg19"].includes(buildFromUrl)) {
       buildSelect.value = buildFromUrl;
+    }
+    if (ancestrySelect) {
+      ancestrySelect.value = ancestryFromUrl === "african" || ancestryFromUrl === "afr"
+        ? "African"
+        : "European";
     }
     submitQuery();
     return;
@@ -759,12 +855,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Restore form fields
     const queryInput = document.getElementById("query-input");
     const buildSelect = document.getElementById("build-select");
+    const ancestrySelect = document.getElementById("ancestry-select");
 
     if (data.query) {
       queryInput.value = data.query;
     }
     if (data.build) {
       buildSelect.value = data.build;
+    }
+    if (ancestrySelect && data.ancestry) {
+      ancestrySelect.value = data.ancestry;
     }
     if (Array.isArray(data.tissues) && data.tissues.length) {
       const tissueSelect = document.getElementById("tissue-select");
@@ -802,6 +902,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   let lastAfData = null;          // AF table/plot download
   let lastAlphaGenomeData = null; // AlphaGenome download
   let currentAlphaGenomeRequestId = 0;
+  let currentResultAncestry = "European";
   const SNPBOT_API_URL = "{{ url_for('snpbot.variant_query') }}";
   const SNPBOT_ALPHAGENOME_API_URL = "{{ url_for('snpbot.variant_alphagenome') }}";
   const SNPBOT_ALPHAGENOME_PLOT_API_URL = "{{ url_for('snpbot.variant_alphagenome_plot') }}";
@@ -1101,6 +1202,41 @@ document.addEventListener('DOMContentLoaded', async () => {
     `;
   }
 
+  function buildVariantLocusPlotSection(plotFigure, plotError) {
+    const body = plotFigure
+      ? `<div id="variant-locus-plot" role="img" aria-label="Regional CADD annotation of the query variant and its LD partners"></div>`
+      : `<p class="no-result-title">${escapeHtml(plotError || "No regional CADD data found for this variant and its LD partners.")}</p>`;
+
+    return `
+      <div class="variant-locus-section">
+        <div class="result-header-row">
+          <h3 class="result-subtitle">Regional annotation of the query variant and its LD partners</h3>
+        </div>
+        <div class="variant-locus-card">
+          ${body}
+        </div>
+        <p class="variant-locus-description">
+          CADD PHRED scores are shown across the hg38 locus. Marker colour represents LD r² with the query variant, while marker shape distinguishes coding variants, QTLs, variants with both annotations, and other variants. The lower panel shows the local gene track.
+        </p>
+      </div>
+    `;
+  }
+
+  function renderVariantLocusPlot(plotFigure) {
+    const target = document.getElementById("variant-locus-plot");
+    if (!target || !plotFigure || typeof Plotly === "undefined") return;
+    Plotly.newPlot(
+      target,
+      plotFigure.data || [],
+      plotFigure.layout || {},
+      {
+        responsive: true,
+        displaylogo: false,
+        modeBarButtonsToRemove: ["lasso2d", "select2d"]
+      }
+    );
+  }
+
   /* ---------- CADD TABLE ---------- */
   function buildCaddTable(caddRows, caddRowsFull) {
     if (!caddRows || caddRows.length === 0) {
@@ -1209,11 +1345,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       "EAF","Beta","SE","P-value","N","GWAS ID","RSID"
     ];
 
+    const ancestryCode = currentResultAncestry === "African" ? "AFR" : "EUR";
+    const displayGwasRows = gwasRows.map((row) => ({
+      ...row,
+      trait: `[${ancestryCode}] ${row.trait || row.gwas_id || ""}`
+    }));
+
     lastGwasData = { rows: gwasRows, columns: gwasColumns, headers: gwasHeaders };
 
     let html = `
       <div class="result-header-row">
-        <h3 class="result-subtitle">GWAS associations (top 100)</h3>
+        <h3 class="result-subtitle">[${ancestryCode}] GWAS associations (top 100)</h3>
         <button class="download-button" onclick="downloadGwasTable()">⬇ Download GWAS CSV</button>
         <button class="download-button" onclick="downloadGwasForestSvg()">⬇ Download Forest SVG</button>
       </div>
@@ -1229,7 +1371,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     html += `</tr></thead><tbody>`;
 
-    gwasRows.forEach(row => {
+    displayGwasRows.forEach(row => {
       html += `<tr>`;
       gwasColumns.forEach(col => {
         let val = row[col] ?? "";
@@ -1249,7 +1391,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         </div>
 
         <div class="gwas-right">
-          ${buildGwasForestPlot(gwasRows)}
+          ${buildGwasForestPlot(displayGwasRows)}
         </div>
       </div>
     `;
@@ -1552,9 +1694,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     sourceCell.textContent = source;
   }
 
-  function loadAlphaGenome(query, build, tissues) {
+  function loadAlphaGenome(query, build, tissues, ancestry) {
     const requestId = ++currentAlphaGenomeRequestId;
-    const params = new URLSearchParams({ query, build });
+    const params = new URLSearchParams({ query, build, ancestry });
     (tissues || []).forEach((tissue) => params.append("tissues", tissue));
 
     fetch(`${SNPBOT_ALPHAGENOME_API_URL}?${params.toString()}`)
@@ -1683,7 +1825,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     let html = `
       <div class="result-header-row">
-        <h3 class="result-subtitle">CADD annotation for LD partners</h3>
+        <h3 class="result-subtitle">CADD annotation for ${escapeHtml(currentResultAncestry)} LD partners</h3>
         <button class="download-button" onclick="downloadLdCaddTable()">
           ⬇ Download LD-partner CADD CSV
         </button>
@@ -1772,7 +1914,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     let html = `
       <div class="result-header-row">
-        <h3 class="result-subtitle">eQTL annotation for LD partners (top 100)</h3>
+        <h3 class="result-subtitle">eQTL annotation for ${escapeHtml(currentResultAncestry)} LD partners (top 100)</h3>
         <button class="download-button" onclick="downloadLdEqtlTable()">
           ⬇ Download LD-partner eQTL CSV
         </button>
@@ -1861,7 +2003,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     let html = `
       <div class="result-header-row">
-        <h3 class="result-subtitle">sQTL annotation for LD partners (top 100)</h3>
+        <h3 class="result-subtitle">sQTL annotation for ${escapeHtml(currentResultAncestry)} LD partners (top 100)</h3>
         <button class="download-button" onclick="downloadLdSqtlTable()">
           ⬇ Download LD-partner sQTL CSV
         </button>
@@ -2159,7 +2301,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       lastLdData = null;
       return `
         <div class="result-header-row">
-          <h3 class="result-subtitle">LD annotation (top 100)</h3>
+          <h3 class="result-subtitle">${escapeHtml(currentResultAncestry)} LD annotation (top 100)</h3>
         </div>
         <p class="no-result-title">No LD found for this variant.</p>
       `;
@@ -2189,7 +2331,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     let html = `
       <div class="result-header-row">
-        <h3 class="result-subtitle">LD annotation</h3>
+        <h3 class="result-subtitle">${escapeHtml(currentResultAncestry)} LD annotation (top 100)</h3>
         <button class="download-button" onclick="downloadLdTable()">
           ⬇ Download LD CSV
         </button>
@@ -2319,6 +2461,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   function showTable(query, build, data) {
     showResultSection();
     const resultContainer = document.getElementById("result-container");
+    currentResultAncestry = data.ancestry === "African" ? "African" : "European";
 
     const gnomadClinvar = data.gnomad_clinvar || {};
 
@@ -2405,11 +2548,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     const clinvarHtml = buildClinvarTable(gnomadClinvar);
     const variantHtml = html;
     const afHtml = buildAncestryAfPlot(gnomadClinvar);
+    const variantLocusHtml = buildVariantLocusPlotSection(
+      data.variant_locus_plot,
+      data.variant_locus_plot_error
+    );
 
     html = `
       ${clinvarHtml}
       ${variantHtml}
       ${afHtml}
+      ${variantLocusHtml}
     `;
 
     // CADD table
@@ -2478,11 +2626,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     resultContainer.innerHTML = html;
 
     // after DOM is in place, wire up LD interactivity + height sync
+    renderVariantLocusPlot(data.variant_locus_plot);
     wireLdHeatmapEvents();
     wireGwasForestEvents();
 
     if (!hasAlphaGenome) {
-      loadAlphaGenome(query, build, Array.isArray(data.tissues) ? data.tissues : []);
+      loadAlphaGenome(
+        query,
+        build,
+        Array.isArray(data.tissues) ? data.tissues : [],
+        currentResultAncestry
+      );
     }
   }
 
@@ -2490,8 +2644,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     const queryInput = document.getElementById("query-input");
     const buildSelect = document.getElementById("build-select");
     const tissueSelect = document.getElementById("tissue-select");
+    const ancestrySelect = document.getElementById("ancestry-select");
     const query = queryInput.value.trim();
     const build = buildSelect.value;
+    const ancestry = ancestrySelect ? ancestrySelect.value : "European";
     const tissues = tissueSelect
       ? Array.from(tissueSelect.selectedOptions).map((opt) => opt.value).filter(Boolean)
       : [];
@@ -2506,7 +2662,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const params = new URLSearchParams({
       query,
-      build
+      build,
+      ancestry
     });
     tissues.forEach((tissue) => params.append("tissues", tissue));
     const url = `${SNPBOT_API_URL}?${params.toString()}`;

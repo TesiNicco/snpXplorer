@@ -37,7 +37,7 @@
         <h2>{% block title %} Annotation {% endblock %}</h2>
         
         <!-- Subtitle below the title -->
-        <h3>Performs annotation analysis or gene-set enrichment analysis using your SNPs as input. You just need to paste the SNPs of interest in the text area below, provide your email and you will receive the results by email.</h3>
+        <h3>Performs annotation analysis or gene-set enrichment analysis using your variants as input. For annotation, rsIDs, genomic coordinates, and genomic intervals can be mixed in one submission. Provide your email and you will receive the results by email.</h3>
         
         <form id="annotationForm" method="post" onsubmit="return validateForm()">
             <div class="annotation-grid">
@@ -55,16 +55,26 @@
                 </div>
 
                 <textarea id="SNPlist" name="SNPlist"
-                    placeholder="Paste variants of interest. &#10;&#13; The format will be derived. Please paste 1 variant per line, no commas or colons. &#10;&#13; Paste up to 1,000 SNPs if Analysis type is 'Gene-set enrichment analysis' and up to 10,000 SNPs in case of 'SNP-gene annotation'. &#10;&#13;&#10;&#13; Example: &#10;&#13; rs7412 &#xA; rs123484"
+                    placeholder="Paste one input per line. Inputs may be mixed.&#10;&#13;&#10;&#13;Examples:&#10;&#13;rs7412&#10;&#13;chr19:45411941&#10;&#13;chr19:45000000-46000000&#10;&#13;&#10;&#13;Intervals are available for Annotation only and may span at most 1 Mb. Interval variants with MAF > 0.01 are prioritized by descending MAF. The final annotation set is limited to 10,000 unique variants."
                     rows="20" cols="28" style="font-size: 14px;">{{ request.form.get('SNPlist', '') }}</textarea>
 
                 <small style="display:block; margin-top:6px; opacity:0.85;">
-                    Tip: click “Use example” to load a default set.
+                    Explicit variants are retained first. For multiple intervals, the remaining capacity is shared fairly between intervals. Excluded interval variants are reported in the downloaded results.
                 </small>
                 </div>
 
                 <!-- COLUMN 2: Reference + Analysis + conditional GSEA (stacked, stays in its own column) -->
                 <div class="col-settings" style="margin: 20px; display:flex; flex-direction:column; gap:20px;">
+
+                <div class="card" style="width:100%; background:#e8ddf7;">
+                    <h4>Ancestry</h4>
+                    <input type="radio" name="annotAncestry" id="annotEuropean" value="European"
+                           {% if request.form.get('annotAncestry', 'European') == 'European' %}checked{% endif %}>
+                    <label for="annotEuropean">European</label><br>
+                    <input type="radio" name="annotAncestry" id="annotAfrican" value="African"
+                           {% if request.form.get('annotAncestry') == 'African' %}checked{% endif %}>
+                    <label for="annotAfrican">African</label>
+                </div>
 
                 <div class="card orange" style="width:100%;">
                     <h4>Reference Genome</h4>
@@ -273,7 +283,11 @@
                     .split(/\r?\n/)
                     .map(s => s.trim())
                     .filter(Boolean);
-                const limitMessage = "Input limits: Annotation allows up to 10000 SNPs and Gene-set Enrichment Analysis allows up to 1000 SNPs. Please provide one variant per line.";
+                const intervalPattern = /^(?:chr)?(?:[1-9]|1[0-9]|2[0-2]|X|Y|MT|M):\d+-\d+$/i;
+                const intervalInputs = variants.filter(value => intervalPattern.test(value.replace(/\s+/g, "")));
+                const explicitInputs = variants.filter(value => !intervalPattern.test(value.replace(/\s+/g, "")));
+                const uniqueExplicitInputs = new Set(explicitInputs.map(value => value.replace(/\s+/g, "").toLowerCase()));
+                const limitMessage = "Input limits: Annotation allows up to 10000 selected variants; Gene-set Enrichment Analysis allows up to 1000 explicitly entered variants. Provide one rsID, coordinate, or interval per line.";
 
                 if (messageEl) {
                     messageEl.textContent = "";
@@ -282,16 +296,24 @@
 
                 if (variants.length === 0) {
                     if (messageEl) {
-                        messageEl.textContent = `Please enter at least one SNP. ${limitMessage}`;
+                        messageEl.textContent = `Please enter at least one variant or interval. ${limitMessage}`;
+                        messageEl.classList.add("show");
+                    }
+                    return false;
+                }
+
+                if (analType === "GSEA" && intervalInputs.length > 0) {
+                    if (messageEl) {
+                        messageEl.textContent = "Genomic intervals are available for Annotation only. Please remove the interval or select Annotation.";
                         messageEl.classList.add("show");
                     }
                     return false;
                 }
 
                 const maxSnps = analType === "Annot" ? 10000 : 1000;
-                if (variants.length > maxSnps) {
+                if (uniqueExplicitInputs.size > maxSnps) {
                     if (messageEl) {
-                        messageEl.textContent = `Too many SNPs provided for the selected analysis. ${limitMessage}`;
+                        messageEl.textContent = `Too many explicit variants provided for the selected analysis. ${limitMessage}`;
                         messageEl.classList.add("show");
                     }
                     return false;

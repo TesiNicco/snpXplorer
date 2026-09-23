@@ -32,6 +32,26 @@
     #browse_option { width:100%; min-height:38px; }
     .muted { color:#444; opacity:.8; }
 
+    .region-ancestry-control {
+      align-items:center;
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin:4px 0 20px;
+    }
+
+    .region-ancestry-control label {
+      font-weight:600;
+      margin:0;
+    }
+
+    .region-ancestry-control select {
+      border:1px solid #aaa;
+      border-radius:5px;
+      min-width:125px;
+      padding:6px 9px;
+    }
+
     /* Main white box for haplotype summaries */
     .haplo-card-table {
       background:#ffffff;
@@ -190,6 +210,65 @@
     .traits-table-wrapper table {
       width: auto !important; 
     }
+
+    .ld-plot-shell {
+      position: relative;
+      width: 100%;
+      margin: 24px 0;
+    }
+
+    .ld-haplotype-selector {
+      position: absolute;
+      top: 6px;
+      right: 12px;
+      z-index: 20;
+    }
+
+    .ld-haplotype-selector summary {
+      background: rgba(255, 255, 255, 0.94);
+      border: 1px solid #b8b8b8;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      padding: 6px 10px;
+      user-select: none;
+    }
+
+    .ld-haplotype-selector-panel {
+      background: #fff;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      box-shadow: 0 3px 12px rgba(0, 0, 0, 0.16);
+      box-sizing: border-box;
+      margin-top: 4px;
+      max-height: 330px;
+      min-width: 210px;
+      overflow-y: auto;
+      padding: 10px 12px;
+    }
+
+    .ld-haplotype-selector-panel label {
+      align-items: center;
+      display: flex;
+      gap: 7px;
+      margin: 3px 0;
+      white-space: nowrap;
+    }
+
+    .ld-selector-actions {
+      align-items: center;
+      border-top: 1px solid #eee;
+      display: flex;
+      gap: 8px;
+      justify-content: space-between;
+      margin-top: 8px;
+      padding-top: 8px;
+    }
+
+    #ld-selector-status {
+      color: #555;
+      font-size: 0.78rem;
+    }
   </style>
 
   <!-- Input form -->
@@ -220,6 +299,23 @@
       </div>
     </div>
   </form>
+
+  {% if region_ancestry %}
+    <form id="region-ancestry-form" method="post" onsubmit="setLoading(true)">
+      <input type="hidden" name="browse" value="{{ browse_value }}">
+      <input type="hidden" name="browse_type" value="{{ region_browse_type }}">
+      <div class="region-ancestry-control">
+        <label for="region-ancestry">
+          You are currently seeing {{ region_ancestry }}-based results
+        </label>
+        <select id="region-ancestry" name="region_ancestry"
+                onchange="this.form.requestSubmit()">
+          <option value="European" {% if region_ancestry == 'European' %}selected{% endif %}>European</option>
+          <option value="African" {% if region_ancestry == 'African' %}selected{% endif %}>African</option>
+        </select>
+      </div>
+    </form>
+  {% endif %}
 
   <!-- (1) TABLE WITH TRAIT SUMMARY IN THE REGION -->
   {% if table_traits %}
@@ -340,7 +436,7 @@
         <figcaption style="font-size:0.95rem; color:#444;">
           <strong>Figure description:</strong>
           {% if (chrom is not defined or chrom is none) and (start_pos is not defined or start_pos is none) and (end_pos is not defined or end_pos is none) %}
-            These interactive figures display the UMAP of all traits in the OpenGWAS catalog, highlighting the trait of interest and the 5 closest clusters based on cosine similarity (left). The right figure shows the cosine similarity between the traits in the cluster of interest and the 5 closest clusters based on cosine similarity.
+            The UMAP highlights the queried trait and its closest semantic clusters. By default it uses the {{ trait_ancestry or 'selected' }}-ancestry projection; the dropdown can switch the UMAP to the joint European and African projection. The semantic-similarity heatmap remains restricted to the ancestry of the queried study and shows cosine similarity among traits in the selected semantic neighborhood. The lower Miami plot and accompanying tables use the representative GWAS and haplotypes from that same ancestry.
           {% else %}
             This interactive Plotly figure displays haplotypes detected in
             {% if chrom is defined and chrom %}
@@ -362,6 +458,53 @@
              style="max-width:80%; height:auto; border-radius:10px;">
         <figcaption style="font-size:0.9em; color:#444; margin-top:8px;">
             Manhattan plots showing SNP associations with various traits.
+        </figcaption>
+      </figure>
+    </div>
+  {% endif %}
+
+  {% if ld_plot_url %}
+    <div class="info-wrap">
+      <span class="info-icon">ⓘ</span>
+      <div class="info-tip">
+        This roof-shaped heatmap displays pairwise LD among all variants in the associated haplotypes shown for the selected region. Variants are grouped by haplotype label and ordered by genomic position within each haplotype.
+      </div>
+    </div>
+    <h3>Pairwise LD across regional haplotypes</h3>
+    <div class="ld-plot-shell">
+      <details class="ld-haplotype-selector" id="ld-haplotype-selector">
+        <summary id="ld-selector-summary">Haplotypes ({{ [haplo_summary|length, 6]|min }} selected)</summary>
+        <div class="ld-haplotype-selector-panel">
+          <label style="font-weight:700; margin-bottom:7px;">
+            <input type="checkbox" id="ld-select-all">
+            All haplotypes
+          </label>
+          <div id="ld-haplotype-options">
+            {% for haplotype in haplo_summary %}
+              <label>
+                <input type="checkbox"
+                       class="ld-haplotype-option"
+                       value="{{ haplotype.ID }}"
+                       {% if loop.index <= 6 %}checked{% endif %}>
+                {{ haplotype.haplo_index }} ({{ haplotype.n_snps }} SNPs)
+              </label>
+            {% endfor %}
+          </div>
+          <div class="ld-selector-actions">
+            <span id="ld-selector-status"></span>
+            <button type="button" id="ld-apply-selection" class="btn-download">Apply</button>
+          </div>
+        </div>
+      </details>
+      <div id="plotly-haplotype-regional-ld" style="width:100%; height:auto;">
+        {{ ld_plot_url | safe }}
+      </div>
+    </div>
+    <div style="margin:12px 0;">
+      <figure style="max-width:100%; text-align:left;">
+        <figcaption style="font-size:0.95rem; color:#444;">
+          <strong>Figure description:</strong>
+          This interactive heatmap shows pairwise LD r² values retrieved from the snpXplorer SQLite LD database. SNPs are ordered first by haplotype (A, B, C, and so on) and then by genomic position within each haplotype. The matrix is rotated so that its diagonal forms the lower edge of the roof, and the colored strip beneath the plot marks haplotype membership. SNP pairs without a stored LD value are included in the dark-blue “NA and 0–0.2” category. Use the haplotype selector to rebuild the panel for any subset of haplotypes in the region. Hover over a cell to inspect its r² value or identify it as unavailable, and use the Plotly modebar to zoom, pan, or download the figure. LD is calculated from {{ region_ancestry or 'European' }}-ancestry individuals in the TOPMed dataset.
         </figcaption>
       </figure>
     </div>
@@ -395,7 +538,7 @@
 
 {% if all_haplo_table %}
 <div class="haplo-card-table">
-  <h3>Haplotype Associations for Selected Traits</h3>
+  <h3>{% if trait_ancestry %}[{{ 'AFR' if trait_ancestry == 'African' else 'EUR' }}] {% endif %}Haplotype Associations for Selected Traits</h3>
   {% if all_haplo_total %}
     <small class="muted">
       Showing first {{ all_haplo_table|length }} rows (of {{ all_haplo_total }}). These haplotypes contain at least one association with p-value &lt; 5e-5. Download the complete tables below as TSV.
@@ -439,7 +582,7 @@
 
 {% if gwas_assoc_table %}
 <div class="haplo-card-table">
-  <h3>GWAS Associations for Selected Traits</h3>
+  <h3>{% if trait_ancestry %}[{{ 'AFR' if trait_ancestry == 'African' else 'EUR' }}] {% endif %}GWAS Associations for Selected Traits</h3>
   {% if gwas_assoc_total %}
     <small class="muted">
       Showing top {{ gwas_assoc_table|length }} most significant rows (of {{ gwas_assoc_total }}). Download the complete tables below as TSV.
@@ -593,14 +736,84 @@
     });
 
     const prev = {{ (browse_value or '') | tojson | safe }};
+    const prevLabel = {{ (browse_label or browse_value or '') | tojson | safe }};
     if (prev) {
-      const opt = new Option(prev, prev, true, true);
+      const opt = new Option(prevLabel, prev, true, true);
       $browse.append(opt).trigger('change');
     }
 
     const chrom    = {{ chrom|tojson if chrom is defined else 'null' }};
     const startPos = {{ start_pos|tojson if start_pos is defined else 'null' }};
     const endPos   = {{ end_pos|tojson if end_pos is defined else 'null' }};
+    const regionAncestry = {{ (region_ancestry or 'European') | tojson | safe }};
+
+    // Regional LD haplotype selector
+    const ldOptions = Array.from(document.querySelectorAll('.ld-haplotype-option'));
+    const ldSelectAll = document.getElementById('ld-select-all');
+    const ldApply = document.getElementById('ld-apply-selection');
+    const ldStatus = document.getElementById('ld-selector-status');
+    const ldSummary = document.getElementById('ld-selector-summary');
+
+    function updateLdSelectionState() {
+      if (!ldSelectAll || !ldOptions.length) return;
+      const selectedCount = ldOptions.filter(option => option.checked).length;
+      ldSelectAll.checked = selectedCount === ldOptions.length;
+      ldSelectAll.indeterminate = selectedCount > 0 && selectedCount < ldOptions.length;
+      if (ldSummary) ldSummary.textContent = `Haplotypes (${selectedCount} selected)`;
+    }
+
+    if (ldSelectAll) {
+      ldSelectAll.addEventListener('change', () => {
+        ldOptions.forEach(option => { option.checked = ldSelectAll.checked; });
+        updateLdSelectionState();
+      });
+      ldOptions.forEach(option => option.addEventListener('change', updateLdSelectionState));
+      updateLdSelectionState();
+    }
+
+    if (ldApply) {
+      ldApply.addEventListener('click', () => {
+        const selected = ldOptions
+          .filter(option => option.checked)
+          .map(option => option.value);
+        if (!selected.length) {
+          ldStatus.textContent = 'Select at least one.';
+          return;
+        }
+
+        ldApply.disabled = true;
+        ldStatus.textContent = 'Updating…';
+        fetch('/haplotypes/regional-ld', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ haplotypes: selected })
+        })
+          .then(async response => {
+            const body = await response.json();
+            if (!response.ok) throw new Error(body.error || 'Unable to update LD plot.');
+            return body;
+          })
+          .then(figure => {
+            const graph = document.querySelector('#plotly-haplotype-regional-ld .plotly-graph-div');
+            if (!graph) throw new Error('LD plot container is unavailable.');
+            return Plotly.react(graph, figure.data, figure.layout, {
+              responsive: true,
+              displaylogo: false
+            });
+          })
+          .then(() => {
+            ldStatus.textContent = 'Updated';
+            document.getElementById('ld-haplotype-selector').open = false;
+          })
+          .catch(error => {
+            console.error(error);
+            ldStatus.textContent = error.message;
+          })
+          .finally(() => {
+            ldApply.disabled = false;
+          });
+      });
+    }
 
     // Helper: convert an HTML table to CSV and trigger download
     function downloadTableAsCSV(table, filename) {
@@ -630,7 +843,7 @@
     function loadHaplotypeDetail(hapId) {
       if (!hapId || chrom === null || startPos === null || endPos === null) return;
 
-      const url = `/haplotypes/detail?hap_id=${encodeURIComponent(hapId)}&chrom=${chrom}&start_pos=${startPos}&end_pos=${endPos}`;
+      const url = `/haplotypes/detail?hap_id=${encodeURIComponent(hapId)}&chrom=${chrom}&start_pos=${startPos}&end_pos=${endPos}&ancestry=${encodeURIComponent(regionAncestry)}`;
 
       setLoading(true);
 
@@ -722,7 +935,8 @@
     if (lastHaploDetail && chrom !== null && startPos !== null && endPos !== null) {
       if (String(lastHaploDetail.chrom) === String(chrom) &&
           Number(lastHaploDetail.start_pos) === Number(startPos) &&
-          Number(lastHaploDetail.end_pos) === Number(endPos)) {
+          Number(lastHaploDetail.end_pos) === Number(endPos) &&
+          String(lastHaploDetail.ancestry || 'European') === String(regionAncestry)) {
 
         const hapId = lastHaploDetail.hap_id;
 

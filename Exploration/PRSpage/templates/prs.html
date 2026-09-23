@@ -197,9 +197,35 @@ body{
 }
 
 .select2-selection__rendered{
+  position:relative;
   font-size:13px;
   line-height:26px !important;
   color:#6b7280;
+  padding-right:44px !important;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__clear{
+  position:absolute;
+  top:50%;
+  right:24px;
+  transform:translateY(-50%);
+  float:none;
+  height:auto;
+  margin:0;
+  padding:0;
+  line-height:1;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__arrow{
+  top:0;
+  height:34px;
+}
+
+.semantic-figure-caption{
+  margin:10px 4px 0;
+  color:#4b5563;
+  font-size:12px;
+  line-height:1.5;
 }
 
 .select2-dropdown{
@@ -302,10 +328,10 @@ body{
       <div class="helper-card">
         <h3>Helper</h3>
         <p>
-          We have calculated lists of SNPs for each trait using publicly available GWAS summary statistics and publicly available LD patterns from TopMed. You may want to further filter the SNPs based on the p-value threshold or other criteria before using them in your analyses. You can then use jordan or polygenenius to calculate PRS in your own data.
+          We have calculated lists of SNPs for each trait using OpenGWAS summary statistics and LD patterns from European and African individuals. SNP lists are derived using clumping-and-thresholding (PLINK2) followed by conditional analysis (COJO). The package used to derive these SNPs is GWASum, available at https://github.com/holstegelab/GWASum. With these lists of SNPs, you can then use jordan or polygenenius to calculate PRS in your own data.
         </p>
         <p style="font-size:12px; margin-top:12px;">
-          <strong>Note that SNP lists are not manually curated, largely based on individuals of European ancestry, and may result in a larger number of SNPs.</strong>
+          <strong>Note that SNP lists are not manually curated. Ancestry-specific lists are shown where African data are selected and available.</strong>
 
           <!-- Leave a Feedback -->
           <br><br>
@@ -319,12 +345,15 @@ body{
     <div class="info-wrap">
       <span class="info-icon">ⓘ</span>
         <div class="info-tip">
-          These plots shows the UMAP projection of traits based on their similarity in large language model embeddings. Your queried trait is highlighted with a star. Color codes for clusters. Traits that are closer together in the plot are more similar in terms of their genetic architecture and associated biological processes.
+          These plots show traits grouped by the similarity of their large-language-model embeddings. Your queried trait is highlighted with a star and colors identify semantic clusters. The menu above the plot switches between the selected study's ancestry and the combined European and African context.
         </div>
     </div>
     <div class="main-container" style="margin-top:18px;">
       <div style="border:1px solid #e5e7eb; border-radius:16px; padding:16px; box-shadow:0 6px 18px rgba(15,23,42,0.06);">
         {{ plot_html|safe }}
+        <p class="semantic-figure-caption">
+          The UMAP displays the queried semantic cluster and its five nearest clusters, selected by cosine similarity between cluster centroids derived from large-language-model trait embeddings; up to 100 studies are shown per cluster. The default view uses the UMAP fitted for the selected study's ancestry, whereas the combined view uses a joint two-dimensional UMAP of European and African embeddings. The heatmap remains restricted to the selected ancestry and shows pairwise cosine similarity between unique trait labels; the adjacent strip uses the same cluster colors as the UMAP.
+        </p>
       </div>
     </div>
   {% endif %}
@@ -507,21 +536,7 @@ body{
 </div>
 
 <script>
-const TRAITS = {{ trait_list|tojson }};
-
-$(function () {
-  $('#trait-input').select2({
-    placeholder: "e.g. Alzheimer's disease, Longevity, Hypertension",
-    allowClear: true,
-    width: '100%',
-    minimumInputLength: 2,
-    data: TRAITS.map(t => ({ id: t, text: t }))
-  });
-});
-</script>
-
-<script>
-const TRAITS = {{ trait_list|tojson }};
+const TRAIT_OPTIONS = {{ trait_options|tojson }};
 const LAST_TRAIT = {{ (query or "")|tojson }};
 
 $(function () {
@@ -530,14 +545,22 @@ $(function () {
     allowClear: true,
     width: '100%',
     minimumInputLength: 2,
-    data: TRAITS.map(t => ({ id: t, text: t }))
+    data: TRAIT_OPTIONS
   });
 
-  // restore last selection (memory)
   if (LAST_TRAIT) {
-    const opt = new Option(LAST_TRAIT, LAST_TRAIT, true, true);
-    $sel.append(opt).trigger('change');
+    $sel.val(LAST_TRAIT).trigger('change');
   }
+
+  $('#trait-form').on('submit', function () {
+    if ($sel.val()) {
+      document.body.classList.add('loading');
+    }
+  });
+});
+
+window.addEventListener('pageshow', function () {
+  document.body.classList.remove('loading');
 });
 </script>
 

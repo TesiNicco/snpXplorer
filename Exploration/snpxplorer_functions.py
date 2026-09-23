@@ -37,6 +37,7 @@ from liftover import get_lifter
 import os
 from scipy.cluster.hierarchy import linkage, leaves_list
 from scipy.spatial.distance import squareform
+from scipy.ndimage import rotate as scipy_rotate
 from ieugwaspy import api, query
 import sqlite3
 import plotly.graph_objs as go
@@ -49,36 +50,126 @@ from sklearn.metrics.pairwise import cosine_similarity
 from scipy.cluster.hierarchy import dendrogram, linkage
 from pandasgwas import get_variants_by_variant_id
 import plotly.express as px
+from PRSpage.prs import (
+    ANCESTRY_CODES as SEMANTIC_ANCESTRY_CODES,
+    trait_names as combined_trait_names,
+    load_semantic_artifacts,
+    resolve_trait_selection,
+    build_semantic_context,
+    _cluster_name,
+)
 
 # differences between local and server
 # local
 #from pandasgwas.get_SNPs import get_variants_by_variant_id
-data_path = '/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Data'
-path_server = '/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer'
+#data_path = '/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Data'
+#path_server = '/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer'
 # server
-#data_path = '/Data'
-#path_server = ''
+data_path = '/Data'
+path_server = ''
+
+
+def normalize_gwas_ancestry(population):
+    """Return a compact ancestry code from OpenGWAS population metadata."""
+    if population is None or pd.isna(population):
+        return 'UNK'
+
+    value = str(population).strip().lower()
+    if not value or value in {'nan', 'none', 'na', 'n/a', 'nr', 'unknown'}:
+        return 'UNK'
+
+    exact_codes = {
+        'afr': 'AFR',
+        'eur': 'EUR',
+        'eas': 'EAS',
+        'sas': 'SAS',
+        'amr': 'AMR',
+        'mixed': 'MIX',
+        'multi-ancestry': 'MIX',
+        'multi ancestry': 'MIX',
+    }
+    if value in exact_codes:
+        return exact_codes[value]
+
+    ancestry_markers = {
+        'AFR': ('african', 'afro-caribbean', 'afro caribbean', 'black'),
+        'EUR': ('european', 'white british', 'white'),
+        'EAS': ('east asian', 'chinese', 'japanese', 'korean'),
+        'SAS': ('south asian', 'indian', 'pakistani', 'bangladeshi'),
+        'AMR': ('hispanic', 'latino', 'latin american', 'ad-mixed american'),
+    }
+    detected = {
+        code
+        for code, markers in ancestry_markers.items()
+        if any(marker in value for marker in markers)
+    }
+    if len(detected) > 1 or any(
+        marker in value
+        for marker in ('mixed', 'multi-ancestry', 'multi ancestry', 'multiple ancestries')
+    ):
+        return 'MIX'
+    if len(detected) == 1:
+        return detected.pop()
+    return 'OTHER'
+
+
+def gwas_id_from_selection(selection):
+    """Extract an OpenGWAS ID from the label stored by the study selector."""
+    return str(selection).rsplit('[', 1)[-1].replace(']', '').strip()
+
+
+def gwas_ancestry_code(meta, gwas_id):
+    """Look up and normalize the population metadata for one OpenGWAS study."""
+    if gwas_id not in meta.columns or 'population' not in meta.index:
+        return 'UNK'
+    return normalize_gwas_ancestry(meta.at['population', gwas_id])
+
+
+def reference_ancestry_for_studies(studies, meta):
+    """Use AFR resources only for exclusively African-ancestry selections."""
+    ancestry_codes = {
+        gwas_ancestry_code(meta, gwas_id_from_selection(study))
+        for study in studies
+    }
+    return 'African' if ancestry_codes == {'AFR'} else 'European'
+
+
+def ancestry_resource_path(data_path, resource, ancestry, filename):
+    """Resolve ancestry-specific LD/haplotype files with European as fallback."""
+    base_path = Path(data_path) / 'databases' / resource
+    if str(ancestry).strip().upper() in {'AFR', 'AFRICAN'}:
+        base_path = base_path / 'African'
+    return base_path / filename
 
 # Global functions
 # function to get all haplotypes associated with a trait
-def get_haplotypes_by_trait(row):
+def get_haplotypes_by_trait(row, ancestry='European'):
     # read file of interest with polars
-    df = (pl.scan_csv(f"{data_path}/databases/haplotypes/ld_clusters_with_gwas_AI_latest.tsv.gz", separator="\t").filter(pl.col("traits").str.contains(row['name'], literal=True)).collect())
+    filename = (
+        "20260917_ld_clusters_with_gwas_AI_latest_African.tsv.gz"
+        if ancestry == 'African'
+        else "ld_clusters_with_gwas_AI_latest.tsv.gz"
+    )
+    df = (
+        pl.scan_csv(f"{data_path}/databases/haplotypes/{filename}", separator="\t")
+        .filter(pl.col("traits").str.contains(row['name'], literal=True))
+        .collect()
+    )
     # convert to dataframe
     df_dic = df.to_dicts()
-    df_df = pd.DataFrame(df_dic)
+    df_df = pd.DataFrame(df_dic, columns=df.columns)
     return df_df
 
 # function to get trait info
-def get_traits_info(data_path, traits_interest, representative, meta):
+def get_traits_info(data_path, traits_interest, representative, meta, ancestry='European'):
     all_gw_info = []
     all_haplo_df = pd.DataFrame()
     gwas_assoc_df = pd.DataFrame()
-    representative_file = representative['Final Representative file'].values[0]
-    representative_id = representative_file.replace('_hits_p5e-5.txt.gz', '')
+    representative_file = str(representative['Final Representative file'].values[0])
+    representative_id = re.sub(r'_hits_p5e-5\.txt(?:\.gz)?$', '', representative_file)
     # iterate over df rows
     for index, row in traits_interest.iterrows():
-        gwas_id = row['id'].replace('_hits_p5e-5.txt.gz', '')
+        gwas_id = str(row.get('gwas_id') or re.sub(r'_hits_p5e-5\.txt(?:\.gz)?$', '', str(row['id'])))
         # get gwas info
         gwas_info = meta[gwas_id]
         # convert to dictionary
@@ -87,17 +178,29 @@ def get_traits_info(data_path, traits_interest, representative, meta):
         # make a dictionary
         all_gw_info.append(gwas_info)
         # check if this is the representative gwas
-        if row['id'] == representative_file:
+        if gwas_id == representative_id:
             # in that case, get associations for manhattan plot
-            gwas_associations = [x.split('\t') for x in subprocess.run(["tabix", data_path + "/databases/haplotypes/All_indep_gwas_sumstats_AI_hg38_byTrait.txt.gz", row['id'].replace('_hits_p5e-5.txt.gz', '')], capture_output=True,check=True, text=True).stdout.strip().split('\n')]
+            association_file = (
+                "20260917_All_indep_gwas_sumstats_AI_hg38_byTrait_African.txt.gz"
+                if ancestry == 'African'
+                else "All_indep_gwas_sumstats_AI_hg38_byTrait.txt.gz"
+            )
+            output = subprocess.run(
+                ["tabix", f"{data_path}/databases/haplotypes/{association_file}", gwas_id],
+                capture_output=True,
+                check=True,
+                text=True,
+            ).stdout.strip()
+            gwas_associations = [x.split('\t') for x in output.split('\n') if x]
             # convert to dataframe
             gwas_assoc_df = pd.DataFrame(gwas_associations, columns=["id", "trait", "chr", "position", "rsid", "ea", "nea", "eaf", "beta", "se", "p", "n", "study_id", "position_hg38"])
             # get haplotype info for this gwas
-            all_haplo_df = get_haplotypes_by_trait(row)
+            all_haplo_df = get_haplotypes_by_trait(row, ancestry=ancestry)
     # convert all_gw_info to dataframe
     all_gw_info = pd.DataFrame(all_gw_info)
     # subset of columns to keep
     all_gw_info = all_gw_info[["id", "trait", "pmid", "author", "year", "sample_size", "population", "__is_representative"]]
+    all_gw_info.insert(1, 'ancestry', ancestry)
     # pmid as integer NA proof
     all_gw_info['pmid'] = all_gw_info['pmid'].fillna(0).astype(int)
     # sort by sample size (descending) but keep representative trait at the very top
@@ -108,7 +211,11 @@ def get_traits_info(data_path, traits_interest, representative, meta):
         na_position='last'
     ).reset_index(drop=True)
     # rename columns
-    all_gw_info.rename(columns={"id":"GWAS ID", "trait":"Trait", "pmid":"PubMed ID", "author":"First Author", "year":"Year", "sample_size":"Sample Size", "population":"Population"}, inplace=True)
+    all_gw_info.rename(columns={"id":"GWAS ID", "ancestry":"Ancestry", "trait":"Trait", "pmid":"PubMed ID", "author":"First Author", "year":"Year", "sample_size":"Sample Size", "population":"Population"}, inplace=True)
+    ancestry_code = SEMANTIC_ANCESTRY_CODES.get(ancestry, ancestry.upper())
+    all_gw_info['Trait'] = all_gw_info['Trait'].apply(
+        lambda value: f"[{ancestry_code}] {value}"
+    )
     all_haplo_df.rename(columns={'CHR': 'Chromosome', 'BP1':'Start (hg38)', 'BP2':'End (hg38)', 'KB':'Size (kb)', 'NSNPS':'# SNPs', 'SNPS':'SNPs', 'assoc_count':'# Associations', 'rsids':'SNPs (RsIDs)', 'traits':'Traits'}, inplace=True)
     return all_gw_info, gwas_assoc_df, all_haplo_df
 
@@ -171,7 +278,7 @@ def subset_haplotype_rows_for_gwas_overlap(all_haplo_df, gwas_assoc_df):
     return all_haplo_df[all_haplo_df.apply(haplotype_overlaps_gwas, axis=1)].copy()
 
 # function to plot haplotype traits
-def plot_haplotype_traits(clusters_of_interest, all_indices, trait_list, cluster_index_map, umap, cluster_representatives, browse, sim_mat, names_sub, cluster_labels_for_index, cluster_trait, idx_trait, all_cluster_representatives, gwas_assoc_df, all_haplo_df):
+def plot_haplotype_traits(clusters_of_interest, all_indices, trait_list, cluster_index_map, umap, cluster_representatives, browse_label, sim_mat, names_sub, cluster_labels_for_index, cluster_trait, idx_trait, all_cluster_representatives, gwas_assoc_df, all_haplo_df, artifact, selected_row, combined_context):
     # ------------------------------------------------
     # Shared color map for clusters (UMAP + annotation)
     # ------------------------------------------------
@@ -207,67 +314,57 @@ def plot_haplotype_traits(clusters_of_interest, all_indices, trait_list, cluster
     )
     # increase subplot subtitle font size
     fig.update_annotations(font=dict(size=20, family="Arial", color="darkgrey", weight="bold"))
+    ancestry = selected_row['ancestry']
 
     # -------------------------------
     # LEFT subplot: UMAP
     # -------------------------------
-    # Use the SAME indices used for the heatmap for colored clusters
-    all_cluster_idxs = np.unique(all_indices)
-    all_points = np.arange(len(trait_list))
-    background_idxs = np.setdiff1d(all_points, all_cluster_idxs)
-    # Grey background points (everything NOT in the clusters of interest subset)
-    #if background_idxs.size > 0:
-    #    fig.add_trace(
-    #        go.Scatter(
-    #            x=umap[background_idxs, 0],
-    #            y=umap[background_idxs, 1],
-    #            mode="markers",
-    #            marker=dict(size=6, color="lightgrey", opacity=0.3),
-    #            showlegend=False,
-    #            hoverinfo="skip",
-    #        ),
-    #        row=1,
-    #        col=1
-    #    )
-    # Colored clusters (but capped to the same subset as the heatmap)
-    for j, cid in enumerate(clusters_of_interest):
-        # Intersect to keep at most the terms we actually used (max_terms_per_cluster)
-        idxs_full = np.array(cluster_index_map[cid])
-        idxs = np.intersect1d(idxs_full, all_cluster_idxs)
-        if idxs.size == 0:
-            continue
+    primary_context = build_semantic_context(artifact, selected_row, ancestry)
+    semantic_contexts = [primary_context, combined_context]
+    semantic_traces_by_context = []
+    for context_index, context in enumerate(semantic_contexts):
+        visible = context_index == 0
+        trace_indices = []
+        context_color_map = {
+            point_group['key']: palette[index % len(palette)]
+            for index, point_group in enumerate(context['points'])
+        }
+        for point_index, point_group in enumerate(context['points']):
+            cluster_key = point_group['key']
+            fig.add_trace(
+                go.Scattergl(
+                    x=point_group['coordinates'][:, 0],
+                    y=point_group['coordinates'][:, 1],
+                    mode='markers',
+                    marker=dict(size=9, color=context_color_map[cluster_key]),
+                    name=_cluster_name(artifact, cluster_key),
+                    text=point_group['names'],
+                    hoverinfo='text',
+                    legendrank=10 + point_index,
+                    visible=visible,
+                ),
+                row=1,
+                col=1,
+            )
+            trace_indices.append(len(fig.data) - 1)
+
         fig.add_trace(
             go.Scatter(
-                x=umap[idxs, 0],
-                y=umap[idxs, 1],
-                mode="markers",
-                marker=dict(size=13, color=color_map[cid]),
-                name=all_cluster_representatives.loc[all_cluster_representatives['Cluster Label'] == cid, 'Final Representative'].values[0],  # show representative name in legend
-                text=[trait_list[i] for i in idxs],
-                hoverinfo="text",
+                x=[context['query_coordinate'][0]],
+                y=[context['query_coordinate'][1]],
+                mode='markers',
+                marker=dict(size=15, color='black', symbol='star', line=dict(width=2, color='yellow')),
+                name='Queried trait',
+                hovertext=browse_label,
+                hoverinfo='text',
+                legendrank=0,
+                visible=visible,
             ),
             row=1,
-            col=1
+            col=1,
         )
-    # Highlight queried trait with a star
-    fig.add_trace(
-        go.Scatter(
-            x=[umap[idx_trait, 0]],
-            y=[umap[idx_trait, 1]],
-            mode="markers",
-            marker=dict(
-                size=15,
-                color="black",
-                symbol="star",
-                line=dict(width=2, color="yellow"),
-            ),
-            name=browse,
-            hovertext=browse,
-            hoverinfo="text",
-        ),
-        row=1,
-        col=1
-    )
+        trace_indices.append(len(fig.data) - 1)
+        semantic_traces_by_context.append(trace_indices)
     fig.update_xaxes(title_text="UMAP-1", row=1, col=1, showticklabels=False, title_font=dict(size=20, family="Arial", color="black", weight="bold"))
     fig.update_yaxes(title_text="UMAP-2", row=1, col=1, showticklabels=False, title_font=dict(size=20, family="Arial", color="black", weight="bold"))
     # Legend below UMAP
@@ -463,7 +560,8 @@ def plot_haplotype_traits(clusters_of_interest, all_indices, trait_list, cluster
                     f'Number of Haplotypes: {row["haplo_count"]}'
                     for _, row in haplo_bin_counts.iterrows()
                 ],
-                hoverinfo='text'
+                hoverinfo='text',
+                showlegend=False,
             ), row=2, col=1
         )
         # thin line at y=0
@@ -489,7 +587,8 @@ def plot_haplotype_traits(clusters_of_interest, all_indices, trait_list, cluster
                     f'Beta: {row["beta"]} (SE: {row["se"]})'
                     for _, row in gwas_assoc_df.iterrows()
                 ],
-                hoverinfo='text'
+                hoverinfo='text',
+                showlegend=False,
             ),
             row=2,
             col=1
@@ -552,9 +651,53 @@ def plot_haplotype_traits(clusters_of_interest, all_indices, trait_list, cluster
         template="plotly_white",
         height=1300,
         title={
-            "text": f"<b>Semantic Neighborhood of '{browse}'</b>",
+            "text": f"<b>Semantic Neighborhood of '{selected_row['name']}'</b>",
             "font": {"size": 32},
-        }
+            "x": 0.5,
+            "xanchor": "center",
+            "y": 0.99,
+            "yanchor": "top",
+        },
+        margin=dict(t=150, b=80),
+    )
+    other_ancestries = [name for name in artifact['datasets'] if name != ancestry]
+    combined_label = ' + '.join([ancestry] + other_ancestries)
+    semantic_trace_indices = set(
+        index
+        for trace_indices in semantic_traces_by_context
+        for index in trace_indices
+    )
+    buttons = []
+    for label, active_indices in zip(
+        (f'{ancestry} only', combined_label),
+        semantic_traces_by_context,
+    ):
+        visibility = [index not in semantic_trace_indices for index in range(len(fig.data))]
+        for index in active_indices:
+            visibility[index] = True
+        buttons.append(dict(
+            label=label,
+            method='update',
+            args=[
+                {'visible': visibility},
+                {
+                    'title.text': f"<b>Semantic Neighborhood of '{selected_row['name']}'</b>",
+                    'xaxis.autorange': True,
+                    'yaxis.autorange': True,
+                },
+            ],
+        ))
+    fig.update_layout(
+        updatemenus=[dict(
+            buttons=buttons,
+            direction='down',
+            showactive=True,
+            active=0,
+            x=0.0,
+            xanchor='left',
+            y=1.08,
+            yanchor='top',
+        )]
     )
     # return as HTML
     plot_url = pio.to_html(fig, include_plotlyjs='cdn', full_html=False)
@@ -567,16 +710,29 @@ def plot_haplotype_traits(clusters_of_interest, all_indices, trait_list, cluster
     return plot_url, gwas_assoc_df, plot_haplo_df
 
 # function to extract haplotype effect on traits
-def extract_haplotype_effect_on_traits(data_path, haplo_summary, chrom):
+def extract_haplotype_effect_on_traits(data_path, haplo_summary, chrom, ancestry='European'):
     # subset to haplotypes with >1 trait associations
     haplo_tmp = haplo_summary[haplo_summary['n_traits'] >= 1].copy().reset_index(drop=True)
+    if haplo_tmp.empty:
+        return None
     # if more than 10, restrict to top 10 by number of traits
     if haplo_tmp.shape[0] > 10:
         haplo_tmp = haplo_tmp.sort_values(by='n_traits', ascending=False).iloc[:10, :].copy().reset_index(drop=True)
     # extract all haplo data
     start_pos = min(haplo_tmp['start_bp'].astype(int))
     end_pos = max(haplo_tmp['end_bp'].astype(int))
-    haplo_df, haplo_dict = extract_haplo_data(data_path, chrom, start_pos-1_000_000, end_pos+1_000_000)
+    haplo_df, haplo_dict = extract_haplo_data(
+        data_path,
+        chrom,
+        start_pos-1_000_000,
+        end_pos+1_000_000,
+        ancestry=ancestry,
+    )
+    association_file = (
+        '20260917_All_indep_gwas_sumstats_AI_hg38_African.txt.gz'
+        if str(ancestry).strip().upper() in {'AFR', 'AFRICAN'}
+        else 'All_indep_gwas_sumstats_AI_hg38.txt.gz'
+    )
     # iterate over haplotypes
     haplo_effects = []
     for idx, row in haplo_tmp.iterrows():
@@ -586,7 +742,11 @@ def extract_haplotype_effect_on_traits(data_path, haplo_summary, chrom):
         # extract snps
         snps = ' '.join([str(chrom).upper().replace('CHR', '') + ':' + x.split(':')[1] + '-' + x.split(':')[1] for x in haplo_dict[haplo_id]])
         # extract effects
-        cmd = "tabix %s/databases/haplotypes/All_indep_gwas_sumstats_AI_hg38.txt.gz %s" %(data_path.replace(' ', '\ '), snps)
+        cmd = "tabix %s/databases/haplotypes/%s %s" %(
+            data_path.replace(' ', '\ '),
+            association_file,
+            snps,
+        )
         snps_data = [x.rstrip().split('\t') for x in os.popen(cmd)]
         snps_df = pd.DataFrame(snps_data, columns=["id", "trait", "chr", "position", "rsid", "ea", "nea", "eaf", "beta", "se", "p", "n", "study_id", "position_hg38"])
         # Make effect estimates numeric and derive a signed association Z-score.
@@ -757,85 +917,75 @@ def extract_haplotype_effect_on_traits(data_path, haplo_summary, chrom):
 
 # function to guide haplotype plots with traits as inputs
 def guide_haplotypes_traits(data_path, browse, window, refGen, trait_names):
-    # Put traits into a list
-    trait_list = trait_names['name'].values.tolist()
-    # Class to handle numpy unpickling issues
-    class NumpyCompatUnpickler(pickle.Unpickler):
-        def find_class(self, module, name):
-            # Remap old internal numpy paths to the current ones
-            if module == "numpy._core":
-                module = "numpy.core"
-            elif module == "numpy._core.multiarray":
-                module = "numpy.core.multiarray"
-            return super().find_class(module, name)
-    # import pickle object with embeddings
-    with open(f"{data_path}/databases/haplotypes/trait_embeddings_umap_thr05.pkl", "rb") as f:
-        embeddings_obj = NumpyCompatUnpickler(f).load()
-    # Also read cluster representatives
-    cluster_representatives = pd.read_csv(f"{data_path}/databases/haplotypes/trait_clusters_summary_AI_thresholds.csv", sep=",")
-    cluster_representatives = cluster_representatives[cluster_representatives['Threshold'] == 0.5].copy().reset_index(drop=True)
-    # Derive umap, embeddings, labels, cluster_map
-    umap = embeddings_obj["umap"]
-    embeddings = embeddings_obj["embeddings"]
-    labels = embeddings_obj["labels"]
-    cluster_map = embeddings_obj["cluster_map"]
-    # Find trait index
-    idx_trait = find_trait_index(browse, trait_list)
+    artifact = load_semantic_artifacts()
+    selected_row = resolve_trait_selection(browse)
+    ancestry = selected_row['ancestry']
+    ancestry_code = SEMANTIC_ANCESTRY_CODES.get(ancestry, ancestry.upper())
+    browse_label = f"[{ancestry_code}] {selected_row['name']}"
+    browse_resolved = selected_row['selection_id']
+
+    ancestry_traits = (
+        combined_trait_names[combined_trait_names['ancestry'] == ancestry]
+        .sort_values('dataset_index')
+        .reset_index(drop=True)
+    )
+    trait_list = ancestry_traits['name'].values.tolist()
+    dataset = artifact['datasets'][ancestry]
+    umap = dataset['umap']
+    embeddings = dataset['embeddings']
+    labels = dataset['labels']
+    idx_trait = int(selected_row['dataset_index'])
     # Find cluster id
     cluster_trait = int(labels[idx_trait])
     # Build cluster to index map
     cluster_index_map = build_cluster_index_map(labels)
-    # Compute centroids
-    centroids = {}
-    for cid, idxs in cluster_index_map.items():
-        c = embeddings[idxs].mean(axis=0)
-        c /= np.linalg.norm(c) + 1e-9
-        centroids[cid] = c
-    # Compute similarity of all clusters to trait's cluster
-    c0 = centroids[cluster_trait].reshape(1, -1)
-    other_clusters = [cid for cid in centroids if cid != cluster_trait]
-    sims = cosine_similarity(c0, np.vstack([centroids[c] for c in other_clusters]))[0]
-    order = np.argsort(-sims)
-    # Pick 5 closest clusters
-    k = min(5, len(other_clusters))
-    neighbor_clusters = [other_clusters[i] for i in order[:k]]
-    clusters_of_interest = [cluster_trait] + neighbor_clusters
+    primary_context = build_semantic_context(artifact, selected_row, ancestry)
+    clusters_of_interest = [group['key'][1] for group in primary_context['points']]
     # ------------------------------------------------
     # Build similarity heatmap between traits in clusters
     # ------------------------------------------------
     all_indices = []
-    cluster_labels_for_index = []
-    max_terms_per_cluster = 100
-    for cid in clusters_of_interest:
-        idxs = cluster_index_map[cid]
-        if len(idxs) > max_terms_per_cluster:
-            idxs = idxs[:max_terms_per_cluster]
-        all_indices.extend(idxs)
-        cluster_labels_for_index.extend([cid] * len(idxs))
+    for point_group in primary_context['points']:
+        all_indices.extend(point_group['indices'].tolist())
     all_indices = np.array(all_indices)
-    cluster_labels_for_index = np.array(cluster_labels_for_index)
-    emb_sub = embeddings[all_indices]
-    names_sub = [trait_list[i] for i in all_indices]
-    # Order by cluster ID, then by similarity to the queried trait
-    order = np.argsort(cluster_labels_for_index)
-    sim_to_trait = cosine_similarity(emb_sub, embeddings[idx_trait].reshape(1, -1))[:, 0]
-    new_order = []
-    for cid in clusters_of_interest:
-        mask = cluster_labels_for_index == cid
-        idxs = np.where(mask)[0]
-        if len(idxs) > 0:
-            local = idxs[np.argsort(-sim_to_trait[idxs])]
-            new_order.extend(local.tolist())
-    order = np.array(new_order)
-    emb_sub = emb_sub[order]
-    names_sub = [names_sub[i] for i in order]
-    cluster_labels_for_index = cluster_labels_for_index[order]
-    sim_mat = cosine_similarity(emb_sub)
     # Also get the list of trait in the cluster of interest
-    traits_in_same_cluster = [trait_list[i] for i in cluster_index_map[cluster_trait]]
-    traits_sub = trait_names[trait_names['name'].isin(traits_in_same_cluster)].copy().reset_index(drop=True)
-    representative = cluster_representatives[cluster_representatives['Cluster Label'] == cluster_trait]
-    return clusters_of_interest, all_indices, trait_list, cluster_index_map, umap, representative, browse, sim_mat, names_sub, cluster_labels_for_index, cluster_trait, traits_sub, idx_trait, cluster_representatives
+    cluster_member_indices = set(cluster_index_map[cluster_trait])
+    traits_sub = trait_names[
+        (trait_names['ancestry'] == ancestry)
+        & (trait_names['dataset_index'].isin(cluster_member_indices))
+    ].copy().reset_index(drop=True)
+    cluster_representatives = artifact['summaries'][ancestry]
+    representative = cluster_representatives[
+        cluster_representatives['Cluster Label'].astype(int) == cluster_trait
+    ]
+    # Use the same de-duplicated, ancestry-specific heatmap construction as
+    # the PRS page. Only the UMAP is allowed to switch to the joint projection.
+    sim_mat = primary_context['similarity_matrix']
+    names_sub = primary_context['heatmap_names']
+    cluster_labels_for_index = np.array([
+        cluster_key[1] for cluster_key in primary_context['heatmap_keys']
+    ])
+    combined_context = build_semantic_context(artifact, selected_row, 'Combined')
+    return (
+        clusters_of_interest,
+        all_indices,
+        trait_list,
+        cluster_index_map,
+        umap,
+        representative,
+        browse_resolved,
+        browse_label,
+        sim_mat,
+        names_sub,
+        cluster_labels_for_index,
+        cluster_trait,
+        traits_sub,
+        idx_trait,
+        cluster_representatives,
+        artifact,
+        selected_row,
+        combined_context,
+    )
     
 # function to build cluster to index map
 def build_cluster_index_map(labels):
@@ -909,12 +1059,367 @@ def summarize_traits_with_counts(traits_value):
         counts[t] += 1
     return "; ".join([f"{t} ({counts[t]} SNPs)" for t in order])
 
+
+def build_haplotype_ld_matrix(
+    data_path,
+    chrom,
+    haplo_df,
+    haplo_label_map,
+    max_variants=1000,
+    ancestry='European',
+):
+    """Build an allele-aware LD matrix ordered by haplotype and position."""
+    ordered_haplotypes = list(haplo_label_map.items())
+    haplotype_rank = {hap_id: rank for rank, (hap_id, _) in enumerate(ordered_haplotypes)}
+    label_by_haplotype = dict(ordered_haplotypes)
+
+    variants = {}
+    selected = haplo_df[haplo_df['ID'].isin(haplotype_rank)].copy()
+    selected['__rank'] = selected['ID'].map(haplotype_rank)
+    selected = selected.sort_values(['__rank', 'BP1'])
+    for _, row in selected.iterrows():
+        hap_id = row['ID']
+        for variant_id in str(row['SNPS']).split('|'):
+            parts = variant_id.split(':')
+            if len(parts) != 4:
+                continue
+            variant_chrom, position, ref, alt = parts
+            try:
+                position = int(position)
+            except ValueError:
+                continue
+            key = (str(variant_chrom).upper().replace('CHR', ''), position, ref.upper(), alt.upper())
+            if key not in variants:
+                variants[key] = {
+                    'variant_id': variant_id,
+                    'position': position,
+                    'ref': ref.upper(),
+                    'alt': alt.upper(),
+                    'haplotype_id': hap_id,
+                    'haplotype_label': label_by_haplotype[hap_id],
+                    'haplotype_rank': haplotype_rank[hap_id],
+                    'db_id': None,
+                }
+
+    ordered_variants = sorted(
+        variants.values(),
+        key=lambda item: (
+            item['haplotype_rank'],
+            item['position'],
+            item['ref'],
+            item['alt'],
+        ),
+    )
+    if len(ordered_variants) > max_variants:
+        raise ValueError(
+            f"Regional LD contains {len(ordered_variants):,} variants; "
+            f"the interactive limit is {max_variants:,}."
+        )
+    if len(ordered_variants) < 2:
+        raise ValueError("At least two variants are required for the regional LD plot.")
+
+    db_path = ancestry_resource_path(
+        data_path,
+        'LD_db',
+        ancestry,
+        f"ld_chr{str(chrom).upper().replace('CHR', '')}.sqlite",
+    )
+    if not db_path.is_file():
+        raise ValueError(f"LD database is unavailable for chromosome {chrom}.")
+
+    positions = sorted({variant['position'] for variant in ordered_variants})
+    rows_by_position = {}
+    connection = sqlite3.connect(f"file:{db_path.resolve()}?mode=ro", uri=True)
+    try:
+        for offset in range(0, len(positions), 900):
+            position_chunk = positions[offset:offset + 900]
+            placeholders = ','.join('?' for _ in position_chunk)
+            query_sql = f"SELECT id, uniq, pos FROM variants WHERE pos IN ({placeholders})"
+            for db_id, uniq, position in connection.execute(query_sql, position_chunk):
+                rows_by_position.setdefault(int(position), []).append((int(db_id), str(uniq)))
+
+        for variant in ordered_variants:
+            candidates = []
+            for db_id, uniq in rows_by_position.get(variant['position'], []):
+                uniq_parts = uniq.split(':')
+                if len(uniq_parts) != 3:
+                    continue
+                observed_alleles = (uniq_parts[1].upper(), uniq_parts[2].upper())
+                expected = (variant['ref'], variant['alt'])
+                if observed_alleles in {expected, expected[::-1]}:
+                    candidates.append((db_id, uniq))
+            if candidates:
+                variant['db_id'] = min(candidates, key=lambda item: item[0])[0]
+
+        matrix_size = len(ordered_variants)
+        matrix = np.full((matrix_size, matrix_size), np.nan, dtype=float)
+        np.fill_diagonal(matrix, 1.0)
+        matrix_index_by_db_id = {
+            variant['db_id']: index
+            for index, variant in enumerate(ordered_variants)
+            if variant['db_id'] is not None
+        }
+        selected_db_ids = set(matrix_index_by_db_id)
+        seen_pairs = set()
+        for db_id in sorted(selected_db_ids):
+            ld_rows = connection.execute(
+                "SELECT v1, v2, r2_milli FROM ld WHERE v1 = ? "
+                "UNION ALL "
+                "SELECT v1, v2, r2_milli FROM ld WHERE v2 = ?",
+                (db_id, db_id),
+            )
+            for v1, v2, r2_milli in ld_rows:
+                v1 = int(v1)
+                v2 = int(v2)
+                if v1 not in selected_db_ids or v2 not in selected_db_ids or v1 == v2:
+                    continue
+                pair = (min(v1, v2), max(v1, v2))
+                if pair in seen_pairs:
+                    continue
+                seen_pairs.add(pair)
+                row_index = matrix_index_by_db_id[v1]
+                column_index = matrix_index_by_db_id[v2]
+                r2 = int(r2_milli) / 1000.0
+                matrix[row_index, column_index] = r2
+                matrix[column_index, row_index] = r2
+    finally:
+        connection.close()
+
+    return matrix, ordered_variants
+
+
+def haplotype_ld_roof_plotly(matrix, ordered_variants):
+    """Rotate a lower LD matrix into a Plotly roof with a haplotype strip."""
+    observed_matrix = np.isfinite(matrix)
+    display_matrix = np.nan_to_num(matrix, nan=0.0)
+    lower_matrix = np.where(
+        np.tri(matrix.shape[0], matrix.shape[1], dtype=bool),
+        display_matrix,
+        np.nan,
+    )
+    observed_lower = np.where(
+        np.tri(matrix.shape[0], matrix.shape[1], dtype=bool),
+        observed_matrix.astype(float),
+        np.nan,
+    )
+    rotated = scipy_rotate(
+        lower_matrix,
+        45,
+        reshape=True,
+        order=0,
+        mode='constant',
+        cval=np.nan,
+        prefilter=False,
+    )
+    rotated_observed = scipy_rotate(
+        observed_lower,
+        45,
+        reshape=True,
+        order=0,
+        mode='constant',
+        cval=np.nan,
+        prefilter=False,
+    )
+
+    diagonal_marker = np.full(matrix.shape, np.nan, dtype=float)
+    np.fill_diagonal(diagonal_marker, 1.0)
+    rotated_diagonal = scipy_rotate(
+        diagonal_marker,
+        45,
+        reshape=True,
+        order=0,
+        mode='constant',
+        cval=np.nan,
+        prefilter=False,
+    )
+    diagonal_counts = np.sum(np.isfinite(rotated_diagonal), axis=1)
+    diagonal_row = int(np.argmax(diagonal_counts))
+    roof = rotated[diagonal_row:, :]
+    roof_observed = rotated_observed[diagonal_row:, :]
+    diagonal_columns = np.where(np.isfinite(rotated_diagonal[diagonal_row]))[0]
+    if len(diagonal_columns) < 2:
+        raise ValueError("The regional LD matrix could not be transformed for plotting.")
+
+    if not np.any(np.isfinite(roof)):
+        raise ValueError("No LD values are available for the selected haplotypes.")
+    roof_height, roof_width = roof.shape
+    diagonal_start = int(diagonal_columns.min())
+    diagonal_end = int(diagonal_columns.max())
+    diagonal_x = np.linspace(diagonal_start, diagonal_end, len(ordered_variants))
+
+    haplotype_labels = [variant['haplotype_label'] for variant in ordered_variants]
+    label_order = list(dict.fromkeys(haplotype_labels))
+    label_rank = {label: index for index, label in enumerate(label_order)}
+    annotation = np.full((1, roof_width), np.nan, dtype=float)
+    group_centers = []
+    group_boundaries = []
+    group_start = 0
+    for index in range(1, len(haplotype_labels) + 1):
+        if index == len(haplotype_labels) or haplotype_labels[index] != haplotype_labels[group_start]:
+            start_x = diagonal_x[group_start]
+            end_x = diagonal_x[index - 1]
+            left = int(round(start_x if group_start == 0 else (diagonal_x[group_start - 1] + start_x) / 2))
+            right = int(round(end_x if index == len(haplotype_labels) else (end_x + diagonal_x[index]) / 2))
+            annotation[0, max(0, left):min(roof_width, right + 1)] = label_rank[haplotype_labels[group_start]]
+            group_centers.append((start_x + end_x) / 2)
+            if index < len(haplotype_labels):
+                group_boundaries.append((end_x + diagonal_x[index]) / 2)
+            group_start = index
+
+    ld_colorscale = [
+        [0.0, 'navy'], [0.2, 'navy'],
+        [0.20001, 'lightblue'], [0.4, 'lightblue'],
+        [0.40001, 'green'], [0.6, 'green'],
+        [0.60001, 'orange'], [0.8, 'orange'],
+        [0.80001, 'red'], [1.0, 'red'],
+    ]
+    haplotype_colors = pc.qualitative.Plotly + pc.qualitative.Safe + pc.qualitative.Set3
+    n_labels = max(1, len(label_order))
+    if n_labels == 1:
+        annotation_colorscale = [
+            [0.0, haplotype_colors[0]],
+            [1.0, haplotype_colors[0]],
+        ]
+    else:
+        annotation_colorscale = []
+        for index in range(n_labels):
+            start = max(0.0, (index - 0.5) / (n_labels - 1))
+            end = min(1.0, (index + 0.5) / (n_labels - 1))
+            color = haplotype_colors[index % len(haplotype_colors)]
+            annotation_colorscale.extend([[start, color], [end, color]])
+
+    hover_text = np.full(roof.shape, '', dtype=object)
+    plotted_cells = np.isfinite(roof)
+    observed_cells = plotted_cells & (roof_observed >= 0.5)
+    missing_cells = plotted_cells & ~observed_cells
+    hover_text[observed_cells] = [
+        f'LD r²: {value:.3f}' for value in roof[observed_cells]
+    ]
+    hover_text[missing_cells] = 'LD r²: NA (not stored)'
+
+    figure = make_subplots(
+        rows=2,
+        cols=1,
+        shared_xaxes=True,
+        vertical_spacing=0.01,
+        row_heights=[0.94, 0.06],
+    )
+    figure.add_trace(
+        go.Heatmap(
+            z=roof,
+            zmin=0,
+            zmax=1,
+            colorscale=ld_colorscale,
+            showscale=True,
+            colorbar=dict(
+                title=dict(text='LD r²', font=dict(size=17)),
+                orientation='h',
+                x=0.5,
+                xanchor='center',
+                y=1.08,
+                yanchor='bottom',
+                len=0.52,
+                thickness=20,
+                tickmode='array',
+                tickvals=[0.1, 0.3, 0.5, 0.7, 0.9],
+                ticktext=['NA and 0–0.2', '>0.2–0.4', '>0.4–0.6', '>0.6–0.8', '>0.8–1.0'],
+                tickfont=dict(size=14),
+            ),
+            text=hover_text,
+            hovertemplate='%{text}<extra></extra>',
+        ),
+        row=1,
+        col=1,
+    )
+    figure.add_trace(
+        go.Heatmap(
+            z=annotation,
+            zmin=0,
+            zmax=max(1, len(label_order) - 1),
+            colorscale=annotation_colorscale,
+            showscale=False,
+            hoverinfo='skip',
+        ),
+        row=2,
+        col=1,
+    )
+    for boundary in group_boundaries:
+        figure.add_vline(x=boundary, line_width=1, line_color='white', row=1, col=1)
+    figure.update_xaxes(
+        tickmode='array',
+        tickvals=group_centers,
+        ticktext=[f'<b>{label}</b>' for label in label_order],
+        tickfont=dict(size=20),
+        ticks='',
+        showgrid=False,
+        zeroline=False,
+        row=2,
+        col=1,
+    )
+    figure.update_xaxes(showticklabels=False, showgrid=False, zeroline=False, row=1, col=1)
+    figure.update_yaxes(
+        showticklabels=False,
+        showgrid=False,
+        zeroline=False,
+        scaleanchor='x',
+        scaleratio=1,
+        constrain='domain',
+        row=1,
+        col=1,
+    )
+    figure.update_yaxes(showticklabels=False, showgrid=False, zeroline=False, row=2, col=1)
+    figure.update_layout(
+        height=850,
+        margin=dict(l=30, r=30, t=115, b=65),
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        showlegend=False,
+        hovermode='closest',
+    )
+    return figure
+
+
+def build_haplotype_ld_roof(data_path, chrom, haplo_df, haplo_label_map, ancestry='European'):
+    """Return the regional haplotype LD roof, or an explanatory Plotly panel."""
+    try:
+        matrix, ordered_variants = build_haplotype_ld_matrix(
+            data_path,
+            chrom,
+            haplo_df,
+            haplo_label_map,
+            ancestry=ancestry,
+        )
+        return haplotype_ld_roof_plotly(matrix, ordered_variants)
+    except Exception as exc:
+        logging.exception("Unable to create regional haplotype LD plot")
+        figure = go.Figure()
+        figure.add_annotation(
+            text=f"Regional LD plot unavailable: {exc}",
+            x=0.5,
+            y=0.5,
+            xref='paper',
+            yref='paper',
+            showarrow=False,
+            font=dict(size=16, color='#666666'),
+        )
+        figure.update_layout(
+            height=260,
+            margin=dict(l=20, r=20, t=20, b=20),
+            plot_bgcolor='white',
+            paper_bgcolor='white',
+            xaxis=dict(visible=False),
+            yaxis=dict(visible=False),
+        )
+        return figure
+
 # function to guide haplotype plots with snps/genes as inputs
-def guide_haplotypes_snps_genes(data_path, browse, window, refGen):
+def guide_haplotypes_snps_genes(data_path, browse, window, refGen, ancestry='European'):
     # Derive chromosome and position
     chrom, start_pos, end_pos, browse_type = readBrowseOption(data_path, browse, window, refGen)
     # get data of the region of interest
-    haplo_df, haplo_dict = extract_haplo_data(data_path, chrom, start_pos, end_pos)
+    haplo_df, haplo_dict = extract_haplo_data(
+        data_path, chrom, start_pos, end_pos, ancestry=ancestry
+    )
     # identify the haplotype when an individual SNP is searched
     hap_id_interest = []
     if browse_type == 'RsID' or browse_type == 'Single position':
@@ -939,6 +1444,11 @@ def guide_haplotypes_snps_genes(data_path, browse, window, refGen):
     # prepare plotting labels/order: cap at top 50 by #traits
     plot_df = haplo_summary.head(50).copy()
     haplo_label_map = dict(zip(plot_df['ID'], plot_df['haplo_index']))
+    # Start the regional LD panel with the six highest-ranked haplotypes. The
+    # interactive selector can subsequently request any haplotypes in the
+    # complete regional summary.
+    ld_plot_df = haplo_summary.head(6).copy()
+    ld_haplo_label_map = dict(zip(ld_plot_df['ID'], ld_plot_df['haplo_index']))
     # keep first matching haplotype for highlighting if available
     if hap_id_interest == []:
         hap_id_interest = 'Not found'
@@ -947,7 +1457,29 @@ def guide_haplotypes_snps_genes(data_path, browse, window, refGen):
     # create plot
     fig = haplotype_plotly_regional(haplo_df, haplo_dict, genes, refGen=refGen, haplo_label_map=haplo_label_map)
     plot_url = pio.to_html(fig, include_plotlyjs='cdn', full_html=False)
-    return browse, plot_url, haplo_summary, chrom, start_pos, end_pos, hap_id_interest
+    ld_fig = build_haplotype_ld_roof(
+        data_path,
+        chrom,
+        haplo_df[haplo_df['ID'].isin(ld_haplo_label_map)].copy(),
+        ld_haplo_label_map,
+        ancestry=ancestry,
+    )
+    ld_plot_url = pio.to_html(
+        ld_fig,
+        include_plotlyjs=False,
+        full_html=False,
+        config={'responsive': True, 'displaylogo': False},
+    )
+    return (
+        browse,
+        plot_url,
+        ld_plot_url,
+        haplo_summary,
+        chrom,
+        start_pos,
+        end_pos,
+        hap_id_interest,
+    )
 
 # function to query cadd scores
 def query_cadd_score(snps, data_path):
@@ -1019,7 +1551,7 @@ def fetch_by_position(chrom, pos38):
     }
 
 # function to get LD between SNPs
-def get_ld_between_snps(snps, data_path, chrom):
+def get_ld_between_snps(snps, data_path, chrom, ancestry='European'):
     snp_list = snps.split(' ')
     snp_positions = [int(snp.split(':')[1].split('-')[0]) for snp in snp_list]
     chr = snp_list[0].split(':')[0].upper().replace("CHR", "")
@@ -1035,7 +1567,12 @@ def get_ld_between_snps(snps, data_path, chrom):
     min_pos = min(snp_positions)
     max_pos = max(snp_positions)
     # run function to get LD by interval
-    db_path = f"{data_path}/databases/LD_db/ld_chr{chrom}.sqlite"
+    db_path = ancestry_resource_path(
+        data_path,
+        'LD_db',
+        ancestry,
+        f"ld_chr{chrom}.sqlite",
+    )
     ld_results = partners_by_interval(db_path, min_pos, max_pos, r2_min=0.2)
     # create a dataframe
     if ld_results:
@@ -1298,16 +1835,28 @@ def haplotype_plotly_regional(haplo_df, haplo_dict, genes, refGen='GRCh38', hapl
     return fig
 
 # function to get haplotype data of interest
-def extract_haplo_data(data_path, chrom, start_pos, end_pos):
+def extract_haplo_data(data_path, chrom, start_pos, end_pos, ancestry='European'):
     # define data to look at
-    haplo_path = f"{data_path}/databases/haplotypes/ld_clusters_with_gwas_AI_latest.tsv.gz".replace(' ', '\ ')
+    haplotype_filename = (
+        '20260917_ld_clusters_with_gwas_AI_latest_African.tsv.gz'
+        if str(ancestry).strip().upper() in {'AFR', 'AFRICAN'}
+        else 'ld_clusters_with_gwas_AI_latest.tsv.gz'
+    )
+    haplo_path = f"{data_path}/databases/haplotypes/{haplotype_filename}"
     # tabix query
     chrom = str(chrom).upper().replace('CHR', '')
-    tabix_cmd = f"tabix {haplo_path} {chrom}:{start_pos}-{end_pos}"
-    data_list = [x for x in os.popen(tabix_cmd)]
+    tabix_result = subprocess.run(
+        ['tabix', haplo_path, f'{chrom}:{start_pos}-{end_pos}'],
+        capture_output=True,
+        check=True,
+        text=True,
+    )
+    data_list = tabix_result.stdout.splitlines()
     # convert list to df
-    haplo_df = pd.read_csv(StringIO(''.join(data_list)), sep='\t', header=None)
-    haplo_df.columns = ['CHR', 'BP1', 'BP2', 'KB', 'NSNPS', 'SNPS', 'assoc_count', 'rsids', 'traits']
+    columns = ['CHR', 'BP1', 'BP2', 'KB', 'NSNPS', 'SNPS', 'assoc_count', 'rsids', 'traits']
+    if not data_list:
+        return pd.DataFrame(columns=columns + ['n_traits', 'ID']), {}
+    haplo_df = pd.read_csv(StringIO('\n'.join(data_list)), sep='\t', header=None, names=columns)
     # add column for the number of traits
     haplo_df['n_traits'] = haplo_df['traits'].apply(
         lambda x: len(set(t.strip() for t in x.split('___') if t and t.strip().lower() != 'nan')) 
@@ -1326,7 +1875,7 @@ def extract_haplo_data(data_path, chrom, start_pos, end_pos):
     return haplo_df, haplo_dict
 
 # function to get variants in LD
-def extract_ld(data_path, chrom, df, refGen, browse_type, browse):
+def extract_ld(data_path, chrom, df, refGen, browse_type, browse, ancestry='European'):
     try:
         if browse_type != 'RsID':
             # take most significant variant in the region, create a string like chr:pos:ea:nea
@@ -1343,10 +1892,15 @@ def extract_ld(data_path, chrom, df, refGen, browse_type, browse):
             uniq1 = f"{top_snp['Position']}:{top_snp['EA']}:{top_snp['NEA']}"
             uniq2 = f"{top_snp['Position']}:{top_snp['NEA']}:{top_snp['EA']}"       
         # define database path
-        db_path = f"{data_path}/databases/LD_db/ld_chr{chrom}.sqlite"
+        db_path = ancestry_resource_path(
+            data_path,
+            'LD_db',
+            ancestry,
+            f"ld_chr{str(chrom).replace('chr', '')}.sqlite",
+        )
         # query the database
-        res1 = partners_by_uniq(db_path, uniq1, r2_min=0.2, limit=100)
-        res2 = partners_by_uniq(db_path, uniq2, r2_min=0.2, limit=100)
+        res1 = partners_by_uniq(str(db_path), uniq1, r2_min=0.2, limit=100)
+        res2 = partners_by_uniq(str(db_path), uniq2, r2_min=0.2, limit=100)
         # combine results
         res = res1 + res2
         # convert to df
@@ -1396,7 +1950,7 @@ def partners_by_uniq(db_path: str, uniq: str, r2_min: float = 0.0, limit: Option
         CASE WHEN ld.v1 = v.id THEN ld.v2 ELSE ld.v1 END AS partner_id,
         ld.r2_milli, ld.dist_bp
       FROM ld, v
-      WHERE ld.v1 = v.id OR ld.v2 = v.id
+      WHERE (ld.v1 = v.id OR ld.v2 = v.id)
         AND ld.r2_milli >= ?
     )
     SELECT variants.uniq AS partner_uniq,
@@ -1435,7 +1989,7 @@ def partners_by_position(db_path: str, pos: int, r2_min: float = 0.0, limit: Opt
         CASE WHEN ld.v1 = v.id THEN ld.v2 ELSE ld.v1 END AS partner_id,
         ld.r2_milli, ld.dist_bp
       FROM ld, v
-      WHERE ld.v1 = v.id OR ld.v2 = v.id
+      WHERE (ld.v1 = v.id OR ld.v2 = v.id)
         AND ld.r2_milli >= ?
     )
     SELECT variants.uniq AS partner_uniq,
@@ -1467,7 +2021,7 @@ def _open_db_for_query(db_path: str) -> sqlite3.Connection:
     return conn
 
 # function to get haplotypes in the region
-def extract_haplo(data_path, df, chrom, refGen):
+def extract_haplo(data_path, df, chrom, refGen, ancestry='European'):
     # take min and max position wrt hg38
     if refGen == 'GRCh37':
         min_pos = df['Position_hg38'].min()
@@ -1476,8 +2030,26 @@ def extract_haplo(data_path, df, chrom, refGen):
         min_pos = df['Position'].min()
         max_pos = df['Position'].max()
     # take positions of interest
-    cmd = 'tabix %s/databases/haplotypes/20251122_ld_clusters_low_recombination_intervals.tsv.gz %s:%s-%s' %(data_path.replace(' ', '\ '), str(chrom).replace('chr', ''), str(min_pos - 500000), str(max_pos + 500000))
-    haplo = [x.rstrip().split('\t') for x in os.popen(cmd)]
+    is_african = str(ancestry).strip().upper() in {'AFR', 'AFRICAN'}
+    haplotype_filename = (
+        '20260914_thr0.2_haplotypes.tsv.gz'
+        if is_african
+        else '20251122_ld_clusters_low_recombination_intervals.tsv.gz'
+    )
+    haplotype_path = ancestry_resource_path(
+        data_path,
+        'haplotypes',
+        ancestry,
+        haplotype_filename,
+    )
+    region = f"{str(chrom).replace('chr', '')}:{int(min_pos - 500000)}-{int(max_pos + 500000)}"
+    tabix_result = subprocess.run(
+        ['tabix', str(haplotype_path), region],
+        capture_output=True,
+        check=True,
+        text=True,
+    )
+    haplo = [line.split('\t') for line in tabix_result.stdout.splitlines() if line]
     # iterate over haplotypes and flag the variants in df
     df_haplo = assign_haplo_to_variants(df, haplo, refGen)
     return df_haplo
@@ -1583,7 +2155,16 @@ def readBrowseOption(data_path, browse, window, refGen):
     return chrom, start_pos, end_pos, browse_type
 
 # function to run annotation analysis
-def run_annotation(my_list, inpType, refGeno, analType, gsea_source, qtl_tissues, email):
+def run_annotation(
+    my_list,
+    inpType,
+    refGeno,
+    analType,
+    gsea_source,
+    qtl_tissues,
+    email,
+    ancestry='European',
+):
     # Sample a number for randomization
     random_number = random.randint(1, 100000)
     # Take snps and save them
@@ -1602,9 +2183,10 @@ def run_annotation(my_list, inpType, refGeno, analType, gsea_source, qtl_tissues
     # Take gtex tissues
     gtex_tissues = ','.join(list(qtl_tissues))
     refGeno = str(refGeno).lower()
+    ancestry = 'African' if str(ancestry).strip().lower() == 'african' else 'European'
     # Then run annotate me externally in background -- this depends on the analysis_type requested
     #command = "Rscript /Annotation/BIN/MAIN.R %s %s %s %s %s %s %s %s > %s" %(filename, ftype, email, analysis_type, analysis_mode, gtex_tissues, refGeno, random_number, log_filename_server)
-    command = f"python {path_server}/Annotation/BIN/standalone_annotation_optimized.py -q {fpath_server} -t {analysis_type} -o {path_server}/Annotation/RUNS/ -r {random_number} -b {refGeno} -ts {gtex_tissues} -gs {analysis_mode} -e {email} "
+    command = f"python {path_server}/Annotation/BIN/standalone_annotation_optimized.py -q {fpath_server} -t {analysis_type} -o {path_server}/Annotation/RUNS/ -r {random_number} -b {refGeno} -a {ancestry} -ts {gtex_tissues} -gs {analysis_mode} -e {email} "
     print(command)
     return command
 
@@ -1670,9 +2252,10 @@ def get_data_plot(data_path, gwas, chrom, start_pos, end_pos, refGen, meta, wind
     # iterate over gwas
     for gw in gwas:
         # extract gwas info from label -- label is "Alzheimer's disease — Bellenguez C (2022) [ebi-a-GCST90027158]" --> extract ebi-a-GCST90027158
-        gwas_id = gw.split('[')[-1].replace(']', '').strip()
+        gwas_id = gwas_id_from_selection(gw)
         # get gwas info
         gwas_info = meta[gwas_id]
+        ancestry_code = gwas_ancestry_code(meta, gwas_id)
         # check whether the gwas is mapped to hg19 or hg38
         if 'hg19' in gwas_info.loc['build'].lower():
             sumstats_build = 'GRCh37'
@@ -1697,6 +2280,10 @@ def get_data_plot(data_path, gwas, chrom, start_pos, end_pos, refGen, meta, wind
                 sumstats = sumstats.rename(columns={"chr": "Chrom", "position": "Position_hg38", "p": "Pvalue", "rsid": "Rsid", "eaf": "EAF", "ea": "EA", "nea": "NEA", "positions_lifted": "Position", "id": "ID", "trait": "Gwas", "beta": "Beta", "se": "SE", 'n': 'N'}, errors='ignore')
             else:
                 sumstats = sumstats.rename(columns={"chr": "Chrom", "position": "Position", "p": "Pvalue", "rsid": "Rsid", "eaf": "EAF", "ea": "EA", "nea": "NEA", "positions_lifted": "Position_hg19", "id": "ID", "trait": "Gwas", "beta": "Beta", "se": "SE", 'n': 'N'}, errors='ignore')
+        if 'Gwas' in sumstats.columns:
+            sumstats['Gwas'] = sumstats['Gwas'].apply(
+                lambda trait: f"[{ancestry_code}] {trait}"
+            )
         # append to data_list
         data_list = pd.concat([data_list, sumstats], ignore_index=True) if data_list.shape[0] >0 else sumstats
         data_list_info.append(gwas_info)

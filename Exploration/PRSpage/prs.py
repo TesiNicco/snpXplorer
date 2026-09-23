@@ -27,6 +27,7 @@ from scipy.cluster.hierarchy import dendrogram, linkage
 import numpy as np
 import pickle
 from typing import Optional
+from functools import lru_cache
 
 # Blueprint setup (if needed)
 prs_bp = Blueprint('prs', __name__, template_folder='templates')
@@ -34,162 +35,510 @@ prs_bp = Blueprint('prs', __name__, template_folder='templates')
 # ---------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------
-DATA_PATH = Path("/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Data")
-#DATA_PATH = Path('/Data')
+#DATA_PATH = Path("/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Data")
+DATA_PATH = Path('/Data')
 DB_FILE = DATA_PATH / "databases/Genes/variant_info.db"
-trait_names = pd.read_csv(DATA_PATH / "databases/haplotypes/trait_names_and_ids.txt", sep="\t")
-TRAIT_LIST = trait_names["name"].astype(str).tolist()
+TRAIT_FILE = DATA_PATH / "databases/haplotypes/combined_traits_and_ids.txt"
+COMBINED_EMBEDDINGS_FILE = DATA_PATH / "databases/haplotypes/20260918_combined_umap_embeddings.pkl"
+CLUSTER_SUMMARY_FILES = {
+    "European": DATA_PATH / "databases/haplotypes/trait_clusters_summary_AI_thresholds.csv",
+    "African": DATA_PATH / "databases/haplotypes/20260916_trait_clusters_summary_AI_thresholds_African.csv",
+}
+
+trait_names = pd.read_csv(TRAIT_FILE, sep="\t")
+trait_names = trait_names[
+    ~(
+        trait_names["id"].astype(str).eq("trait_association_counts.txt.gz")
+        & trait_names["name"].astype(str).eq("File Name")
+    )
+].copy()
+trait_names["ancestry"] = trait_names["ancestry"].astype(str).str.strip().str.title()
+trait_names["dataset_index"] = trait_names.groupby("ancestry", sort=False).cumcount()
+trait_names["gwas_id"] = trait_names["id"].astype(str).str.replace(
+    "_hits_p5e-5.txt.gz", "", regex=False
+)
+trait_names["selection_id"] = trait_names["ancestry"] + "|||" + trait_names["gwas_id"]
+
+ANCESTRY_CODES = {"European": "EUR", "African": "AFR"}
+SEMANTIC_CLUSTER_PALETTE = [
+    "#000000",
+    "#E69F00",
+    "#56B4E9",
+    "#009E73",
+    "#0072B2",
+    "#D55E00",
+]
+searchable_traits = trait_names[trait_names["name"].notna()].copy()
+TRAIT_OPTIONS = [
+    {
+        "id": row.selection_id,
+        "text": f"[{ANCESTRY_CODES.get(row.ancestry, row.ancestry.upper())}] {row.name}",
+    }
+    for row in searchable_traits.itertuples(index=False)
+]
 PRS_DIR = DATA_PATH / "databases/PRS"
 
 # ---------------------------------------------------------
 # Functions
 # ---------------------------------------------------------
-# Function to get info about trait and umap
-def guide_haplotypes_traits(data_path, browse, window, refGen, trait_names):
-    # Put traits into a list
-    trait_list = trait_names['name'].values.tolist()
-    # Class to handle numpy unpickling issues
+@lru_cache(maxsize=1)
+def load_semantic_artifacts():
+    """Load and validate the joint European/African semantic artifacts."""
     class NumpyCompatUnpickler(pickle.Unpickler):
         def find_class(self, module, name):
-            # Remap old internal numpy paths to the current ones
             if module == "numpy._core":
                 module = "numpy.core"
             elif module == "numpy._core.multiarray":
                 module = "numpy.core.multiarray"
             return super().find_class(module, name)
-    # import pickle object with embeddings
-    with open(f"{data_path}/databases/haplotypes/trait_embeddings_umap_thr05.pkl", "rb") as f:
-        embeddings_obj = NumpyCompatUnpickler(f).load()
-    # Also read cluster representatives
-    cluster_representatives = pd.read_csv(f"{data_path}/databases/haplotypes/trait_clusters_summary_AI_thresholds.csv", sep=",")
-    cluster_representatives = cluster_representatives[cluster_representatives['Threshold'] == 0.5].copy().reset_index(drop=True)
-    # Derive umap, embeddings, labels, cluster_map
-    umap = embeddings_obj["umap"]
-    embeddings = embeddings_obj["embeddings"]
-    labels = embeddings_obj["labels"]
-    cluster_map = embeddings_obj["cluster_map"]
-    # Find trait index
-    idx_trait = find_trait_index(browse, trait_list)
-    # Find cluster id
-    cluster_trait = int(labels[idx_trait])
-    # Build cluster to index map
-    cluster_index_map = build_cluster_index_map(labels)
-    # Compute centroids
+    with open(COMBINED_EMBEDDINGS_FILE, "rb") as handle:
+        artifact = NumpyCompatUnpickler(handle).load()
+
+    dataset_order = list(artifact["datasets"])
+    summaries = {}
+    for ancestry in dataset_order:
+        dataset = artifact["datasets"][ancestry]
+        ancestry_rows = trait_names[trait_names["ancestry"] == ancestry]
+        expected = len(dataset["labels"])
+        if len(ancestry_rows) != expected:
+            raise ValueError(
+                f"{ancestry} trait rows ({len(ancestry_rows)}) do not match "
+                f"the semantic dataset ({expected})."
+            )
+        summary_all = pd.read_csv(CLUSTER_SUMMARY_FILES[ancestry])
+        label_set = {int(value) for value in dataset["cluster_map"]}
+        matching_summary = None
+        for threshold in sorted(summary_all["Threshold"].dropna().unique()):
+            candidate = summary_all[summary_all["Threshold"] == threshold].copy()
+            if set(candidate["Cluster Label"].astype(int)) == label_set:
+                matching_summary = candidate.reset_index(drop=True)
+                break
+        if matching_summary is None:
+            raise ValueError(f"No cluster summary matches the {ancestry} semantic labels.")
+        summaries[ancestry] = matching_summary
+
+    # The current joint UMAP was generated European-first even though the
+    # serialized datasets dictionary is African-first. New artifacts can make
+    # this explicit by including a top-level ``coordinate_order`` list.
+    coordinate_order = artifact.get("coordinate_order")
+    if coordinate_order is None:
+        known_order = ["European", "African"]
+        coordinate_order = [name for name in known_order if name in artifact["datasets"]]
+        coordinate_order.extend(name for name in dataset_order if name not in coordinate_order)
+    if set(coordinate_order) != set(dataset_order):
+        raise ValueError("Joint UMAP coordinate order does not match the ancestry datasets.")
+
+    offset = 0
+    joint_offsets = {}
+    for ancestry in coordinate_order:
+        joint_offsets[ancestry] = offset
+        offset += len(artifact["datasets"][ancestry]["labels"])
+    if offset != len(artifact["coordinates"]):
+        raise ValueError("Joint UMAP coordinates do not match the ancestry datasets.")
+    artifact["coordinate_order"] = coordinate_order
+    artifact["joint_offsets"] = joint_offsets
+    artifact["summaries"] = summaries
+    return artifact
+
+
+def resolve_trait_selection(selection):
+    """Resolve a Select2 value to exactly one ancestry-specific study row."""
+    selection = str(selection or "").strip()
+    match = trait_names[trait_names["selection_id"] == selection]
+    if not match.empty:
+        return match.iloc[0]
+
+    # Backward-compatible fallback for a remembered pre-ancestry trait value.
+    named = trait_names[trait_names["name"].notna()].copy()
+    exact = named[named["name"].astype(str).str.lower() == selection.lower()]
+    if exact.empty:
+        exact = named[named["name"].astype(str).str.lower().str.contains(selection.lower(), regex=False)]
+    if exact.empty:
+        raise ValueError(f"Trait '{selection}' was not found.")
+    european = exact[exact["ancestry"] == "European"]
+    return european.iloc[0] if not european.empty else exact.iloc[0]
+
+
+def _cluster_indices(labels):
+    result = {}
+    for index, label in enumerate(labels):
+        result.setdefault(int(label), []).append(index)
+    return result
+
+
+def build_semantic_context(artifact, selected_row, scope):
+    """Build a query-centred ancestry-specific or combined semantic neighborhood."""
+    query_ancestry = selected_row["ancestry"]
+    query_index = int(selected_row["dataset_index"])
+    query_dataset = artifact["datasets"][query_ancestry]
+    query_embedding = query_dataset["embeddings"][query_index]
+    query_cluster = int(query_dataset["labels"][query_index])
+
+    ancestries = [scope] if scope != "Combined" else list(artifact["datasets"])
+    cluster_indices = {}
     centroids = {}
-    for cid, idxs in cluster_index_map.items():
-        c = embeddings[idxs].mean(axis=0)
-        c /= np.linalg.norm(c) + 1e-9
-        centroids[cid] = c
-    # Compute similarity of all clusters to trait's cluster
-    c0 = centroids[cluster_trait].reshape(1, -1)
-    other_clusters = [cid for cid in centroids if cid != cluster_trait]
-    sims = cosine_similarity(c0, np.vstack([centroids[c] for c in other_clusters]))[0]
-    order = np.argsort(-sims)
-    # Pick 5 closest clusters
-    k = min(5, len(other_clusters))
-    neighbor_clusters = [other_clusters[i] for i in order[:k]]
-    clusters_of_interest = [cluster_trait] + neighbor_clusters
-    # ------------------------------------------------
-    # Build similarity heatmap between traits in clusters
-    # ------------------------------------------------
-    all_indices = []
-    cluster_labels_for_index = []
-    max_terms_per_cluster = 100
-    for cid in clusters_of_interest:
-        idxs = cluster_index_map[cid]
-        if len(idxs) > max_terms_per_cluster:
-            idxs = idxs[:max_terms_per_cluster]
-        all_indices.extend(idxs)
-        cluster_labels_for_index.extend([cid] * len(idxs))
-    all_indices = np.array(all_indices)
-    cluster_labels_for_index = np.array(cluster_labels_for_index)
-    emb_sub = embeddings[all_indices]
-    names_sub = [trait_list[i] for i in all_indices]
-    # Order by cluster ID, then by similarity to the queried trait
-    order = np.argsort(cluster_labels_for_index)
-    sim_to_trait = cosine_similarity(emb_sub, embeddings[idx_trait].reshape(1, -1))[:, 0]
-    new_order = []
-    for cid in clusters_of_interest:
-        mask = cluster_labels_for_index == cid
-        idxs = np.where(mask)[0]
-        if len(idxs) > 0:
-            local = idxs[np.argsort(-sim_to_trait[idxs])]
-            new_order.extend(local.tolist())
-    order = np.array(new_order)
-    emb_sub = emb_sub[order]
-    names_sub = [names_sub[i] for i in order]
-    cluster_labels_for_index = cluster_labels_for_index[order]
-    sim_mat = cosine_similarity(emb_sub)
-    # Also get the list of trait in the cluster of interest
-    traits_in_same_cluster = [trait_list[i] for i in cluster_index_map[cluster_trait]]
-    traits_sub = trait_names[trait_names['name'].isin(traits_in_same_cluster)].copy().reset_index(drop=True)
-    representative = cluster_representatives[cluster_representatives['Cluster Label'] == cluster_trait]
-    return clusters_of_interest, all_indices, trait_list, cluster_index_map, umap, representative, browse, sim_mat, names_sub, cluster_labels_for_index, cluster_trait, traits_sub, idx_trait, cluster_representatives
+    for ancestry in ancestries:
+        dataset = artifact["datasets"][ancestry]
+        by_cluster = _cluster_indices(dataset["labels"])
+        for cluster_id, indices in by_cluster.items():
+            key = (ancestry, cluster_id)
+            cluster_indices[key] = indices
+            centroid = dataset["embeddings"][indices].mean(axis=0)
+            centroid /= np.linalg.norm(centroid) + 1e-9
+            centroids[key] = centroid
 
-# Function to plot UMAP + heatmap
-def plot_haplotype_traits(clusters_of_interest, all_indices, trait_list, cluster_index_map, umap, cluster_representatives, browse, sim_mat, names_sub, cluster_labels_for_index, cluster_trait, idx_trait, all_cluster_representatives):
-    # ------------------------------------------------
-    # Shared color map for clusters (UMAP + annotation)
-    # ------------------------------------------------
-    palette = ["#000000", "#E69F00", "#56B4E9", "#009E73", "#0072B2", "#D55E00"]
-    color_map = {cid: palette[j % len(palette)] for j, cid in enumerate(clusters_of_interest)}
+    query_key = (query_ancestry, query_cluster)
+    selected_clusters = []
+    if query_key in centroids:
+        selected_clusters.append(query_key)
+    remaining = [key for key in centroids if key != query_key]
+    if remaining:
+        similarities = cosine_similarity(
+            query_embedding.reshape(1, -1),
+            np.vstack([centroids[key] for key in remaining]),
+        )[0]
+        ranked_clusters = [remaining[index] for index in np.argsort(-similarities)]
+        selected_clusters.extend(ranked_clusters[:6 - len(selected_clusters)])
 
-    # -------------------------------
-    # Create FIGURE with 2 SUBPLOTS
-    # -------------------------------
-    fig = make_subplots(rows=1, cols=2, column_widths=[0.6, 0.40], horizontal_spacing=0.04, subplot_titles=("UMAP Trait Projection", "Trait Similarity Heatmap"))
-    # increase subplot subtitle font size
-    fig.update_annotations(font=dict(size=20, family="Arial", color="darkgrey", weight="bold"))
+        # A combined neighborhood must visibly contain each available ancestry.
+        # If the globally closest clusters all come from one ancestry, replace
+        # its least-similar extra cluster with the closest missing ancestry.
+        if scope == "Combined":
+            for ancestry in ancestries:
+                if any(key[0] == ancestry for key in selected_clusters):
+                    continue
+                replacement = next(
+                    (key for key in ranked_clusters if key[0] == ancestry),
+                    None,
+                )
+                if replacement is None:
+                    continue
+                ancestry_counts = {
+                    name: sum(key[0] == name for key in selected_clusters)
+                    for name in ancestries
+                }
+                replace_index = next(
+                    (
+                        index
+                        for index in range(len(selected_clusters) - 1, -1, -1)
+                        if selected_clusters[index] != query_key
+                        and ancestry_counts[selected_clusters[index][0]] > 1
+                    ),
+                    None,
+                )
+                if replace_index is None:
+                    selected_clusters.append(replacement)
+                else:
+                    selected_clusters[replace_index] = replacement
 
-    # -------------------------------
-    # LEFT subplot: UMAP
-    # -------------------------------
-    # Use the SAME indices used for the heatmap for colored clusters
-    all_cluster_idxs = np.unique(all_indices)
-    all_points = np.arange(len(trait_list))
-    background_idxs = np.setdiff1d(all_points, all_cluster_idxs)
-    # Colored clusters (but capped to the same subset as the heatmap)
-    for j, cid in enumerate(clusters_of_interest):
-        # Intersect to keep at most the terms we actually used (max_terms_per_cluster)
-        idxs_full = np.array(cluster_index_map[cid])
-        idxs = np.intersect1d(idxs_full, all_cluster_idxs)
-        if idxs.size == 0:
+    points = []
+    heatmap_rows = []
+    for cluster_key in selected_clusters:
+        ancestry, cluster_id = cluster_key
+        dataset = artifact["datasets"][ancestry]
+        indices = np.asarray(cluster_indices[cluster_key], dtype=int)
+        similarities = cosine_similarity(
+            dataset["embeddings"][indices], query_embedding.reshape(1, -1)
+        )[:, 0]
+        indices = indices[np.argsort(-similarities)[:100]]
+        ancestry_rows = trait_names[trait_names["ancestry"] == ancestry].set_index("dataset_index")
+        names = [
+            ancestry_rows.at[int(index), "name"]
+            if int(index) in ancestry_rows.index and pd.notna(ancestry_rows.at[int(index), "name"])
+            else f"Unnamed {ANCESTRY_CODES.get(ancestry, ancestry)} study"
+            for index in indices
+        ]
+        display_names = [
+            f"[{ANCESTRY_CODES.get(ancestry, ancestry)}] {name}"
+            for name in names
+        ]
+        if scope == "Combined":
+            coordinates = artifact["coordinates"][artifact["joint_offsets"][ancestry] + indices]
+        else:
+            coordinates = dataset["umap"][indices]
+        points.append({
+            "key": cluster_key,
+            "indices": indices,
+            "coordinates": coordinates,
+            "names": display_names,
+        })
+        for index, name in zip(indices, display_names):
+            heatmap_rows.append({
+                "key": cluster_key,
+                "embedding": dataset["embeddings"][int(index)],
+                "name": name,
+            })
+
+    # Different GWAS can carry the same displayed trait name. Keep only the
+    # first (highest-ranked) occurrence so heatmap axes do not repeat labels.
+    unique_heatmap_rows = []
+    seen_heatmap_names = set()
+    for row in heatmap_rows:
+        normalized_name = row["name"].strip().casefold()
+        if normalized_name in seen_heatmap_names:
             continue
-        fig.add_trace(go.Scatter(x=umap[idxs, 0], y=umap[idxs, 1], mode="markers", marker=dict(size=9, color=color_map[cid]), name=all_cluster_representatives.loc[all_cluster_representatives['Cluster Label'] == cid, 'Final Representative'].values[0], text=[trait_list[i] for i in idxs], hoverinfo="text",), row=1, col=1)
-    # Highlight queried trait with a star
-    fig.add_trace(go.Scatter(x=[umap[idx_trait, 0]], y=[umap[idx_trait, 1]], mode="markers", marker=dict(size=15, color="black", symbol="star", line=dict(width=2, color="yellow")), name=browse, hovertext=browse, hoverinfo="text",), row=1, col=1)
-    # Update axes
-    fig.update_xaxes(title_text="UMAP-1", row=1, col=1, showticklabels=False, title_font=dict(size=20, family="Arial", color="black", weight="bold"))
-    fig.update_yaxes(title_text="UMAP-2", row=1, col=1, showticklabels=False, title_font=dict(size=20, family="Arial", color="black", weight="bold"))
-    # Legend below UMAP
-    fig.update_layout(legend=dict(orientation="h", x=0, y=-0.05, xanchor="left", font=dict(size=16, family="Arial"), itemsizing="constant"))
+        seen_heatmap_names.add(normalized_name)
+        unique_heatmap_rows.append(row)
+    heatmap_rows = unique_heatmap_rows
 
-    # -------------------------------
-    # RIGHT subplot: Heatmap
-    # -------------------------------
-    n_traits = sim_mat.shape[0]
-    # Heatmap with flipped colors (blue = -1, red = +1) and no axis labels
-    hover_text = [[f"{names_sub[i]} ↔ {names_sub[j]}" for j in range(n_traits)] for i in range(n_traits)]
-    fig.add_trace(go.Heatmap(z=sim_mat, x=list(range(n_traits)), y=list(range(n_traits)), text=hover_text, hovertemplate=("Trait pair: %{text}<br>" "Sim=%{z:.3f}<extra></extra>"), zmin=0, zmax=1, colorscale=[[0.0, "blue"], [0.5, "white"], [1.0, "red"]], colorbar=dict(title="Cosine similarity", orientation="v", x=1.02, y=0.83, len=0.3, thickness=15), showscale=True), row=1, col=2)
-    # Cluster annotation strip on the right
-    cluster_colors_for_traits = [color_map.get(cid, "#d3d3d3") for cid in cluster_labels_for_index]
-    fig.add_trace(go.Scatter(x=[n_traits + 0.5] * n_traits, y=list(range(n_traits)), mode="markers", marker=dict(color=cluster_colors_for_traits, symbol="square", size=8, line=dict(width=0)), showlegend=False, hoverinfo="skip"), row=1, col=2)
-    # Hide axis labels / ticks for heatmap panel
-    fig.update_xaxes(showticklabels=False, title_text="", range=[-0.5, n_traits + 1.0], row=1, col=2)
-    fig.update_yaxes(showticklabels=False, title_text="", row=1, col=2)
-    
-    # Overall layout
-    fig.update_layout(template="plotly_white", height=650, title={"text": f"<b>Semantic Neighborhood of '{browse}'</b>", "font": {"size": 32}})
-    # return as HTML
-    plot_url = pio.to_html(fig, include_plotlyjs='cdn', full_html=False)
-    return plot_url
+    embeddings = np.vstack([row["embedding"] for row in heatmap_rows])
+    names = [row["name"] for row in heatmap_rows]
+    similarity_matrix = cosine_similarity(embeddings)
+    if scope == "Combined":
+        query_coordinate = artifact["coordinates"][
+            artifact["joint_offsets"][query_ancestry] + query_index
+        ]
+    else:
+        query_coordinate = query_dataset["umap"][query_index]
+    return {
+        "scope": scope,
+        "points": points,
+        "heatmap_names": names,
+        "heatmap_keys": [row["key"] for row in heatmap_rows],
+        "similarity_matrix": similarity_matrix,
+        "query_coordinate": query_coordinate,
+        "query_key": query_key,
+    }
+
+
+def _cluster_name(artifact, cluster_key):
+    ancestry, cluster_id = cluster_key
+    summary = artifact["summaries"][ancestry]
+    row = summary[summary["Cluster Label"].astype(int) == int(cluster_id)]
+    if not row.empty:
+        representative = row.iloc[0].get("Final Representative")
+        if pd.notna(representative) and str(representative).strip():
+            return f"[{ANCESTRY_CODES.get(ancestry, ancestry)}] {representative}"
+    fallback = artifact["datasets"][ancestry]["cluster_map"].get(cluster_id, {}).get(
+        "representative", f"Cluster {cluster_id}"
+    )
+    return f"[{ANCESTRY_CODES.get(ancestry, ancestry)}] {fallback}"
+
+
+def plot_haplotype_traits(artifact, selected_row):
+    """Plot ancestry-specific and combined query-centred semantic neighborhoods."""
+    query_ancestry = selected_row["ancestry"]
+    contexts = [
+        build_semantic_context(artifact, selected_row, query_ancestry),
+        build_semantic_context(artifact, selected_row, "Combined"),
+    ]
+    figure = make_subplots(
+        rows=1,
+        cols=2,
+        column_widths=[0.6, 0.40],
+        horizontal_spacing=0.04,
+        subplot_titles=("UMAP semantic trait projection", "Semantic trait similarity"),
+    )
+    figure.update_annotations(font=dict(size=20, family="Arial", color="darkgrey", weight="bold"))
+
+    umap_traces_by_context = []
+    context_color_maps = []
+    for context_index, context in enumerate(contexts):
+        visible = context_index == 0
+        trace_indices = []
+        color_map = {
+            point_group["key"]: SEMANTIC_CLUSTER_PALETTE[index % len(SEMANTIC_CLUSTER_PALETTE)]
+            for index, point_group in enumerate(context["points"])
+        }
+        context_color_maps.append(color_map)
+        for point_index, point_group in enumerate(context["points"]):
+            cluster_key = point_group["key"]
+            color = color_map[cluster_key]
+            figure.add_trace(
+                go.Scattergl(
+                    x=point_group["coordinates"][:, 0],
+                    y=point_group["coordinates"][:, 1],
+                    mode="markers",
+                    marker=dict(size=9, color=color),
+                    name=_cluster_name(artifact, cluster_key),
+                    text=point_group["names"],
+                    hoverinfo="text",
+                    legendrank=10 + point_index,
+                    visible=visible,
+                ),
+                row=1,
+                col=1,
+            )
+            trace_indices.append(len(figure.data) - 1)
+
+        query_label = f"[{ANCESTRY_CODES.get(selected_row['ancestry'], selected_row['ancestry'])}] {selected_row['name']}"
+        figure.add_trace(
+            go.Scatter(
+                x=[context["query_coordinate"][0]],
+                y=[context["query_coordinate"][1]],
+                mode="markers",
+                marker=dict(size=15, color="black", symbol="star", line=dict(width=2, color="yellow")),
+                name="Queried trait",
+                hovertext=query_label,
+                hoverinfo="text",
+                legendrank=0,
+                visible=visible,
+            ),
+            row=1,
+            col=1,
+        )
+        trace_indices.append(len(figure.data) - 1)
+        umap_traces_by_context.append(trace_indices)
+
+    # The heatmap always reflects the ancestry of the selected study, even when
+    # the UMAP is switched to the combined ancestry view.
+    heatmap_context = contexts[0]
+    names = heatmap_context["heatmap_names"]
+    n_traits = len(names)
+    hover_text = [
+        [f"{names[row]} ↔ {names[column]}" for column in range(n_traits)]
+        for row in range(n_traits)
+    ]
+    figure.add_trace(
+        go.Heatmap(
+            z=heatmap_context["similarity_matrix"],
+            x=list(range(n_traits)),
+            y=list(range(n_traits)),
+            text=hover_text,
+            hovertemplate="Trait pair: %{text}<br>Sim=%{z:.3f}<extra></extra>",
+            zmin=0,
+            zmax=1,
+            colorscale=[[0.0, "blue"], [0.5, "white"], [1.0, "red"]],
+            colorbar=dict(
+                title="Cosine similarity",
+                orientation="v",
+                x=1.02,
+                y=0.83,
+                len=0.3,
+                thickness=15,
+            ),
+            showscale=True,
+        ),
+        row=1,
+        col=2,
+    )
+    heatmap_trace_index = len(figure.data) - 1
+
+    annotation_colors = [
+        context_color_maps[0].get(key, "#d3d3d3")
+        for key in heatmap_context["heatmap_keys"]
+    ]
+    unique_annotation_colors = list(dict.fromkeys(annotation_colors))
+    color_to_index = {
+        color: index for index, color in enumerate(unique_annotation_colors)
+    }
+    strip_width = 4
+    strip_column = np.array(
+        [color_to_index[color] for color in annotation_colors],
+        dtype=float,
+    ).reshape(-1, 1)
+    strip_values = np.repeat(strip_column, strip_width, axis=1)
+    if len(unique_annotation_colors) == 1:
+        strip_colorscale = [
+            [0.0, unique_annotation_colors[0]],
+            [1.0, unique_annotation_colors[0]],
+        ]
+    else:
+        denominator = float(len(unique_annotation_colors) - 1)
+        strip_colorscale = [
+            [index / denominator, color]
+            for index, color in enumerate(unique_annotation_colors)
+        ]
+    figure.add_trace(
+        go.Heatmap(
+            z=strip_values,
+            x=list(range(n_traits, n_traits + strip_width)),
+            y=list(range(n_traits)),
+            zmin=0,
+            zmax=max(1, len(unique_annotation_colors) - 1),
+            colorscale=strip_colorscale,
+            showscale=False,
+            hoverinfo="skip",
+        ),
+        row=1,
+        col=2,
+    )
+    annotation_trace_index = len(figure.data) - 1
+
+    buttons = []
+    other_ancestries = [name for name in artifact["datasets"] if name != query_ancestry]
+    combined_label = " + ".join([query_ancestry] + other_ancestries)
+    labels = [f"{query_ancestry} only", combined_label]
+    for context_index, label in enumerate(labels):
+        visibility = [False] * len(figure.data)
+        for trace_index in umap_traces_by_context[context_index]:
+            visibility[trace_index] = True
+        visibility[heatmap_trace_index] = True
+        visibility[annotation_trace_index] = True
+        buttons.append(dict(
+            label=label,
+            method="update",
+            args=[
+                {"visible": visibility},
+                {
+                    "title.text": f"<b>Semantic Neighborhood of '{selected_row['name']}'</b>",
+                    "xaxis.autorange": True,
+                    "yaxis.autorange": True,
+                },
+            ],
+        ))
+
+    figure.update_xaxes(
+        title_text="UMAP-1",
+        showticklabels=False,
+        title_font=dict(size=20, family="Arial", color="black", weight="bold"),
+        row=1,
+        col=1,
+    )
+    figure.update_yaxes(
+        title_text="UMAP-2",
+        showticklabels=False,
+        title_font=dict(size=20, family="Arial", color="black", weight="bold"),
+        row=1,
+        col=1,
+    )
+    figure.update_xaxes(
+        showticklabels=False,
+        title_text="",
+        range=[-0.5, n_traits + strip_width - 0.5],
+        row=1,
+        col=2,
+    )
+    figure.update_yaxes(showticklabels=False, title_text="", row=1, col=2)
+    figure.update_layout(
+        template="plotly_white",
+        height=650,
+        title={
+            "text": f"<b>Semantic Neighborhood of '{selected_row['name']}'</b>",
+            "font": {"size": 32},
+            "x": 0.5,
+            "xanchor": "center",
+            "y": 0.99,
+            "yanchor": "top",
+        },
+        margin=dict(t=145, b=110),
+        updatemenus=[dict(
+            buttons=buttons,
+            direction="down",
+            showactive=True,
+            active=0,
+            x=0.0,
+            xanchor="left",
+            y=1.10,
+            yanchor="top",
+        )],
+        legend=dict(
+            orientation="h",
+            x=0,
+            y=-0.12,
+            xanchor="left",
+            font=dict(size=16, family="Arial"),
+            itemsizing="constant",
+        ),
+    )
+    return pio.to_html(figure, include_plotlyjs="cdn", full_html=False)
 
 # Function to retrieve PRS info
-def getPRSinfo(meta_sb, cluster_rep, browse_resolved):
+def getPRSinfo(meta_sb, study_ids, cluster_rep, browse_resolved, ancestry):
     # Define path to PRS data
-    prs_path = DATA_PATH / "databases/PRS/"
+    prs_path = PRS_DIR / "African" if ancestry == "African" else PRS_DIR
     # Get files of interest
-    prs_interest = meta_sb['ID'].values.tolist()
+    prs_interest = list(dict.fromkeys(study_ids))
     # Container for results
     prs_info = []
     # Define pvalue thresholds 
@@ -198,7 +547,12 @@ def getPRSinfo(meta_sb, cluster_rep, browse_resolved):
     for prs in prs_interest:
         try:
             tmp_path = prs_path / f"{prs}_hits_p5e-5_clumped_reformatted.txt.gz"
-            tmp_dic = {'id' : prs, 'file_name' : tmp_path.name}
+            relative_name = (
+                str(Path("African") / tmp_path.name)
+                if ancestry == "African"
+                else tmp_path.name
+            )
+            tmp_dic = {'id' : prs, 'file_name' : relative_name}
             tmp_prs = pd.read_csv(tmp_path, sep="\t")
             tmp_prs['P'] = tmp_prs['P'].astype(float)
             # Save all snps
@@ -212,21 +566,30 @@ def getPRSinfo(meta_sb, cluster_rep, browse_resolved):
             continue
     # Convert to dataframe
     prs_df = pd.DataFrame(prs_info)
+    if prs_df.empty:
+        return pd.DataFrame()
     # Flag the representative
     prs_df['representative'] = prs_df['id'].apply(lambda x: 'Yes' if x == cluster_rep else 'No')
     # Flag non-curatedness
     prs_df['curated'] = 'No'
     # Merge with meta_sb
-    prs_df = prs_df.merge(meta_sb[['Trait', 'ID', 'Author', 'Year', 'PMID', 'Sample Size']], left_on='id', right_on='ID')
+    metadata_columns = ['Trait', 'ID', 'Author', 'Year', 'PMID', 'Sample Size']
+    available_metadata = meta_sb.reindex(columns=metadata_columns)
+    prs_df = prs_df.merge(
+        available_metadata,
+        left_on='id',
+        right_on='ID',
+        how='left',
+    )
     # Remove ID column
     prs_df = prs_df.drop(columns=['ID'])
     # Take care of curated PRS
     curated_prs = curatedPRS()
     # Check if curated PRS should be considered
-    if 'alzheimer' in browse_resolved.lower():
+    if ancestry == "European" and 'alzheimer' in browse_resolved.lower():
         # Merge with curated
         prs_df = pd.concat([prs_df, curated_prs[curated_prs['Trait'] == "Alzheimer's Disease - Bellenguez et al. - 2022"]], ignore_index=True)
-    elif 'parkinson' in browse_resolved.lower():
+    elif ancestry == "European" and 'parkinson' in browse_resolved.lower():
         # Merge with curated
         prs_df = pd.concat([prs_df, curated_prs[curated_prs['Trait'] == "Parkinson's Disease - Nalls et al. - 2025"]], ignore_index=True)
     # Sort by curatedness first, then representativeness
@@ -303,7 +666,7 @@ def add_search_to_file(DATA_PATH, q):
 # Route for PRS page
 @prs_bp.route("/")
 def index():
-    return render_template("prs.html", trait_list=TRAIT_LIST)
+    return render_template("prs.html", trait_options=TRAIT_OPTIONS)
 
 # Route to handle trait search
 @prs_bp.route("/traits", methods=["GET", "POST"])
@@ -311,13 +674,13 @@ def trait_search():
     meta = current_app.config["GWAS_META"]
     # Remember last selection ---
     if request.method == "POST":
-        query = (request.form.get("trait") or "").strip()
-        if query:
-            session["prs_last_trait"] = query
+        selection = (request.form.get("trait") or "").strip()
+        if selection:
+            session["prs_last_trait"] = selection
         else:
             session.pop("prs_last_trait", None)
     else:
-        query = (session.get("prs_last_trait") or "").strip()
+        selection = (session.get("prs_last_trait") or "").strip()
 
     # Initialize variables
     plot_html = None
@@ -325,37 +688,90 @@ def trait_search():
     prs_rows = []
 
     # If we have a query (POST or remembered GET), compute page content
-    if query:
-        q = query.lower()
+    query_label = ""
+    if selection:
+        selected_row = resolve_trait_selection(selection)
+        query_label = f"[{ANCESTRY_CODES.get(selected_row['ancestry'], selected_row['ancestry'])}] {selected_row['name']}"
         # Monitoring: record search
-        add_search_to_file(DATA_PATH, q)
-        # Get all relevant info
-        clusters_of_interest, all_indices, trait_list, cluster_index_map, umap, cluster_representatives, browse_resolved, sim_mat, names_sub, cluster_labels_for_index, cluster_traits, traits_interest, idx_trait, all_cluster_representatives = guide_haplotypes_traits(DATA_PATH, q, 100000, "hg38", trait_names)
+        add_search_to_file(DATA_PATH, query_label.lower())
+        artifact = load_semantic_artifacts()
         # Generate plots
-        plot_html = plot_haplotype_traits(clusters_of_interest, all_indices, trait_list, cluster_index_map, umap, cluster_representatives, browse_resolved, sim_mat, names_sub, cluster_labels_for_index, cluster_traits, idx_trait, all_cluster_representatives)
-        # Subset metadata
-        meta_sb = meta.loc[:, meta.loc["trait"].isin(traits_interest["name"])].copy()
-        meta_subset_long = meta_sb.T.reset_index(drop=False)
-        meta_subset_long = meta_subset_long.rename(columns={"trait": "Trait", "author": "Author", "year": "Year", "pmid": "PMID", "sample_size": "Sample Size", "population": "Population", "doi": "DOI", "id": "ID"})
-        meta_sb = meta_subset_long[["Trait", "ID", "Author", "Year", "PMID", "Sample Size", "Population"]].copy()
-        # Get cluster representative
-        cluster_rep = cluster_representatives["Final Representative file"].replace("_hits_p5e-5.txt.gz", "", regex=True).values[0]
+        plot_html = plot_haplotype_traits(artifact, selected_row)
+
+        ancestry = selected_row["ancestry"]
+        dataset = artifact["datasets"][ancestry]
+        selected_index = int(selected_row["dataset_index"])
+        selected_cluster = int(dataset["labels"][selected_index])
+        cluster_indices = np.where(dataset["labels"] == selected_cluster)[0]
+        ancestry_rows = trait_names[trait_names["ancestry"] == ancestry].set_index("dataset_index")
+        cluster_rows = ancestry_rows.loc[cluster_indices].copy()
+        cluster_study_ids = cluster_rows["gwas_id"].astype(str).tolist()
+
+        # Subset live OpenGWAS metadata using the ancestry-specific study IDs.
+        available_ids = [study_id for study_id in cluster_study_ids if study_id in meta.columns]
+        if available_ids:
+            meta_subset_long = meta.loc[:, available_ids].T.reset_index(drop=False)
+            meta_subset_long = meta_subset_long.rename(columns={
+                "trait": "Trait",
+                "author": "Author",
+                "year": "Year",
+                "pmid": "PMID",
+                "sample_size": "Sample Size",
+                "population": "Population",
+                "doi": "DOI",
+                "id": "ID",
+            })
+            meta_sb = meta_subset_long.reindex(columns=[
+                "Trait", "ID", "Author", "Year", "PMID", "Sample Size", "Population"
+            ])
+        else:
+            meta_sb = pd.DataFrame(columns=[
+                "Trait", "ID", "Author", "Year", "PMID", "Sample Size", "Population"
+            ])
+
+        # Get the representative from the summary matching the stored labels.
+        cluster_summary = artifact["summaries"][ancestry]
+        representative = cluster_summary[
+            cluster_summary["Cluster Label"].astype(int) == selected_cluster
+        ]
+        cluster_rep = ""
+        if not representative.empty:
+            cluster_rep = str(representative.iloc[0]["Final Representative file"]).replace(
+                "_hits_p5e-5.txt.gz", ""
+            )
         # Flag cluster representative
         meta_sb["Cluster Representative"] = meta_sb["ID"].apply(lambda x: "Yes" if x == cluster_rep else "No")
         # Get PRS info
-        prs_info = getPRSinfo(meta_sb, cluster_rep, browse_resolved)
-        prs_info["download_url"] = prs_info["file_name"].apply(lambda fn: url_for("prs.download_prs_file", filename=fn) if fn else "")
-        prs_info = prs_info.drop(columns=["file_name"], errors="ignore")
+        prs_info = getPRSinfo(
+            meta_sb,
+            cluster_study_ids,
+            cluster_rep,
+            str(selected_row["name"]),
+            ancestry,
+        )
+        if not prs_info.empty:
+            prs_info["download_url"] = prs_info["file_name"].apply(
+                lambda filename: url_for("prs.download_prs_file", filename=filename)
+                if filename else ""
+            )
+            prs_info = prs_info.drop(columns=["file_name"], errors="ignore")
         # Prepare tables
         meta_rows = meta_sb.to_dict(orient="records")
         prs_rows = prs_info.to_dict(orient="records")
 
-    return render_template("prs.html", trait_list=TRAIT_LIST, query=query, plot_html=plot_html, meta_rows=meta_rows, prs_rows=prs_rows)
+    return render_template(
+        "prs.html",
+        trait_options=TRAIT_OPTIONS,
+        query=selection,
+        query_label=query_label,
+        plot_html=plot_html,
+        meta_rows=meta_rows,
+        prs_rows=prs_rows,
+    )
 
 # Serve PRS files
 @prs_bp.route("/download/<path:filename>")
 def download_prs_file(filename):
     if not filename:
         abort(404)
-    filename = Path(filename).name
     return send_from_directory(PRS_DIR, filename, as_attachment=True)

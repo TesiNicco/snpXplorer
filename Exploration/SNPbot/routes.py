@@ -1,5 +1,6 @@
 import sqlite3
 import re
+import json
 from pathlib import Path
 import pandas as pd
 from flask import Flask, request, jsonify, render_template, Blueprint, redirect, url_for, session
@@ -18,14 +19,19 @@ try:
 except ImportError:
     from gtex_alphagenome_mapping import gtex_to_alphagenome_terms
 
+try:
+    from accessory.plot_single_variant_haplo import plot_single_variant_cadd
+except ImportError:
+    from Exploration.accessory.plot_single_variant_haplo import plot_single_variant_cadd
+
 # Blueprint setup (if needed)
 snpbot_bp = Blueprint('snpbot', __name__, template_folder='templates')
 
 # ---------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------
-DATA_PATH = Path("/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Data")
-#DATA_PATH = Path('/Data')
+#DATA_PATH = Path("/Users/nicco/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/snpXplorer/Data")
+DATA_PATH = Path('/Data')
 DB_FILE = DATA_PATH / "databases/Genes/variant_info.db"
 
 # Liftover object (hg19 → hg38)
@@ -49,6 +55,25 @@ def sanitize_for_json(obj):
     if isinstance(obj, list):
         return [sanitize_for_json(v) for v in obj]
     return obj
+
+
+def add_variant_locus_plot(info):
+    """Return a response copy containing the CADD/LD locus Plotly figure."""
+    response_info = dict(info)
+    try:
+        figure = plot_single_variant_cadd(response_info, DATA_PATH)
+        response_info["variant_locus_plot"] = json.loads(figure.to_json())
+        response_info["variant_locus_plot_error"] = None
+    except ValueError as exc:
+        # A valid query can have no plottable CADD values. Keep the remaining
+        # annotation response intact and let the UI show a concise placeholder.
+        response_info["variant_locus_plot"] = None
+        response_info["variant_locus_plot_error"] = str(exc)
+    except Exception as exc:
+        print(f"Error generating variant locus plot: {exc}", flush=True)
+        response_info["variant_locus_plot"] = None
+        response_info["variant_locus_plot_error"] = "The regional annotation plot is unavailable."
+    return response_info
 
 def normalize_tissue_selection(tissues):
     """
@@ -77,7 +102,6 @@ def map_gtex_to_alphagenome_terms(tissues):
     tissues = normalize_tissue_selection(tissues)
     if "all_tissues" in {t.lower() for t in tissues}:
         return []
-
     keywords = []
     seen = set()
     for tissue in tissues:
@@ -209,12 +233,10 @@ def query_gnomad_info(info):
     """
     import json
     import urllib.request
-
     chrom = str(info.get("Chromosome", "")).upper().replace("CHR", "")
     pos38 = info.get("Position_hg38")
     ref = info.get("REF")
     alt = info.get("ALT")
-
     result = {
         "variant_id": None,
         "dataset": "gnomad_r4",
@@ -248,14 +270,11 @@ def query_gnomad_info(info):
             "clinvar": None,
         },
     }
-
     if not chrom or pos38 is None or not ref or not alt:
         return result
-
     variant_id = f"{chrom}-{int(pos38)}-{ref}-{alt}"
     result["variant_id"] = variant_id
     result["links"]["gnomad"] = f"https://gnomad.broadinstitute.org/variant/{variant_id}?dataset=gnomad_r4"
-
     population_map = {
         "afr": "african",
         "nfe": "european_non_finnish",
@@ -265,7 +284,6 @@ def query_gnomad_info(info):
         "sas": "south_asian",
         "amr": "admixed_american",
     }
-
     def compute_af(ac, an):
         try:
             ac = int(ac)
@@ -275,7 +293,6 @@ def query_gnomad_info(info):
         if an <= 0:
             return None
         return ac / an
-
     def population_totals(payload):
         totals = {key: {"ac": 0, "an": 0} for key in population_map}
         if not isinstance(payload, dict):
@@ -287,7 +304,6 @@ def query_gnomad_info(info):
             totals[pop_id]["ac"] += int(pop.get("ac") or 0)
             totals[pop_id]["an"] += int(pop.get("an") or 0)
         return totals
-
     try:
         graphql_query = """
         query VariantSummary($variantId: String!, $dataset: DatasetId!, $referenceGenome: ReferenceGenomeId!) {
@@ -357,26 +373,22 @@ def query_gnomad_info(info):
             graphql_response = json.loads(response.read().decode("utf-8"))
     except Exception:
         return result
-
     data = graphql_response.get("data") or {}
     variant_data = data.get("variant") or {}
     clinvar_data = data.get("clinvar_variant") or {}
     transcript_consequences = variant_data.get("transcript_consequences") or []
     transcript_consequence = transcript_consequences[0] if transcript_consequences else {}
-
     exome = variant_data.get("exome") or {}
     genome = variant_data.get("genome") or {}
     total_ac = int(exome.get("ac") or 0) + int(genome.get("ac") or 0)
     total_an = int(exome.get("an") or 0) + int(genome.get("an") or 0)
     result["total_af"] = compute_af(total_ac, total_an)
-
     exome_pops = population_totals(exome)
     genome_pops = population_totals(genome)
     for pop_id, label in population_map.items():
         combined_ac = exome_pops[pop_id]["ac"] + genome_pops[pop_id]["ac"]
         combined_an = exome_pops[pop_id]["an"] + genome_pops[pop_id]["an"]
         result["ancestry_af"][label] = compute_af(combined_ac, combined_an)
-
     clinvar_variation_id = clinvar_data.get("clinvar_variation_id")
     if clinvar_variation_id:
         result["clinvar"]["variation_id"] = clinvar_variation_id
@@ -392,7 +404,6 @@ def query_gnomad_info(info):
                     continue
                 seen_conditions.add(condition_name)
                 condition_names.append(condition_name)
-
         result["clinvar"]["conditions"] = condition_names
         result["clinvar"]["gene_symbol"] = transcript_consequence.get("gene_symbol")
         result["clinvar"]["germline_classification"] = clinvar_data.get("clinical_significance")
@@ -403,7 +414,6 @@ def query_gnomad_info(info):
         result["clinvar"]["hgvsp"] = transcript_consequence.get("hgvsp")
         result["clinvar"]["last_evaluated"] = clinvar_data.get("last_evaluated")
         result["clinvar"]["review_status"] = clinvar_data.get("review_status")
-
     return result
 
 # ---------------------------------------------------------
@@ -608,7 +618,27 @@ def _open_db_for_query(db_path: str) -> sqlite3.Connection:
 # ---------------------------------------------------------
 # Query LD
 # ---------------------------------------------------------
-def query_ld(chrom, pos38):
+def normalize_ancestry(ancestry):
+    """Return the supported display name for a user-supplied ancestry value."""
+    value = str(ancestry or "European").strip().lower()
+    ancestry_names = {
+        "eur": "European",
+        "european": "European",
+        "afr": "African",
+        "african": "African",
+    }
+    if value not in ancestry_names:
+        raise ValueError("ancestry must be European or African")
+    return ancestry_names[value]
+
+def ld_database_path(chrom, ancestry="European"):
+    ancestry = normalize_ancestry(ancestry)
+    ld_dir = DATA_PATH / "databases/LD_db"
+    if ancestry == "African":
+        ld_dir = ld_dir / "African"
+    return ld_dir / f"ld_chr{chrom}.sqlite"
+
+def query_ld(chrom, pos38, ancestry="European"):
     """
     Query LD partners for given chromosome and position.
     Returns:
@@ -617,8 +647,9 @@ def query_ld(chrom, pos38):
     """
     try:
         chrom_clean = str(chrom).upper().replace("CHR", "")
-        db_path = DATA_PATH / f"databases/LD_db/ld_chr{chrom_clean}.sqlite"
-        ld_partners = partners_by_position(db_path, int(pos38), r2_min=0.2)
+        ancestry = normalize_ancestry(ancestry)
+        db_path = ld_database_path(chrom_clean, ancestry)
+        ld_partners = partners_by_position(db_path, int(pos38), r2_min=0.2, limit=100)
         if not ld_partners:
             return [], []
         # partner_uniq, r2, dist_bp
@@ -641,7 +672,14 @@ def query_ld(chrom, pos38):
         # Lookup rsIDs for partners
         records = []
         for v in all_partner_positions:
-            info = fetch_by_position(DB_FILE, chrom, v)
+            try:
+                info = fetch_by_position(DB_FILE, chrom_clean, v)
+            except (IndexError, sqlite3.Error):
+                # An LD reference panel can contain variants that are absent
+                # from the shared variant metadata database. Keep those LD
+                # partners and display a blank rsID rather than dropping the
+                # complete LD result for the queried variant.
+                info = None
             if info is not None:
                 records.append({"partner_pos": int(info["Position_hg38"]), "rsid": info["rsID"]})
         if records:
@@ -659,19 +697,19 @@ def query_ld(chrom, pos38):
         if df_ld.empty:
             return [], []
         # otherwise add also query info
-        ld_query_alleles = query_ld_query(chrom_clean, pos38)
+        ld_query_alleles = query_ld_query(chrom_clean, pos38, ancestry=ancestry)
         df_ld["query"] = chrom_clean + ':' + str(pos38) + ':' + ld_query_alleles
         return df_ld.to_dict(orient="records"), all_partner_positions
     except Exception as e:
         print("Error in query_ld:", e, flush=True)
         return [], []
 
-def query_ld_query(chrom, pos38):
+def query_ld_query(chrom, pos38, ancestry="European"):
     """
     Query query-SNP for given chromosome and position.
     """
     try:
-        db_path = DATA_PATH / f"databases/LD_db/ld_chr{chrom}.sqlite"
+        db_path = ld_database_path(chrom, ancestry)
         with _open_db_for_query(db_path) as conn:
             rows = conn.execute("SELECT id, uniq FROM variants WHERE pos = ? ORDER BY uniq",(pos38,)).fetchall()
         if not rows:
@@ -687,14 +725,20 @@ def query_ld_query(chrom, pos38):
 #---------------------------------------------------------
 # Query GWAS associations
 #---------------------------------------------------------
-def query_gwas_associations(chrom, pos38):
+def query_gwas_associations(chrom, pos38, ancestry="European"):
     """
     Query GWAS associations for a given hg38 chromosome and position.
     Returns a list of dictionaries (JSON-serializable).
     """
     try:
         chrom_clean = str(chrom).upper().replace("CHR", "")
-        GWAS_DB_FILE = DATA_PATH / f"databases/haplotypes/All_indep_gwas_sumstats_AI_hg38.txt.gz"
+        ancestry = normalize_ancestry(ancestry)
+        gwas_filename = (
+            "20260917_All_indep_gwas_sumstats_AI_hg38_African.txt.gz"
+            if ancestry == "African"
+            else "All_indep_gwas_sumstats_AI_hg38.txt.gz"
+        )
+        GWAS_DB_FILE = DATA_PATH / "databases/haplotypes" / gwas_filename
         region = f"{chrom_clean}:{pos38}-{pos38}"
         result = subprocess.run(["tabix", str(GWAS_DB_FILE), region], capture_output=True, check=True, text=True).stdout.strip()
         if result == "":
@@ -703,6 +747,8 @@ def query_gwas_associations(chrom, pos38):
         df.columns = ['gwas_id', 'trait', 'chrom', 'pos_hg19', 'rsid', 'ea', 'nea', 'eaf', 'beta', 'se', 'p', 'n', 'study_id', 'position_hg38']
         # subset columns to return
         df = df[['trait', 'ea', 'nea', 'eaf', 'beta', 'se', 'p', 'n', 'gwas_id', 'rsid']].copy()
+        df['p'] = pd.to_numeric(df['p'], errors='coerce')
+        df = df.sort_values('p', ascending=True, na_position='last').head(100)
         # Preserve full precision for confidence intervals and signed Z-scores.
         # Rounding small GWAS effects before plotting can materially distort both.
         df['beta'] = pd.to_numeric(df['beta'], errors='coerce')
@@ -944,28 +990,23 @@ def alphagenome_likely_genes(alpha_rows, top_n=100, min_fraction=0.20):
     """
     if not alpha_rows:
         return []
-
     try:
         alpha_df = pd.DataFrame(alpha_rows)
         if alpha_df.empty or "gene_name" not in alpha_df.columns:
             return []
-
         alpha_df = alpha_df.copy()
         alpha_df["gene_name"] = alpha_df["gene_name"].astype(str).str.strip()
         alpha_df = alpha_df[alpha_df["gene_name"] != ""]
         alpha_df = alpha_df[alpha_df["gene_name"].str.lower() != "nan"]
         if alpha_df.empty:
             return []
-
         if "score" in alpha_df.columns:
             alpha_df["score_numeric"] = pd.to_numeric(alpha_df["score"], errors="coerce")
             alpha_df["abs_score"] = alpha_df["score_numeric"].abs()
             alpha_df = alpha_df.sort_values(by="abs_score", ascending=False, na_position="last")
-
         alpha_top = alpha_df.head(top_n)
         if alpha_top.empty:
             return []
-
         gene_counts = alpha_top["gene_name"].value_counts(normalize=True)
         supported = gene_counts[gene_counts >= min_fraction]
         return supported.index.tolist()
@@ -979,27 +1020,21 @@ def qtl_target_ids(qtl_df):
     """
     if qtl_df is None or qtl_df.empty:
         return []
-
     targets = []
     seen = set()
-
     for _, row in qtl_df.iterrows():
         gene = row.get("gene")
         ensemble = row.get("ensemble")
-
         gene = "" if pd.isna(gene) else str(gene).strip()
         ensemble = "" if pd.isna(ensemble) else str(ensemble).strip()
-
         value = gene or ensemble
         if not value:
             continue
-
         key = value.lower()
         if key in seen:
             continue
         seen.add(key)
         targets.append(value)
-
     return targets
 
 # ---------------------------------------------------------
@@ -1051,27 +1086,22 @@ def resolve_variant_info(q, build="hg38"):
     parsed = parse_variant_query(q)
     if parsed["type"] == "invalid":
         return {"error": "Query not recognized. Use rsID (rs123), chr:pos, chr pos, gnomAD-style chr-pos-ref-alt, or SPDI accession:position:deleted:inserted."}, 400
-
     if parsed["type"] == "rsid":
         info = fetch_by_rsid(DB_FILE, parsed["rsid"])
         if not info:
             return {"error": f"{parsed['rsid']} not found"}, 404
         return info, 200
-
     chrom = parsed["chrom"].upper().replace("CHR", "")
     pos = parsed["pos"]
-
     if build == "hg38":
         info = fetch_by_position(DB_FILE, chrom, pos)
         if info is None:
             return {"error": f"{chrom}:{pos} not found in hg38"}, 404
         return info, 200
-
     if build == "hg19":
         lifted = liftover_hg19_to_hg38(chrom, pos)
         if lifted is None:
             return {"error": f"Cannot liftover {chrom}:{pos} (hg19→hg38)"}, 400
-
         chr38, pos38 = lifted
         info = fetch_by_position(DB_FILE, chr38, pos38)
         if info is None:
@@ -1081,27 +1111,23 @@ def resolve_variant_info(q, build="hg38"):
             "to_hg38": f"{chr38}:{pos38}",
         }
         return info, 200
-
     return {"error": "build must be hg19 or hg38"}, 400
 
 # ---------------------------------------------------------
 # Core logic for querying a variant
 # ---------------------------------------------------------
-def run_variant_query(q, build="hg38", tissues=None):
-    print(f"Running variant query for: {q} (build={build})", flush=True)
+def run_variant_query(q, build="hg38", tissues=None, ancestry="European"):
+    ancestry = normalize_ancestry(ancestry)
+    print(f"Running variant query for: {q} (build={build}, ancestry={ancestry})", flush=True)
     tissues = normalize_tissue_selection(tissues)
-
     # Monitoring: record search
     add_search_to_file(q, build, DATA_PATH)
-
     info, status = resolve_variant_info(q, build)
     if status != 200:
         return info, status
-
     # rsID path
     parsed = parse_variant_query(q)
     if parsed["type"] == "rsid":
-
         try:
             chr38 = info["Chromosome"]
             pos38 = info["Position_hg38"]
@@ -1120,12 +1146,11 @@ def run_variant_query(q, build="hg38", tissues=None):
             # Only top 100 for the UI
             info["sqtl_top"] = sorted(info["sqtl"], key=lambda x: x.get("pval_nominal", 1))[:100]
             # Add LD annotation
-            info["ld"], all_vars = query_ld(chr38, pos38)
+            info["ld"], all_vars = query_ld(chr38, pos38, ancestry=ancestry)
             # Add GWAS associations
-            info["gwas"] = query_gwas_associations(chr38, pos38)
+            info["gwas"] = query_gwas_associations(chr38, pos38, ancestry=ancestry)
             # Add structural variant (SV) annotations
             info["svs"] = extract_sv(chr38, pos38, refGen="GRCh38", svtypes=["all"])
-            
             # CADD / eQTL / sQTL for all LD partners
             if info["ld"]:
                 # If there are >100 LD partners, limit to top 100 by r2
@@ -1147,10 +1172,8 @@ def run_variant_query(q, build="hg38", tissues=None):
                 info["ld_cadd_top"] = []
                 info["ld_eqtl_top"] = []
                 info["ld_sqtl_top"] = []
-            
             # Identify most likely gene
             info = identify_most_likely_gene(info)
-    
         except Exception:
             info.setdefault("cadd", [])
             info.setdefault("gnomad_clinvar", {})
@@ -1163,18 +1186,16 @@ def run_variant_query(q, build="hg38", tissues=None):
             info.setdefault("gwas", [])
             info.setdefault("svs", [])
             info.setdefault("likely_gene", [])
-
         # record in session
         info["query"] = q
         info["build"] = build
         info["tissues"] = tissues
+        info["ancestry"] = ancestry
         session['single_variant_query'] = info
         return info, 200
-
     # coordinate path
     chrom = parsed["chrom"].upper().replace("CHR", "")
     pos = parsed["pos"]
-
     if build == "hg38":
         try:
             chr38 = info["Chromosome"]
@@ -1194,12 +1215,11 @@ def run_variant_query(q, build="hg38", tissues=None):
             # Only top 100 for the UI
             info["sqtl_top"] = sorted(info["sqtl"], key=lambda x: x.get("pval_nominal", 1))[:100]
             # Add LD annotation
-            info["ld"], all_vars = query_ld(chr38, pos38)
+            info["ld"], all_vars = query_ld(chr38, pos38, ancestry=ancestry)
             # Add GWAS associations
-            info["gwas"] = query_gwas_associations(chr38, pos38)
+            info["gwas"] = query_gwas_associations(chr38, pos38, ancestry=ancestry)
             # Add structural variant (SV) annotations
             info["svs"] = extract_sv(chr38, pos38, refGen="GRCh38", svtypes=["all"])
-            
             # CADD / eQTL / sQTL for all LD partners
             if info["ld"]:
                 # If there are >100 LD partners, limit to top 100 by r2
@@ -1220,10 +1240,8 @@ def run_variant_query(q, build="hg38", tissues=None):
                 info["ld_cadd_top"] = []
                 info["ld_eqtl_top"] = []
                 info["ld_sqtl_top"] = []
-            
             # Identify most likely gene
             info = identify_most_likely_gene(info)
-
         except Exception:
             info.setdefault("cadd", [])
             info.setdefault("gnomad_clinvar", {})
@@ -1236,14 +1254,13 @@ def run_variant_query(q, build="hg38", tissues=None):
             info.setdefault("gwas", [])
             info.setdefault("svs", [])
             info.setdefault("likely_gene", [])
-
         # record in session
         info["query"] = q
         info["build"] = build
         info["tissues"] = tissues
+        info["ancestry"] = ancestry
         session['single_variant_query'] = info
         return info, 200
-
     if build == "hg19":
         chr38 = info["Chromosome"]
         pos38 = info["Position_hg38"]
@@ -1263,12 +1280,11 @@ def run_variant_query(q, build="hg38", tissues=None):
             # Only top 100 for the UI
             info["sqtl_top"] = sorted(info["sqtl"], key=lambda x: x.get("pval_nominal", 1))[:100]
             # Add LD annotation based on hg38 location
-            info["ld"], all_vars = query_ld(chr38, pos38)
+            info["ld"], all_vars = query_ld(chr38, pos38, ancestry=ancestry)
             # Add GWAS associations
-            info["gwas"] = query_gwas_associations(chr38, pos38)
+            info["gwas"] = query_gwas_associations(chr38, pos38, ancestry=ancestry)
             # Add structural variant (SV) annotations
             info["svs"] = extract_sv(chr38, pos38, refGen="GRCh38", svtypes=["all"])
-            
             # CADD / eQTL / sQTL for all LD partners
             if info["ld"]:
                 # If there are >100 LD partners, limit to top 100 by r2
@@ -1289,10 +1305,8 @@ def run_variant_query(q, build="hg38", tissues=None):
                 info["ld_cadd_top"] = []
                 info["ld_eqtl_top"] = []
                 info["ld_sqtl_top"] = []
-            
             # Identify most likely gene
             info = identify_most_likely_gene(info)
-            
         except Exception:
             info.setdefault("cadd", [])
             info.setdefault("gnomad_clinvar", {})
@@ -1305,11 +1319,11 @@ def run_variant_query(q, build="hg38", tissues=None):
             info.setdefault("gwas", [])
             info.setdefault("svs", [])
             info.setdefault("likely_gene", [])
-            
         # record in session
         info["query"] = q
         info["build"] = build
         info["tissues"] = tissues
+        info["ancestry"] = ancestry
         session['single_variant_query'] = info
         return info, 200
     return {"error": "build must be hg19 or hg38"}, 400
@@ -1322,15 +1336,20 @@ def variant_query():
     q = request.args.get("query", "").strip()
     build = request.args.get("build", "hg38").lower()
     tissues = request.args.getlist("tissues")
+    ancestry = request.args.get("ancestry", "European")
     if not tissues:
         tissues_param = request.args.get("tissues", "").strip()
         tissues = tissues_param if tissues_param else None
-
     if not q:
         return jsonify({"error": "Missing ?query= parameter"}), 400
-
     try:
-        info, status = run_variant_query(q, build, tissues=tissues)
+        ancestry = normalize_ancestry(ancestry)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    try:
+        info, status = run_variant_query(q, build, tissues=tissues, ancestry=ancestry)
+        if status == 200:
+            info = add_variant_locus_plot(info)
         info = sanitize_for_json(info)
         return jsonify(info), status
     except Exception:
@@ -1346,35 +1365,39 @@ def variant_alphagenome():
     q = request.args.get("query", "").strip()
     build = request.args.get("build", "hg38").lower()
     tissues = request.args.getlist("tissues")
+    ancestry = request.args.get("ancestry", "European")
     if not tissues:
         tissues_param = request.args.get("tissues", "").strip()
         tissues = tissues_param if tissues_param else None
     tissues = normalize_tissue_selection(tissues)
-
+    try:
+        ancestry = normalize_ancestry(ancestry)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
     if not q:
         return jsonify({"error": "Missing ?query= parameter"}), 400
-
     session_info = session.get("single_variant_query")
-    if session_info and session_info.get("query") == q and session_info.get("build") == build:
+    if (session_info and session_info.get("query") == q
+            and session_info.get("build") == build
+            and session_info.get("ancestry", "European") == ancestry):
         info = dict(session_info)
     else:
         info, status = resolve_variant_info(q, build)
         if status != 200:
             return jsonify(sanitize_for_json(info)), status
-
     alpha_df = alphagenome_annotation(info, tissues=tissues)
     alpha_records = alpha_df.to_dict(orient="records") if not alpha_df.empty else []
     info["alphagenome"] = alpha_records
-
     if {"cadd_top", "eqtl", "sqtl", "ld", "gwas", "ld_cadd", "ld_eqtl", "ld_sqtl", "svs"}.issubset(info.keys()):
         info = identify_most_likely_gene(info)
-
-    if session_info and session_info.get("query") == q and session_info.get("build") == build:
+    if (session_info and session_info.get("query") == q
+            and session_info.get("build") == build
+            and session_info.get("ancestry", "European") == ancestry):
         session["single_variant_query"] = info
-
     payload = {
         "query": q,
         "build": build,
+        "ancestry": ancestry,
         "tissues": tissues,
         "alphagenome": alpha_records,
         "likely_gene": info.get("likely_gene"),
@@ -1398,29 +1421,24 @@ def variant_alphagenome_plot():
         from scipy.cluster import hierarchy
     except Exception:
         return jsonify({"error": "Plot dependencies are not available on server."}), 500
-
     try:
         payload = request.get_json(silent=True) or {}
         rows = payload.get("rows", [])
         if not rows:
             return jsonify({"error": "No AlphaGenome rows provided for plotting."}), 400
-
         df = pd.DataFrame(rows)
         if df.empty:
             return jsonify({"error": "No AlphaGenome rows provided for plotting."}), 400
-
         def pick_col(candidates):
             for c in candidates:
                 if c in df.columns:
                     return c
             return None
-
         gene_col = pick_col(["gene_name", "Gene Name", "gene", "Gene"])
         biosample_col = pick_col(["biosample_name", "Biosample Name", "tissue", "Tissue"])
         score_col = pick_col(["score", "Raw Score", "raw_score"])
         if not gene_col or not biosample_col or not score_col:
             return jsonify({"error": "AlphaGenome table is missing required columns (gene, biosample, score)."}), 400
-
         work = df.copy()
         work["Gene Name"] = work[gene_col].astype(str).str.strip()
         work["Biosample Name"] = work[biosample_col].astype(str).str.strip()
@@ -1428,27 +1446,23 @@ def variant_alphagenome_plot():
         work = work.dropna(subset=["Gene Name", "Biosample Name", "Raw Score"])
         if work.empty:
             return jsonify({"error": "No valid AlphaGenome rows after score parsing."}), 400
-
         # Optional metadata
         biosample_type_col = pick_col(["biosample_type", "Biosample Type"])
         life_stage_col = pick_col(["biosample_life_stage", "Biosample Life Stage"])
         data_source_col = pick_col(["data_source", "Data Source"])
         output_type_col = pick_col(["output_type", "Output Type"])
         gene_type_col = pick_col(["gene_type", "Gene Type", "track_label", "track_name"])
-
         work["Biosample Type"] = work[biosample_type_col].astype(str) if biosample_type_col else "Unknown"
         work["Biosample Life Stage"] = work[life_stage_col].astype(str) if life_stage_col else "Unknown"
         work["Data Source"] = work[data_source_col].astype(str) if data_source_col else "Unknown"
         work["Output Type"] = work[output_type_col].astype(str) if output_type_col else "Unknown"
         work["Gene Type"] = work[gene_type_col].astype(str) if gene_type_col else "Unknown"
-
         # Top 1% by absolute score (two-tailed by abs)
         work["absScore"] = work["Raw Score"].abs()
         thr = work["absScore"].quantile(0.99)
         data_top_thr = work.loc[work["absScore"] >= thr].copy()
         if data_top_thr.empty:
             data_top_thr = work.nlargest(min(100, len(work)), "absScore").copy()
-
         # Matrix
         mat_dt = (
             data_top_thr
@@ -1458,7 +1472,6 @@ def variant_alphagenome_plot():
         mat = mat_dt.pivot(index="Biosample Name", columns="Gene Name", values="Raw Score")
         if mat.empty or mat.shape[0] < 1 or mat.shape[1] < 1:
             return jsonify({"error": "Insufficient data to build AlphaGenome heatmap."}), 400
-
         # Row / column metadata
         row_anno = (
             data_top_thr[["Biosample Name", "Biosample Type", "Biosample Life Stage", "Data Source", "Output Type"]]
@@ -1466,7 +1479,6 @@ def variant_alphagenome_plot():
             .set_index("Biosample Name")
             .reindex(mat.index)
         )
-
         col_anno = (
             data_top_thr[["Gene Name", "Gene Type"]]
             .drop_duplicates(subset=["Gene Name"])
@@ -1660,6 +1672,7 @@ def last_variant():
     info = session.get("single_variant_query")
     if not info:
         return jsonify({"error": "no previous query"}), 404
+    info = add_variant_locus_plot(info)
     return jsonify(sanitize_for_json(info)), 200
 
 # ---------------------------------------------------------
