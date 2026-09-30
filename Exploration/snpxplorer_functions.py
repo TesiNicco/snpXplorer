@@ -332,7 +332,7 @@ def plot_haplotype_traits(clusters_of_interest, all_indices, trait_list, cluster
         for point_index, point_group in enumerate(context['points']):
             cluster_key = point_group['key']
             fig.add_trace(
-                go.Scattergl(
+                go.Scatter(
                     x=point_group['coordinates'][:, 0],
                     y=point_group['coordinates'][:, 1],
                     mode='markers',
@@ -1417,7 +1417,7 @@ def guide_haplotypes_snps_genes(data_path, browse, window, refGen, ancestry='Eur
     # Derive chromosome and position
     chrom, start_pos, end_pos, browse_type = readBrowseOption(data_path, browse, window, refGen)
     # get data of the region of interest
-    haplo_df, haplo_dict = extract_haplo_data(
+    haplo_df, _ = extract_haplo_data(
         data_path, chrom, start_pos, end_pos, ancestry=ancestry
     )
     # identify the haplotype when an individual SNP is searched
@@ -1441,9 +1441,6 @@ def guide_haplotypes_snps_genes(data_path, browse, window, refGen, ancestry='Eur
     haplo_summary['haplo_index'] = haplo_summary.index.map(index_to_letters)
     # reorder columns for the table
     haplo_summary = haplo_summary[['haplo_index', 'ID', 'n_snps', 'start_bp', 'end_bp', 'n_traits', 'traits']]
-    # prepare plotting labels/order: cap at top 50 by #traits
-    plot_df = haplo_summary.head(50).copy()
-    haplo_label_map = dict(zip(plot_df['ID'], plot_df['haplo_index']))
     # Start the regional LD panel with the six highest-ranked haplotypes. The
     # interactive selector can subsequently request any haplotypes in the
     # complete regional summary.
@@ -1454,9 +1451,15 @@ def guide_haplotypes_snps_genes(data_path, browse, window, refGen, ancestry='Eur
         hap_id_interest = 'Not found'
     else:
         hap_id_interest = hap_id_interest[0]  # take the first one for highlighting in the plot
-    # create plot
-    fig = haplotype_plotly_regional(haplo_df, haplo_dict, genes, refGen=refGen, haplo_label_map=haplo_label_map)
-    plot_url = pio.to_html(fig, include_plotlyjs='cdn', full_html=False)
+    # Use the same layout for the initial single-ancestry view and comparisons.
+    fig = haplotype_ancestry_overview(
+        data_path, chrom, start_pos, end_pos, [ancestry], refGen=refGen,
+        limit=10, preloaded={ancestry: haplo_df}, genes=genes,
+    )
+    plot_url = pio.to_html(
+        fig, include_plotlyjs='cdn', full_html=False,
+        config={'responsive': True, 'displaylogo': False},
+    )
     ld_fig = build_haplotype_ld_roof(
         data_path,
         chrom,
@@ -1480,6 +1483,133 @@ def guide_haplotypes_snps_genes(data_path, browse, window, refGen, ancestry='Eur
         end_pos,
         hap_id_interest,
     )
+
+
+def haplotype_ancestry_overview(data_path, chrom, start_pos, end_pos, ancestries,
+                               refGen='GRCh38', limit=10, preloaded=None, genes=None):
+    """Build aligned ancestry panels for the same genomic interval."""
+    if not ancestries or any(a not in ('European', 'African') for a in ancestries):
+        raise ValueError('Choose European and/or African ancestry.')
+    if limit not in (10, 20):
+        raise ValueError('Overview limit must be 10 or 20.')
+
+    panels = []
+    for ancestry in ancestries:
+        if preloaded is not None and ancestry in preloaded:
+            haplo_df = preloaded[ancestry]
+        else:
+            haplo_df, _ = extract_haplo_data(
+                data_path, chrom, start_pos, end_pos, ancestry=ancestry
+            )
+        if haplo_df.empty:
+            panels.append((ancestry, haplo_df))
+            continue
+        ranked = (haplo_df.groupby('ID', as_index=False)
+                  .agg(n_traits=('n_traits', 'max'), start_bp=('BP1', 'min'))
+                  .sort_values(['n_traits', 'start_bp'], ascending=[False, True])
+                  .head(limit))
+        rank_by_id = dict(zip(ranked['ID'], range(len(ranked))))
+        visible = haplo_df[haplo_df['ID'].isin(rank_by_id)].copy()
+        visible = visible.drop_duplicates('ID')
+        visible['plot_rank'] = visible['ID'].map(rank_by_id)
+        visible = visible.sort_values(['plot_rank', 'BP1'])
+        panels.append((ancestry, visible))
+
+    if genes is None:
+        genes = extract_genes(data_path, chrom, start_pos, end_pos, refGen)
+    n_panels = len(panels)
+    heights = [max(3, len(frame)) for _, frame in panels] + [9]
+    figure = make_subplots(
+        rows=n_panels + 1, cols=1, shared_xaxes=True,
+        row_heights=heights, vertical_spacing=0.025,
+    )
+    trait_values = [int(value) for _, frame in panels for value in frame['n_traits']]
+    min_traits = min(trait_values, default=0)
+    max_traits = max(trait_values, default=1)
+    if min_traits == max_traits:
+        max_traits = min_traits + 1
+    scale_shown = False
+
+    for row_number, (ancestry, frame) in enumerate(panels, start=1):
+        code = 'EUR' if ancestry == 'European' else 'AFR'
+        ticks, labels = [], []
+        for _, haplo in frame.iterrows():
+            snps = str(haplo['SNPS']).split('|')
+            positions = [int(snp.split(':')[1]) / 1_000_000 for snp in snps]
+            rank = int(haplo['plot_rank'])
+            label = f'{code} {index_to_letters(rank)}'
+            ticks.append(rank)
+            labels.append(label)
+            count = int(haplo['n_traits'])
+            figure.add_trace(go.Scatter(
+                x=positions, y=[rank] * len(positions), mode='markers+lines',
+                line=dict(color='#8c8c8c', width=1.5),
+                marker=dict(size=7, color=[count] * len(positions),
+                            colorscale='Spectral', cmin=min_traits, cmax=max_traits,
+                            showscale=not scale_shown,
+                            colorbar=dict(title='Traits', x=1.01, len=0.45),
+                            line=dict(color='black', width=1)),
+                name=label, showlegend=False,
+                meta=dict(kind='haplotype', ancestry=ancestry, snps=snps,
+                          haplotype_id=str(haplo['ID']), label=label),
+                customdata=[[snp] for snp in snps],
+                hovertemplate=(f'{label}<br>Haplotype: {haplo["ID"]}'
+                               '<br>SNP: %{customdata[0]}'
+                               f'<br>Associated traits: {count}<extra></extra>'),
+            ), row=row_number, col=1)
+            scale_shown = True
+        figure.update_yaxes(
+            tickmode='array', tickvals=ticks, ticktext=labels,
+            range=[max(len(ticks) - 0.5, 0.5), -0.5],
+            title_text=ancestry, tickfont=dict(size=11), row=row_number, col=1,
+        )
+        if not ticks:
+            figure.add_annotation(
+                x=(start_pos + end_pos) / 2_000_000, y=0,
+                text=f'No {ancestry.lower()} haplotypes in this region',
+                showarrow=False, row=row_number, col=1,
+            )
+
+    gene_row = n_panels + 1
+    if genes:
+        index_pos = 4 if refGen == 'GRCh37' else 5
+        index_name = 0 if refGen == 'GRCh37' else -2
+        index_strand = 3 if refGen == 'GRCh37' else 2
+        for gene in genes:
+            x0 = int(gene[index_pos]) / 1_000_000
+            x1 = int(gene[index_pos + 1]) / 1_000_000
+            lane = int(gene[-1])
+            figure.add_trace(go.Scatter(
+                x=[x0, x1], y=[lane, lane], mode='lines',
+                line=dict(color='#666' if gene[index_strand] == '+' else '#222', width=5),
+                text=[str(gene[index_name])] * 2, hovertemplate='%{text}<extra></extra>',
+                showlegend=False,
+            ), row=gene_row, col=1)
+            figure.add_annotation(
+                x=(x0 + x1) / 2, y=lane + 0.15,
+                text=str(gene[index_name]), showarrow=False,
+                font=dict(size=14), row=gene_row, col=1,
+            )
+        figure.update_yaxes(range=[-0.5, max(int(g[-1]) for g in genes) + 0.7],
+                            showticklabels=False, title_text='Genes', row=gene_row, col=1)
+    else:
+        figure.add_annotation(
+            x=(start_pos + end_pos) / 2_000_000, y=0,
+            text='No genes to plot', showarrow=False, row=gene_row, col=1,
+        )
+        figure.update_yaxes(showticklabels=False, title_text='Genes', row=gene_row, col=1)
+
+    figure.update_xaxes(range=[start_pos / 1_000_000, end_pos / 1_000_000],
+                        showgrid=True, gridcolor='#e0e0e0')
+    figure.update_xaxes(title_text=f'Chromosome {chrom} position (Mb)', row=gene_row, col=1)
+    figure.update_layout(
+        height=round((280 + 14 * limit) * (1.35 if n_panels == 2 else 1)),
+        margin=dict(l=85, r=80, t=30, b=55),
+        plot_bgcolor='white', paper_bgcolor='white',
+        hovermode='closest', showlegend=False,
+    )
+    return figure
+
 
 # function to query cadd scores
 def query_cadd_score(snps, data_path):
@@ -2186,9 +2316,9 @@ def run_annotation(
     ancestry = 'African' if str(ancestry).strip().lower() == 'african' else 'European'
     # Then run annotate me externally in background -- this depends on the analysis_type requested
     #command = "Rscript /Annotation/BIN/MAIN.R %s %s %s %s %s %s %s %s > %s" %(filename, ftype, email, analysis_type, analysis_mode, gtex_tissues, refGeno, random_number, log_filename_server)
-    command = f"python {path_server}/Annotation/BIN/standalone_annotation_optimized.py -q {fpath_server} -t {analysis_type} -o {path_server}/Annotation/RUNS/ -r {random_number} -b {refGeno} -a {ancestry} -ts {gtex_tissues} -gs {analysis_mode} -e {email} "
+    command = f"python {path_server}/Annotation/BIN/standalone_annotation_optimized_mp.py -q {fpath_server} -t {analysis_type} -o {path_server}/Annotation/RUNS/ -r {random_number} -b {refGeno} -a {ancestry} -ts {gtex_tissues} -gs {analysis_mode} -e {email} --workers 2 --gsea-workers 2 --gnomad-source hail "
     print(command)
-    return command
+    return command, str(random_number)
 
 # function to extract GTEx information
 def get_gtex(data_path, genes, refGen):

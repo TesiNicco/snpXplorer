@@ -1,0 +1,4 @@
+workers	wall_s	user_cpu_s	system_cpu_s	cpu_percent	speedup_vs_1	max_rss_kb_reported	exit_code	selected_variants	output_rows	gnomad_af_present	clinvar_gene_present	gnomad_responses_ok	gnomad_failed_attempts	alphagenome_errors	ld_errors	log_file	output_dir
+1	274.875	151.747	5.739	57.3	1.00	605780	0	41	41	41	6	0	0	0	0	/Annotation/BIN/performance/benchmark_runs_20260925T111036Z/workers_1.log	/Annotation/BIN/performance/benchmark_runs_20260925T111036Z/snpXplorer_annotation_benchmark_w1
+2	225.947	147.683	6.028	68.0	1.22	486392	0	41	41	41	6	0	0	0	0	/Annotation/BIN/performance/benchmark_runs_20260925T111036Z/workers_2.log	/Annotation/BIN/performance/benchmark_runs_20260925T111036Z/snpXplorer_annotation_benchmark_w2
+3	231.425	143.267	6.262	64.6	1.19	486272	0	41	41	41	6	0	0	0	0	/Annotation/BIN/performance/benchmark_runs_20260925T111036Z/workers_3.log	/Annotation/BIN/performance/benchmark_runs_20260925T111036Z/snpXplorer_annotation_benchmark_w3

@@ -1,0 +1,121 @@
+[MEM] 57.45 GB free – starting job.
+[HAIL] Reading gnomAD v4.1 and ClinVar for 41 variants
+/usr/local/lib/python3.10/site-packages/hail/backend/py4j_backend.py:75: UserWarning: Hail was built and tested with Java 11. You are using Java 17.0.20 which is not supported. This may lead to errors. Consider installing Java 11 and setting the JAVA_HOME environment variable.
+  warnings.warn(
+[HAIL] ClinVar table: gs://gcp-public-data--gnomad/resources/grch38/clinvar/clinvar_20250504.ht
+SLF4J: Failed to load class "org.slf4j.impl.StaticLoggerBinder".
+SLF4J: Defaulting to no-operation (NOP) logger implementation
+SLF4J: See http://www.slf4j.org/codes.html#StaticLoggerBinder for further details.
+[HAIL] Resolved lookups for 41 variants (exome=18, genome=41, clinvar=6)
+[HAIL] Saved 41 variant annotations
+[MP] Variant workers: 1; GSEA request workers: 1; gnomAD source: hail
+Running variant query for: rs141749679 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs141749679'}
+Running variant query for: rs143080277 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs143080277'}
+Running variant query for: rs6733839 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs6733839'}
+Running variant query for: rs139643391 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs139643391'}
+Running variant query for: rs3822030 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs3822030'}
+Running variant query for: rs6846529 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs6846529'}
+Running variant query for: rs2245466 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs2245466'}
+Running variant query for: rs112403360 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs112403360'}
+Running variant query for: rs6605556 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs6605556'}
+Running variant query for: rs10947943 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs10947943'}
+Running variant query for: rs143332484 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs143332484'}
+Running variant query for: rs785129 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs785129'}
+Running variant query for: rs6943429 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs6943429'}
+Running variant query for: rs10952097 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs10952097'}
+Running variant query for: rs76928645 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs76928645'}
+Running variant query for: rs7384878 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs7384878'}
+Running variant query for: rs11771145 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs11771145'}
+Running variant query for: rs1065712 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs1065712'}
+Running variant query for: rs6586028 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs6586028'}
+Running variant query for: rs1582763 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs1582763'}
+Running variant query for: rs12590654 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs12590654'}
+Running variant query for: rs7157106 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs7157106'}
+Running variant query for: rs10131280 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs10131280'}
+Running variant query for: rs8025980 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs8025980'}
+Running variant query for: rs602602 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs602602'}
+Running variant query for: rs889555 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs889555'}
+Running variant query for: rs4985556 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs4985556'}
+Running variant query for: rs450674 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs450674'}
+Running variant query for: rs12446759 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs12446759'}
+Running variant query for: rs72824905 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs72824905'}
+/Annotation/BIN/standalone_annotation_optimized_mp.py:3214: FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated. In a future version, this will no longer exclude empty or all-NA columns when determining the result dtypes. To retain the old behavior, exclude the relevant entries before the concat operation.
+  append_df(variant_combined_path, pd.concat(buf_variant, ignore_index=True))
+/Annotation/BIN/standalone_annotation_optimized_mp.py:3229: FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated. In a future version, this will no longer exclude empty or all-NA columns when determining the result dtypes. To retain the old behavior, exclude the relevant entries before the concat operation.
+  append_df(eqtl_path, pd.concat(buf_eqtl, ignore_index=True))
+/Annotation/BIN/standalone_annotation_optimized_mp.py:3232: FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated. In a future version, this will no longer exclude empty or all-NA columns when determining the result dtypes. To retain the old behavior, exclude the relevant entries before the concat operation.
+  append_df(sqtl_path, pd.concat(buf_sqtl, ignore_index=True))
+/Annotation/BIN/standalone_annotation_optimized_mp.py:3238: FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated. In a future version, this will no longer exclude empty or all-NA columns when determining the result dtypes. To retain the old behavior, exclude the relevant entries before the concat operation.
+  append_df(ld_path, pd.concat(buf_ld, ignore_index=True))
+/Annotation/BIN/standalone_annotation_optimized_mp.py:3241: FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated. In a future version, this will no longer exclude empty or all-NA columns when determining the result dtypes. To retain the old behavior, exclude the relevant entries before the concat operation.
+  append_df(ld_cadd_path, pd.concat(buf_ld_cadd, ignore_index=True))
+/Annotation/BIN/standalone_annotation_optimized_mp.py:3244: FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated. In a future version, this will no longer exclude empty or all-NA columns when determining the result dtypes. To retain the old behavior, exclude the relevant entries before the concat operation.
+  append_df(ld_eqtl_path, pd.concat(buf_ld_eqtl, ignore_index=True))
+/Annotation/BIN/standalone_annotation_optimized_mp.py:3247: FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated. In a future version, this will no longer exclude empty or all-NA columns when determining the result dtypes. To retain the old behavior, exclude the relevant entries before the concat operation.
+  append_df(ld_sqtl_path, pd.concat(buf_ld_sqtl, ignore_index=True))
+Running variant query for: rs7225151 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs7225151'}
+Running variant query for: rs616338 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs616338'}
+Running variant query for: rs12151021 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs12151021'}
+Running variant query for: rs149080927 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs149080927'}
+Running variant query for: rs7412 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs7412'}
+Running variant query for: rs9304690 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs9304690'}
+Running variant query for: rs12459419 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs12459419'}
+Running variant query for: rs587709 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs587709'}
+Running variant query for: rs1358782 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs1358782'}
+Running variant query for: rs6014724 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs6014724'}
+Running variant query for: rs2830489 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs2830489'}
+/Annotation/BIN/standalone_annotation_optimized_mp.py:3257: FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated. In a future version, this will no longer exclude empty or all-NA columns when determining the result dtypes. To retain the old behavior, exclude the relevant entries before the concat operation.
+  append_df(variant_combined_path, pd.concat(buf_variant, ignore_index=True))
+/Annotation/BIN/standalone_annotation_optimized_mp.py:3267: FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated. In a future version, this will no longer exclude empty or all-NA columns when determining the result dtypes. To retain the old behavior, exclude the relevant entries before the concat operation.
+  append_df(eqtl_path, pd.concat(buf_eqtl, ignore_index=True))
+/Annotation/BIN/standalone_annotation_optimized_mp.py:3269: FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated. In a future version, this will no longer exclude empty or all-NA columns when determining the result dtypes. To retain the old behavior, exclude the relevant entries before the concat operation.
+  append_df(sqtl_path, pd.concat(buf_sqtl, ignore_index=True))
+/Annotation/BIN/standalone_annotation_optimized_mp.py:3273: FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated. In a future version, this will no longer exclude empty or all-NA columns when determining the result dtypes. To retain the old behavior, exclude the relevant entries before the concat operation.
+  append_df(ld_path, pd.concat(buf_ld, ignore_index=True))
+/Annotation/BIN/standalone_annotation_optimized_mp.py:3275: FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated. In a future version, this will no longer exclude empty or all-NA columns when determining the result dtypes. To retain the old behavior, exclude the relevant entries before the concat operation.
+  append_df(ld_cadd_path, pd.concat(buf_ld_cadd, ignore_index=True))
+/Annotation/BIN/standalone_annotation_optimized_mp.py:3277: FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated. In a future version, this will no longer exclude empty or all-NA columns when determining the result dtypes. To retain the old behavior, exclude the relevant entries before the concat operation.
+  append_df(ld_eqtl_path, pd.concat(buf_ld_eqtl, ignore_index=True))
+/Annotation/BIN/standalone_annotation_optimized_mp.py:3279: FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated. In a future version, this will no longer exclude empty or all-NA columns when determining the result dtypes. To retain the old behavior, exclude the relevant entries before the concat operation.
+  append_df(ld_sqtl_path, pd.concat(buf_ld_sqtl, ignore_index=True))

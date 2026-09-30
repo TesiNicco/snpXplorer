@@ -1,0 +1,42 @@
+Variation Id	Ref	Alt	Gene Symbol	Conditions	Germline Classification	Clinical Significance	Major Consequence	Transcript Id	Hgvsc	Hgvsp	Last Evaluated	Review Status	Variant Id	Link Clinvar
+2638980	T	C	SORT1	['not provided']	Likely benign	Likely benign	missense_variant	ENST00000256637	ENST00000256637.8:c.904A>G	ENSP00000256637.6:p.Lys302Glu	NA	criteria provided| single submitter	1-109345810-T-C	https://www.ncbi.nlm.nih.gov/clinvar/variation/2638980/
+NA	NA	NA	NA	[]	NA	NA	NA	NA	NA	NA	NA	NA	2-105749599-T-C	NA
+NA	NA	NA	NA	[]	NA	NA	NA	NA	NA	NA	NA	NA	2-127135234-C-T	NA
+NA	NA	NA	NA	[]	NA	NA	NA	NA	NA	NA	NA	NA	2-202878716-TC-T	NA
+NA	NA	NA	NA	[]	NA	NA	NA	NA	NA	NA	NA	NA	4-993555-G-T	NA
+NA	NA	NA	NA	[]	NA	NA	NA	NA	NA	NA	NA	NA	4-11023507-C-T	NA
+NA	NA	NA	NA	[]	NA	NA	NA	NA	NA	NA	NA	NA	4-40197226-G-C	NA
+NA	NA	NA	NA	[]	NA	NA	NA	NA	NA	NA	NA	NA	5-14724304-T-A	NA
+NA	NA	NA	NA	[]	NA	NA	NA	NA	NA	NA	NA	NA	6-32615322-A-G	NA
+NA	NA	NA	NA	[]	NA	NA	NA	NA	NA	NA	NA	NA	6-41036354-G-A	NA
+445645	C	T	TREM2	['Polycystic lipomembranous osteodysplasia with sclerosing leukoencephalopathy 1', 'not provided', 'not specified']	Benign/Likely benign	Benign/Likely benign	missense_variant	ENST00000338469	ENST00000338469.3:c.185G>A	ENSP00000342651.4:p.Arg62His	NA	criteria provided| multiple submitters| no conflicts	6-41161469-C-T	https://www.ncbi.nlm.nih.gov/clinvar/variation/445645/
+NA	NA	NA	NA	[]	NA	NA	NA	NA	NA	NA	NA	NA	6-114291731-T-C	NA
+NA	NA	NA	NA	[]	NA	NA	NA	NA	NA	NA	NA	NA	7-7817263-T-C	NA
+NA	NA	NA	NA	[]	NA	NA	NA	NA	NA	NA	NA	NA	7-8204382-T-C	NA
+NA	NA	NA	NA	[]	NA	NA	NA	NA	NA	NA	NA	NA	7-54873635-C-T	NA
+NA	NA	NA	NA	[]	NA	NA	NA	NA	NA	NA	NA	NA	7-100334426-C-T	NA
+NA	NA	NA	NA	[]	NA	NA	NA	NA	NA	NA	NA	NA	7-143413669-G-A	NA
+NA	NA	NA	NA	[]	NA	NA	NA	NA	NA	NA	NA	NA	8-11844613-G-C	NA
+NA	NA	NA	NA	[]	NA	NA	NA	NA	NA	NA	NA	NA	10-80494228-C-T	NA
+NA	NA	NA	NA	[]	NA	NA	NA	NA	NA	NA	NA	NA	11-60254475-G-A	NA
+NA	NA	NA	NA	[]	NA	NA	NA	NA	NA	NA	NA	NA	14-92472511-G-A	NA
+NA	NA	NA	NA	[]	NA	NA	NA	NA	NA	NA	NA	NA	14-105761758-A-G	NA
+NA	NA	NA	NA	[]	NA	NA	NA	NA	NA	NA	NA	NA	14-106665591-G-A	NA
+NA	NA	NA	NA	[]	NA	NA	NA	NA	NA	NA	NA	NA	15-50701814-A-G	NA
+NA	NA	NA	NA	[]	NA	NA	NA	NA	NA	NA	NA	NA	15-58764824-T-A	NA
+1251060	C	T	BCKDK	['not provided']	Benign	Benign	intron_variant	ENST00000219794	ENST00000219794.11:c.845+31C>T	NA	NA	criteria provided| multiple submitters| no conflicts	16-31111250-C-T	https://www.ncbi.nlm.nih.gov/clinvar/variation/1251060/
+NA	NA	NA	NA	[]	NA	NA	NA	NA	NA	NA	NA	NA	16-70660097-C-A	NA
+NA	NA	NA	NA	[]	NA	NA	NA	NA	NA	NA	NA	NA	16-79574511-T-C	NA
+NA	NA	NA	NA	[]	NA	NA	NA	NA	NA	NA	NA	NA	16-81739398-G-A	NA
+440154	C	G	PLCG2	['not provided', 'Familial cold autoinflammatory syndrome 3', 'PLCG2-related disorder']	Benign/Likely benign	Benign/Likely benign	downstream_gene_variant	ENST00000563375	NA	NA	NA	criteria provided| multiple submitters| no conflicts	16-81908423-C-G	https://www.ncbi.nlm.nih.gov/clinvar/variation/440154/
+NA	NA	NA	NA	[]	NA	NA	NA	NA	NA	NA	NA	NA	17-5233752-G-A	NA
+NA	NA	NA	NA	[]	NA	NA	NA	NA	NA	NA	NA	NA	17-49219935-T-C	NA
+NA	NA	NA	NA	[]	NA	NA	NA	NA	NA	NA	NA	NA	19-1050875-A-G	NA
+NA	NA	NA	NA	[]	NA	NA	NA	NA	NA	NA	NA	NA	19-1854254-G-GC	NA
+17848	C	T	APOE	['Hypercholesterolemia', 'atorvastatin response - Efficacy', 'not provided', 'Familial type 3 hyperlipoproteinemia', 'not specified', 'Warfarin response']	drug response	drug response	missense_variant	ENST00000252486	ENST00000252486.9:c.526C>T	ENSP00000252486.3:p.Arg176Cys	NA	reviewed by expert panel	19-44908822-C-T	https://www.ncbi.nlm.nih.gov/clinvar/variation/17848/
+NA	NA	NA	NA	[]	NA	NA	NA	NA	NA	NA	NA	NA	19-49950060-C-T	NA
+1275129	C	T	CD33	['not provided']	Benign	Benign	missense_variant	ENST00000262262	ENST00000262262.5:c.41C>T	ENSP00000262262.3:p.Ala14Val	NA	criteria provided| multiple submitters| no conflicts	19-51225221-C-T	https://www.ncbi.nlm.nih.gov/clinvar/variation/1275129/
+NA	NA	NA	NA	[]	NA	NA	NA	NA	NA	NA	NA	NA	19-54267597-C-T	NA
+NA	NA	NA	NA	[]	NA	NA	NA	NA	NA	NA	NA	NA	20-413334-A-G	NA
+NA	NA	NA	NA	[]	NA	NA	NA	NA	NA	NA	NA	NA	20-56423488-A-G	NA
+NA	NA	NA	NA	[]	NA	NA	NA	NA	NA	NA	NA	NA	21-26775872-C-T	NA

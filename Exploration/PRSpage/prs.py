@@ -345,7 +345,7 @@ def plot_haplotype_traits(artifact, selected_row):
             cluster_key = point_group["key"]
             color = color_map[cluster_key]
             figure.add_trace(
-                go.Scattergl(
+                go.Scatter(
                     x=point_group["coordinates"][:, 0],
                     y=point_group["coordinates"][:, 1],
                     mode="markers",
@@ -736,8 +736,9 @@ def trait_search():
         ]
         cluster_rep = ""
         if not representative.empty:
-            cluster_rep = str(representative.iloc[0]["Final Representative file"]).replace(
-                "_hits_p5e-5.txt.gz", ""
+            cluster_rep = re.sub(
+                r"_hits_p5e-5\.txt(?:\.gz)?$", "",
+                str(representative.iloc[0]["Final Representative file"]),
             )
         # Flag cluster representative
         meta_sb["Cluster Representative"] = meta_sb["ID"].apply(lambda x: "Yes" if x == cluster_rep else "No")

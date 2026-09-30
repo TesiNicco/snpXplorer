@@ -1,0 +1,45 @@
+[MEM] 57.17 GB free – starting job.
+[HAIL] Reading gnomAD v4.1 and ClinVar for 10 variants
+/usr/local/lib/python3.10/site-packages/hail/backend/py4j_backend.py:75: UserWarning: Hail was built and tested with Java 11. You are using Java 17.0.20 which is not supported. This may lead to errors. Consider installing Java 11 and setting the JAVA_HOME environment variable.
+  warnings.warn(
+[HAIL] ClinVar table: gs://gcp-public-data--gnomad/resources/grch38/clinvar/clinvar_20250504.ht
+SLF4J: Failed to load class "org.slf4j.impl.StaticLoggerBinder".
+SLF4J: Defaulting to no-operation (NOP) logger implementation
+SLF4J: See http://www.slf4j.org/codes.html#StaticLoggerBinder for further details.
+[HAIL] Resolved 10/10 variants
+[HAIL] Saved 10 variant annotations
+[MP] Variant workers: 2; GSEA request workers: 1; gnomAD source: hail
+Running variant query for: rs141749679 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs141749679'}
+Running variant query for: rs143080277 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs143080277'}
+Running variant query for: rs6733839 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs6733839'}
+Running variant query for: rs139643391 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs139643391'}
+Running variant query for: rs3822030 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs3822030'}
+Running variant query for: rs6846529 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs6846529'}
+Running variant query for: rs2245466 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs2245466'}
+Running variant query for: rs112403360 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs112403360'}
+Running variant query for: rs6605556 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs6605556'}
+Running variant query for: rs10947943 (build=hg38)
+Processing parsed query: {'type': 'rsid', 'rsid': 'rs10947943'}
+/Annotation/BIN/standalone_annotation_optimized_mp.py:3132: FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated. In a future version, this will no longer exclude empty or all-NA columns when determining the result dtypes. To retain the old behavior, exclude the relevant entries before the concat operation.
+  append_df(variant_combined_path, pd.concat(buf_variant, ignore_index=True))
+/Annotation/BIN/standalone_annotation_optimized_mp.py:3142: FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated. In a future version, this will no longer exclude empty or all-NA columns when determining the result dtypes. To retain the old behavior, exclude the relevant entries before the concat operation.
+  append_df(eqtl_path, pd.concat(buf_eqtl, ignore_index=True))
+/Annotation/BIN/standalone_annotation_optimized_mp.py:3144: FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated. In a future version, this will no longer exclude empty or all-NA columns when determining the result dtypes. To retain the old behavior, exclude the relevant entries before the concat operation.
+  append_df(sqtl_path, pd.concat(buf_sqtl, ignore_index=True))
+/Annotation/BIN/standalone_annotation_optimized_mp.py:3148: FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated. In a future version, this will no longer exclude empty or all-NA columns when determining the result dtypes. To retain the old behavior, exclude the relevant entries before the concat operation.
+  append_df(ld_path, pd.concat(buf_ld, ignore_index=True))
+/Annotation/BIN/standalone_annotation_optimized_mp.py:3150: FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated. In a future version, this will no longer exclude empty or all-NA columns when determining the result dtypes. To retain the old behavior, exclude the relevant entries before the concat operation.
+  append_df(ld_cadd_path, pd.concat(buf_ld_cadd, ignore_index=True))
+/Annotation/BIN/standalone_annotation_optimized_mp.py:3152: FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated. In a future version, this will no longer exclude empty or all-NA columns when determining the result dtypes. To retain the old behavior, exclude the relevant entries before the concat operation.
+  append_df(ld_eqtl_path, pd.concat(buf_ld_eqtl, ignore_index=True))
+/Annotation/BIN/standalone_annotation_optimized_mp.py:3154: FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated. In a future version, this will no longer exclude empty or all-NA columns when determining the result dtypes. To retain the old behavior, exclude the relevant entries before the concat operation.
+  append_df(ld_sqtl_path, pd.concat(buf_ld_sqtl, ignore_index=True))

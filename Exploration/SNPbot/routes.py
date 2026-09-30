@@ -19,10 +19,7 @@ try:
 except ImportError:
     from gtex_alphagenome_mapping import gtex_to_alphagenome_terms
 
-try:
-    from accessory.plot_single_variant_haplo import plot_single_variant_cadd
-except ImportError:
-    from Exploration.accessory.plot_single_variant_haplo import plot_single_variant_cadd
+from .plot_single_variant_haplo import plot_single_variant_cadd
 
 # Blueprint setup (if needed)
 snpbot_bp = Blueprint('snpbot', __name__, template_folder='templates')

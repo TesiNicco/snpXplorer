@@ -913,7 +913,7 @@ def annotation():
     emailResponse = is_valid_email(email)
     # modify the message linked to submission
     messageSubmission = ''
-    success_message = 'Your job has been submitted! Check your email shortly.'
+    run_id = None
     limit_message = ('Input limits: Annotation allows up to 10000 selected variants and '
                      'Gene-set Enrichment Analysis allows up to 1000 explicitly entered variants. '
                      'Please provide one rsID, coordinate, or interval per line.')
@@ -956,9 +956,8 @@ def annotation():
         elif len(set(explicit_inputs)) > snp_limit:
             messageSubmission = f'Too many explicit variants provided for the selected analysis. {limit_message}'
         elif emailResponse == True:
-            messageSubmission = success_message
             # run the script here
-            command = run_annotation(
+            command, run_id = run_annotation(
                 my_list,
                 inpType,
                 refGeno,
@@ -969,10 +968,11 @@ def annotation():
                 ancestry,
             )
             print(command)
-            command_run = subprocess.Popen(command, shell=True)
+            subprocess.Popen(command, shell=True)
+            messageSubmission = f'Your job has been submitted. Save Run ID {run_id} to download the results when ready.'
         else:
             messageSubmission = 'Email is not correct. Please check!'
-    return render_template('annotation.html', validEmail=emailResponse, messageSubmission=messageSubmission) 
+    return render_template('annotation.html', validEmail=emailResponse, messageSubmission=messageSubmission, run_id=run_id)
 
 # Help tab
 @app.route('/help/')
@@ -1080,6 +1080,42 @@ def haplo_download(which):
         return ("No table available for download.", 404)
     filename = f"{which}.tsv"
     return Response(table_text, mimetype="text/tab-separated-values", headers={"Content-Disposition": f"attachment; filename={filename}"})
+
+
+
+@app.post('/haplotypes/ancestry-overview')
+def haplotype_ancestry_overview_plot():
+    """Build overview panels for the active region and selected ancestries."""
+    last = session.get('haplo_last') or {}
+    if last.get('mode') != 'region':
+        return jsonify(error='No active regional haplotype query.'), 400
+
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify(error='Invalid overview request.'), 400
+    requested = payload.get('ancestries')
+    if (not isinstance(requested, list) or not requested or len(requested) > 2
+            or any(not isinstance(value, str) or value not in ('European', 'African')
+                   for value in requested)
+            or len(set(requested)) != len(requested)):
+        return jsonify(error='Choose European and/or African ancestry.'), 400
+    limit = payload.get('limit', 10)
+    if type(limit) is not int or limit not in (10, 20):
+        return jsonify(error='Choose a top 10 or top 20 view.'), 400
+    chrom = last.get('chrom')
+    start_pos = last.get('start_pos')
+    end_pos = last.get('end_pos')
+    if chrom is None or start_pos is None or end_pos is None:
+        return jsonify(error='The active regional query is incomplete.'), 400
+
+    primary = last.get('ancestry', 'European')
+    ancestries = [value for value in (primary, 'African' if primary == 'European' else 'European')
+                  if value in requested]
+    figure = haplotype_ancestry_overview(
+        data_path, chrom, int(start_pos), int(end_pos), ancestries,
+        refGen=last.get('refGen', 'GRCh38'), limit=limit,
+    )
+    return Response(pio.to_json(figure), mimetype='application/json')
 
 
 @app.post("/haplotypes/regional-ld")

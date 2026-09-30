@@ -1,0 +1,2 @@
+source	submitted_explicit_inputs	submitted_intervals	selected_explicit	selected_interval	selected_total	variant_limit	interval_maf_rule
+OVERALL	10	0	10	0	10	10000	MAF > 0.01

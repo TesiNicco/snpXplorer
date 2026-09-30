@@ -1,0 +1,11 @@
+query	build	include_ld	source	source_interval
+rs141749679	hg38	True	explicit	
+rs143080277	hg38	True	explicit	
+rs6733839	hg38	True	explicit	
+rs139643391	hg38	True	explicit	
+rs3822030	hg38	True	explicit	
+rs6846529	hg38	True	explicit	
+rs2245466	hg38	True	explicit	
+rs112403360	hg38	True	explicit	
+rs6605556	hg38	True	explicit	
+rs10947943	hg38	True	explicit	

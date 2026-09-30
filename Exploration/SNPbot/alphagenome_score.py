@@ -82,9 +82,21 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "variant",
+        nargs="?",
+        default=None,
         help=(
             "Variant string. Supported: chr11:11111111:A>G, "
             "chr11:11111111:A:G, chr11-11111111-A-G"
+        ),
+    )
+    parser.add_argument(
+        "--variants-file",
+        default=None,
+        help=(
+            "Path to a text file with one variant string per line. Scores all "
+            "of them using a single warm model client instead of spawning one "
+            "process per variant. Requires --stdout; writes one combined "
+            "pickled dataframe tagged with a 'variant' column."
         ),
     )
     parser.add_argument(
@@ -130,6 +142,63 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     return parser
 
+def _score_one_variant(dna_model, organism, sequence_length, args, variant_str):
+    """
+    Score a single variant with an already-initialized model client and apply
+    the genes/tissue filters. Returns (merged_scores, stats, coords) where
+    stats has n_rows_before_filter / n_rows_after_genes_filter /
+    n_rows_after_tissue_filter and coords is (chrom, pos, ref_base, alt_base).
+    """
+    chrom, pos, ref_base, alt_base = _parse_variant_input(variant_str)
+    variant = genome.Variant(
+        chromosome=chrom, position=pos,
+        reference_bases=ref_base, alternate_bases=alt_base,
+        name=f"{chrom}:{pos}:{ref_base}>{alt_base}",
+    )
+    interval = variant.reference_interval.resize(sequence_length)
+    LOGGER.info("Scoring variant on interval: %s", interval)
+
+    variant_scores = dna_model.score_variant(
+        interval=interval, variant=variant, organism=organism,
+        variant_scorers=list(variant_scorers.RECOMMENDED_VARIANT_SCORERS.values()),
+    )
+
+    LOGGER.info("Converting model outputs to tidy dataframe")
+    merged_scores = variant_scorers.tidy_scores(variant_scores)
+    stats = {
+        "n_rows_before_filter": int(len(merged_scores)),
+        "n_rows_after_genes_filter": None,
+        "n_rows_after_tissue_filter": None,
+    }
+    LOGGER.info("Rows before filters: %d", stats["n_rows_before_filter"])
+
+    if args.genes:
+        if "gene_name" not in merged_scores.columns:
+            raise ValueError('"gene_name" column not found in scores output.')
+        merged_scores = merged_scores.dropna(subset=["gene_name"]).copy()
+        stats["n_rows_after_genes_filter"] = int(len(merged_scores))
+        LOGGER.info("Applied genes filter. Rows after filter: %d", stats["n_rows_after_genes_filter"])
+
+    if args.tissue:
+        if "biosample_name" not in merged_scores.columns:
+            raise ValueError('"biosample_name" column not found in scores output.')
+        tissue_terms = [t.strip() for t in str(args.tissue).split(",") if t.strip()]
+        if not tissue_terms:
+            raise ValueError("--tissue cannot be empty.")
+        tissue_mask = pd.Series(False, index=merged_scores.index)
+        biosample_series = merged_scores["biosample_name"].astype(str)
+        for term in tissue_terms:
+            tissue_mask = tissue_mask | biosample_series.str.contains(term, case=False, na=False, regex=False)
+        merged_scores = merged_scores[tissue_mask].copy()
+        stats["n_rows_after_tissue_filter"] = int(len(merged_scores))
+        LOGGER.info("Applied tissue filter (%s). Rows after filter: %d", ",".join(tissue_terms), stats["n_rows_after_tissue_filter"])
+
+    merged_scores["query_locus"] = f"{chrom}:{pos}"
+    merged_scores["ref_base"] = ref_base
+    merged_scores["alt_base"] = alt_base
+    merged_scores["variant"] = str(variant)
+    return merged_scores, stats, (chrom, pos, ref_base, alt_base)
+
 # Main function
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s", datefmt="%Y-%m-%d %H:%M:%S",)
@@ -139,17 +208,47 @@ def main() -> None:
 
     if not args.api_key:
         raise ValueError("Missing API key. Pass --api-key or set ALPHAGENOME_API_KEY.")
-
-    LOGGER.info("Parsing variant input")
-    chrom, pos, ref_base, alt_base = _parse_variant_input(args.variant)
+    if args.variant and args.variants_file:
+        raise ValueError("Provide either a single 'variant' argument or --variants-file, not both.")
+    if not args.variant and not args.variants_file:
+        raise ValueError("Provide a 'variant' argument or --variants-file.")
+    if args.variants_file and not args.stdout:
+        raise ValueError("--variants-file requires --stdout.")
 
     masked_api_key = (
         f"{args.api_key[:6]}...{args.api_key[-4:]}"
         if len(args.api_key) > 10
         else "[provided]"
     )
-    LOGGER.info("Input summary")
-    LOGGER.info("- variant: %s:%s:%s>%s", chrom, pos, ref_base, alt_base)
+    organism_map = {"human": dna_client.Organism.HOMO_SAPIENS}
+    organism = organism_map[args.organism]
+    sequence_length = dna_client.SUPPORTED_SEQUENCE_LENGTHS[f"SEQUENCE_LENGTH_{args.sequence_length}"]
+
+    LOGGER.info("Initializing AlphaGenome model client")
+    dna_model = dna_client.create(args.api_key)
+
+    if args.variants_file:
+        variant_strings = [
+            line.strip() for line in Path(args.variants_file).read_text().splitlines()
+            if line.strip()
+        ]
+        LOGGER.info("Batch mode: scoring %d variants with one warm client", len(variant_strings))
+        all_scores = []
+        for variant_str in variant_strings:
+            try:
+                merged_scores_one, _stats, _coords = _score_one_variant(
+                    dna_model, organism, sequence_length, args, variant_str
+                )
+                all_scores.append(merged_scores_one)
+            except Exception as e:
+                LOGGER.warning("Failed to score variant %s: %s", variant_str, e)
+        combined = pd.concat(all_scores, ignore_index=True) if all_scores else pd.DataFrame()
+        LOGGER.info("Writing pickled combined dataframe to stdout (%d/%d variants scored)",
+                    len(all_scores), len(variant_strings))
+        pickle.dump(combined, sys.stdout.buffer, protocol=pickle.HIGHEST_PROTOCOL)
+        return
+
+    LOGGER.info("Parsing variant input")
     LOGGER.info("- organism: %s", args.organism)
     LOGGER.info("- sequence_length: %s", args.sequence_length)
     LOGGER.info("- genes_only filter: %s", args.genes)
@@ -157,56 +256,13 @@ def main() -> None:
     LOGGER.info("- output_root: %s", args.output_root)
     LOGGER.info("- api_key: %s", masked_api_key)
 
-    organism_map = {"human": dna_client.Organism.HOMO_SAPIENS}
-    organism = organism_map[args.organism]
-
-    sequence_length = dna_client.SUPPORTED_SEQUENCE_LENGTHS[f"SEQUENCE_LENGTH_{args.sequence_length}"]
-
-    LOGGER.info("Initializing AlphaGenome model client")
-    dna_model = dna_client.create(args.api_key)
-
-    variant = genome.Variant(chromosome=chrom, position=pos, reference_bases=ref_base, alternate_bases=alt_base, name=f"{chrom}:{pos}:{ref_base}>{alt_base}")
-
-    interval = variant.reference_interval.resize(sequence_length)
-    LOGGER.info("Scoring variant on interval: %s", interval)
-
-    variant_scores = dna_model.score_variant(interval=interval, variant=variant, organism=organism, variant_scorers=list(variant_scorers.RECOMMENDED_VARIANT_SCORERS.values()))
-    
-    LOGGER.info("Converting model outputs to tidy dataframe")
-    merged_scores = variant_scorers.tidy_scores(variant_scores)
-    n_rows_before_filter = int(len(merged_scores))
-    LOGGER.info("Rows before filters: %d", n_rows_before_filter)
-    n_rows_after_genes_filter = None
-    n_rows_after_tissue_filter = None
-
-    if args.genes:
-        if "gene_name" not in merged_scores.columns:
-            raise ValueError('"gene_name" column not found in scores output.')
-        merged_scores = merged_scores.dropna(subset=["gene_name"]).copy()
-        n_rows_after_genes_filter = int(len(merged_scores))
-        LOGGER.info("Applied genes filter. Rows after filter: %d", n_rows_after_genes_filter)
-
-    if args.tissue:
-        if "biosample_name" not in merged_scores.columns:
-            raise ValueError('"biosample_name" column not found in scores output.')
-        tissue_query = str(args.tissue)
-        tissue_terms = [t.strip() for t in tissue_query.split(",") if t.strip()]
-        if not tissue_terms:
-            raise ValueError("--tissue cannot be empty.")
-
-        tissue_mask = pd.Series(False, index=merged_scores.index)
-        biosample_series = merged_scores["biosample_name"].astype(str)
-        for term in tissue_terms:
-            tissue_mask = tissue_mask | biosample_series.str.contains(term, case=False, na=False, regex=False)
-
-        merged_scores = merged_scores[tissue_mask].copy()
-        n_rows_after_tissue_filter = int(len(merged_scores))
-        LOGGER.info("Applied tissue filter (%s). Rows after filter: %d", ",".join(tissue_terms), n_rows_after_tissue_filter)
-
-    merged_scores["query_locus"] = f"{chrom}:{pos}"
-    merged_scores["ref_base"] = ref_base
-    merged_scores["alt_base"] = alt_base
-    merged_scores["variant"] = str(variant)
+    merged_scores, _stats, (chrom, pos, ref_base, alt_base) = _score_one_variant(
+        dna_model, organism, sequence_length, args, args.variant
+    )
+    n_rows_before_filter = _stats["n_rows_before_filter"]
+    n_rows_after_genes_filter = _stats["n_rows_after_genes_filter"]
+    n_rows_after_tissue_filter = _stats["n_rows_after_tissue_filter"]
+    LOGGER.info("- variant: %s:%s:%s>%s", chrom, pos, ref_base, alt_base)
 
     if args.stdout:
         LOGGER.info("Writing pickled dataframe to stdout")

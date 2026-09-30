@@ -1,0 +1,39 @@
+[MEM] 57.02 GB free – starting job.
+[HAIL] Reading gnomAD v4.1 and ClinVar for 41 variants
+/usr/local/lib/python3.10/site-packages/hail/backend/py4j_backend.py:75: UserWarning: Hail was built and tested with Java 11. You are using Java 17.0.20 which is not supported. This may lead to errors. Consider installing Java 11 and setting the JAVA_HOME environment variable.
+  warnings.warn(
+[HAIL] ClinVar table: gs://gcp-public-data--gnomad/resources/grch38/clinvar/clinvar_20250504.ht
+SLF4J: Failed to load class "org.slf4j.impl.StaticLoggerBinder".
+SLF4J: Defaulting to no-operation (NOP) logger implementation
+SLF4J: See http://www.slf4j.org/codes.html#StaticLoggerBinder for further details.
+[HAIL] Resolved lookups for 41 variants (exome=18, genome=41, clinvar=6)
+[HAIL] Saved 41 variant annotations
+[MP] Variant workers: 3; GSEA request workers: 1; gnomAD source: hail
+concurrent.futures.process._RemoteTraceback: 
+"""
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.10/concurrent/futures/process.py", line 246, in _process_worker
+    r = call_item.fn(*call_item.args, **call_item.kwargs)
+  File "/Annotation/BIN/standalone_annotation_optimized_mp.py", line 3106, in process_selected_variant
+    query_item, qtl_tissues, ancestry, ld_threshold, hail_cache_path, alphagenome_cache_path = task
+ValueError: not enough values to unpack (expected 6, got 5)
+"""
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Annotation/BIN/standalone_annotation_optimized_mp.py", line 3398, in <module>
+    append_df(ld_sqtl_path, pd.concat(buf_ld_sqtl, ignore_index=True))
+  File "/Annotation/BIN/standalone_annotation_optimized_mp.py", line 3233, in main
+    # Add documentation to the output folder if email if present
+  File "/Annotation/BIN/standalone_annotation_optimized_mp.py", line 3221, in checked_results
+    sys.exit(1)
+  File "/Annotation/BIN/standalone_annotation_optimized_mp.py", line 3054, in iter_variant_results
+    return svs
+  File "/Annotation/BIN/standalone_annotation_optimized_mp.py", line 2475, in ordered_bounded_map
+    # Check if most_likely_gene is empty
+  File "/usr/local/lib/python3.10/concurrent/futures/_base.py", line 458, in result
+    return self.__get_result()
+  File "/usr/local/lib/python3.10/concurrent/futures/_base.py", line 403, in __get_result
+    raise self._exception
+ValueError: not enough values to unpack (expected 6, got 5)

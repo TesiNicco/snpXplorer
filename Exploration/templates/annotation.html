@@ -188,7 +188,7 @@
 
                 <div class="card sand" style="width:100%;">
                     <h4>Email</h4>
-                    <small>Please enter your email address below. The results will be sent to you:</small>
+                    <small>Enter your email for notifications. Save the Run ID shown after submission so you can download results even if email is unavailable.</small>
                     <textarea name="email" style="width: 100%; height: 30px; font-size: 16px;" placeholder="Enter your email here"></textarea>
                 </div>
 
@@ -198,10 +198,10 @@
                     <br>
                     <div
                         id="annotationMessage"
-                        class="form-error-message{% if messageSubmission %} show{% endif %}{% if messageSubmission == 'Your job has been submitted! Check your email shortly.' %} success{% endif %}"
+                        class="form-error-message{% if messageSubmission %} show{% endif %}{% if run_id %} success{% endif %}"
                         role="alert"
                         aria-live="polite"
-                    >{{ messageSubmission }}</div>
+                    >{{ messageSubmission }}{% if run_id %}<br><a href="{{ url_for('download') }}">Open the download page</a>{% endif %}</div>
                 </div>
 
                 </div>

@@ -1,0 +1,338 @@
+GWAS Trait	Effect Allele	Non-effect Allele	eaf	GWAS Beta	GWAS SE	p	Sample size	GWAS ID	RsID
+Insulin-like growth factor 1 levels	C	T	0.003	-0.07	0.02	2.80e-05	435516.0	ebi-a-GCST90025989	rs141749679
+Alzheimer's disease	C	T	0.004	0.31	0.07	7.99e-06	85934.0	ebi-a-GCST90027158	rs141749679
+Alzheimer's disease	C	T	0.005	0.39	0.06	7.88e-11	85934.0	ebi-a-GCST90027158	rs143080277
+Alzheimer's disease	T	C	0.389	0.17	0.01	6.48e-90	85934.0	ebi-a-GCST90027158	rs6733839
+Mean spheric corpuscular volume	T	TC	0.127	0.02	0.0	6.80e-08	408112.0	ebi-a-GCST90002397	rs139643391
+Low density lipoprotein cholesterol levels	T	TC	0.127	-0.03	0.0	4.60e-20	431167.0	ebi-a-GCST90002412	rs139643391
+High cholesterol (SPA correction)	T	TC	NA	-0.05	0.01	1.15e-05	407746.0	ebi-a-GCST90013932	rs139643391
+Asthma (SPA correction)	T	TC	NA	-0.04	0.01	4.74e-05	401847.0	ebi-a-GCST90013938	rs139643391
+Pain type(s) experienced in last month: Headache (UKB data field 6159_1) (SPA correction)	T	TC	NA	-0.04	0.01	9.55e-07	407746.0	ebi-a-GCST90013967	rs139643391
+Alkaline phosphatase levels (UKB data field 30610)	T	TC	NA	-0.03	0.0	1.29e-18	389883.0	ebi-a-GCST90013991	rs139643391
+Cystatin C levels (UKB data field 30720)	T	TC	NA	0.02	0.0	1.40e-16	389834.0	ebi-a-GCST90014003	rs139643391
+IGF 1 (UKB data field 30770)	T	TC	NA	0.02	0.0	1.07e-09	387834.0	ebi-a-GCST90014008	rs139643391
+Total bilirubin levels (UKB data field 30840)	T	TC	NA	0.01	0.0	1.48e-05	388303.0	ebi-a-GCST90014012	rs139643391
+Chronic obstructive pulmonary disease	T	TC	0.093	-0.09	0.02	1.04e-05	468475.0	ebi-a-GCST90018807	rs139643391
+Stable angina pectoris	T	TC	0.088	0.07	0.02	1.17e-05	343026.0	ebi-a-GCST90018915	rs139643391
+Alzheimer's disease	T	TC	0.131	-0.06	0.01	2.56e-07	85934.0	ebi-a-GCST90027158	rs139643391
+FVC	TC	T	0.872	-0.01	0.0	3.40e-06	NA	ieu-b-105	rs139643391
+Major dietary changes in the last 5 years: No	T	TC	0.127	0.01	0.0	3.66e-05	360294.0	ukb-d-1538_0	rs139643391
+Ischaemic heart disease, wide definition	T	TC	0.127	0.0	0.0	5.67e-10	361194.0	ukb-d-I9_IHD	rs139643391
+Mean spheric corpuscular volume	T	G	0.571	0.01	0.0	4.60e-06	408112.0	ebi-a-GCST90002397	rs3822030
+White blood cell count	T	G	0.571	0.01	0.0	4.90e-08	408112.0	ebi-a-GCST90002407	rs3822030
+Alzheimer's disease	T	G	0.571	0.05	0.01	5.04e-10	85934.0	ebi-a-GCST90027158	rs3822030
+apolipoprotein A-I	T	G	0.571	0.01	0.0	1.30e-05	NA	ieu-b-107	rs3822030
+Ever had prostate specific antigen (PSA) test	T	G	0.572	0.01	0.0	4.10e-05	200410.0	ukb-b-15695	rs3822030
+Ankle spacing width	T	G	0.571	-0.01	0.0	1.70e-07	265753.0	ukb-b-4080	rs3822030
+Alzheimer's disease	T	C	0.717	-0.07	0.01	1.25e-13	85934.0	ebi-a-GCST90027158	rs6846529
+Alzheimer's disease	C	G	0.657	-0.05	0.01	3.05e-07	85934.0	ebi-a-GCST90027158	rs2245466
+Alzheimer's disease	A	T	0.073	0.07	0.02	3.41e-06	85934.0	ebi-a-GCST90027158	rs112403360
+Rheumatoid arthritis	G	A	NA	0.97	0.01	1.00e-250	57284.0	ebi-a-GCST002318	rs6605556
+Sum eosinophil basophil counts	G	A	0.194	0.03	0.0	4.22e-15	171771.0	ebi-a-GCST004624	rs6605556
+Allergic disease (asthma, hay fever or eczema)	G	A	0.859	0.05	0.01	1.28e-07	360838.0	ebi-a-GCST005038	rs6605556
+Prostate cancer	G	A	0.168	0.06	0.01	9.09e-10	140254.0	ebi-a-GCST006085	rs6605556
+Asthma (childhood onset)	G	A	0.185	-0.87	0.02	1.00e-19	314633.0	ebi-a-GCST007800	rs6605556
+Appendicular lean mass	G	A	0.185	-0.02	0.0	9.40e-13	244730.0	ebi-a-GCST90000027	rs6605556
+Mean spheric corpuscular volume	G	A	0.186	-0.03	0.0	1.10e-24	408112.0	ebi-a-GCST90002397	rs6605556
+Reticulocyte count	G	A	0.186	0.02	0.0	3.50e-14	408112.0	ebi-a-GCST90002405	rs6605556
+White blood cell count	G	A	0.186	0.06	0.0	3.00e-101	408112.0	ebi-a-GCST90002407	rs6605556
+Low hand grip strength (60 years and older) (FNIH)	G	A	0.177	0.11	0.01	5.74e-15	256523.0	ebi-a-GCST90007529	rs6605556
+Sex hormone-binding globulin levels adjusted for BMI	G	A	0.186	-0.0	0.0	9.20e-06	368929.0	ebi-a-GCST90012110	rs6605556
+Basal cell carcinoma	G	A	0.182	-0.07	0.01	2.20e-06	392871.0	ebi-a-GCST90013410	rs6605556
+Asthma (SPA correction)	G	A	NA	0.15	0.01	8.05e-71	401847.0	ebi-a-GCST90013938	rs6605556
+Hypothyroidism or myxoedema (SPA correction)	G	A	NA	0.19	0.01	3.92e-54	405357.0	ebi-a-GCST90013943	rs6605556
+Mean platelet thrombocyte volume (UKB data field 30100)	G	A	NA	-0.01	0.0	2.35e-06	396616.0	ebi-a-GCST90013981	rs6605556
+Alkaline phosphatase levels (UKB data field 30610)	G	A	NA	0.02	0.0	3.26e-15	389883.0	ebi-a-GCST90013991	rs6605556
+Creatinine levels (UKB data field 30700)	G	A	NA	-0.02	0.0	3.18e-12	389678.0	ebi-a-GCST90014001	rs6605556
+C reactive protein levels (UKB data field 30710)	G	A	NA	0.04	0.0	4.58e-51	389057.0	ebi-a-GCST90014002	rs6605556
+Cystatin C levels (UKB data field 30720)	G	A	NA	-0.02	0.0	1.41e-14	389834.0	ebi-a-GCST90014003	rs6605556
+Gamma glutamyltransferase levels (UKB data field 30730)	G	A	NA	0.01	0.0	5.00e-09	389672.0	ebi-a-GCST90014004	rs6605556
+Hand grip strength left (UKB data field 46)	G	A	NA	-0.01	0.0	9.45e-14	406552.0	ebi-a-GCST90014019	rs6605556
+Chronic sinusitis	G	A	0.199	0.15	0.02	1.45e-18	452495.0	ebi-a-GCST90018823	rs6605556
+IgA nephropathy	G	A	0.199	0.07	0.02	4.04e-06	477784.0	ebi-a-GCST90018866	rs6605556
+Nasal polyps	G	A	0.199	0.31	0.03	4.62e-29	450059.0	ebi-a-GCST90018883	rs6605556
+Urolithiasis	G	A	0.199	-0.06	0.01	3.05e-05	488346.0	ebi-a-GCST90018935	rs6605556
+Weight	G	A	0.209	-0.01	0.0	5.37e-08	360116.0	ebi-a-GCST90018949	rs6605556
+Gamma glutamyl transpeptidase	G	A	0.207	0.01	0.0	9.76e-07	344104.0	ebi-a-GCST90018954	rs6605556
+Serum creatinine levels	G	A	0.208	-0.01	0.0	1.62e-10	344104.0	ebi-a-GCST90018979	rs6605556
+Medication use (thyroid preparations)	G	A	0.211	0.15	0.01	1.18e-42	305582.0	ebi-a-GCST90018990	rs6605556
+Medication use (immunosuppressants)	G	A	0.213	0.45	0.02	1.05e-106	272602.0	ebi-a-GCST90018991	rs6605556
+Medication use (drugs affecting bone structure and mineralization)	G	A	0.217	0.1	0.01	1.22e-11	215668.0	ebi-a-GCST90018993	rs6605556
+Medication use (adrenergics, inhalants)	G	A	0.22	0.14	0.01	1.07e-39	176445.0	ebi-a-GCST90018999	rs6605556
+Medication use (glucocorticoids)	G	A	0.217	0.1	0.01	2.38e-23	205700.0	ebi-a-GCST90019000	rs6605556
+Interleukin-1 receptor type 2 measurement	G	A	0.148	0.12	0.02	3.51e-09	10708.0	ebi-a-GCST90019391	rs6605556
+Coagulation Factor V measurement	G	A	0.147	-0.15	0.02	2.64e-13	10708.0	ebi-a-GCST90019453	rs6605556
+Frailty index	G	A	0.187	0.04	0.0	3.77e-22	175226.0	ebi-a-GCST90020053	rs6605556
+Alzheimer's disease	G	A	0.161	-0.1	0.01	1.05e-17	85934.0	ebi-a-GCST90027158	rs6605556
+Autoimmune traits	G	A	0.186	0.02	0.0	1.60e-32	469184.0	ebi-a-GCST90029015	rs6605556
+Respiratory or ear-nose-throat disease	G	A	0.186	0.02	0.0	2.30e-28	452192.0	ebi-a-GCST90029023	rs6605556
+Glycoprotein acetyls levels	G	A	0.185	0.03	0.01	6.80e-07	115082.0	ebi-a-GCST90092821	rs6605556
+FVC	G	A	0.185	-0.01	0.0	2.60e-07	NA	ieu-b-105	rs6605556
+apolipoprotein A-I	G	A	0.185	0.02	0.0	4.80e-15	NA	ieu-b-107	rs6605556
+multiple sclerosis	G	A	NA	-0.8	0.04	3.02e-84	115803.0	ieu-b-18	rs6605556
+diastolic blood pressure	G	A	0.181	0.14	0.02	4.38e-09	645880.0	ieu-b-39	rs6605556
+telomere length	G	A	0.18	0.01	0.0	1.10e-06	472174.0	ieu-b-4879	rs6605556
+Malignant non-melanoma skin cancer	G	A	0.184	-0.0	0.0	8.50e-06	395710.0	ieu-b-4959	rs6605556
+LRTI	G	A	0.185	0.1	0.02	8.05e-10	486484.0	ieu-b-4973	rs6605556
+ferritin	G	A	0.175	-0.02	0.0	3.96e-06	NA	ieu-b-5115	rs6605556
+HPV positive oropharyngeal cancer (excl. UKB)	G	A	0.189	0.24	0.04	7.02e-08	NA	ieu-b-5128	rs6605556
+Hypertension	G	A	0.185	0.01	0.0	7.10e-07	NA	ieu-b-5144	rs6605556
+IDP_dMRI_ProbtrackX_ICVF_slf_l	G	A	0.185	0.07	0.01	2.23e-10	NA	ubm-b-1971	rs6605556
+Non-cancer illness code  self-reported: malabsorption/coeliac disease	G	A	0.19	-0.0	0.0	7.96e-55	337159.0	ukb-a-101	rs6605556
+Treatment/medication code: becotide 50 inhaler	G	A	0.19	0.0	0.0	1.59e-06	337159.0	ukb-a-124	rs6605556
+Treatment/medication code: insulin product	G	A	0.19	0.01	0.0	1.16e-69	337159.0	ukb-a-153	rs6605556
+Treatment/medication code: paracetamol	G	A	0.19	0.01	0.0	5.32e-06	337159.0	ukb-a-194	rs6605556
+Number of self-reported non-cancer illnesses	G	A	0.19	0.02	0.0	9.47e-19	337159.0	ukb-a-22	rs6605556
+Number of treatments/medications taken	G	A	0.19	0.03	0.0	2.60e-29	337159.0	ukb-a-24	rs6605556
+Eye problems/disorders: Diabetes related eye disease	G	A	0.19	0.01	0.0	4.30e-16	108817.0	ukb-a-423	rs6605556
+Diagnoses - main ICD10: K51 Ulcerative colitis	G	A	0.19	-0.0	0.0	2.49e-06	337199.0	ukb-a-553	rs6605556
+Diagnoses - secondary ICD10: E10.9 Without complications	G	A	0.185	0.0	0.0	1.30e-54	463010.0	ukb-b-10694	rs6605556
+Standing height	G	A	0.185	-0.01	0.0	5.90e-08	461950.0	ukb-b-10787	rs6605556
+Medication for pain relief, constipation, heartburn: None of the above	G	A	0.185	-0.01	0.0	1.50e-09	457547.0	ukb-b-11085	rs6605556
+Treatment/medication code: simvastatin	G	A	0.185	0.0	0.0	2.20e-06	462933.0	ukb-b-11268	rs6605556
+Operation code: tonsillectomy +/- adenoids	G	A	0.185	0.0	0.0	6.80e-07	462933.0	ukb-b-11497	rs6605556
+Treatment/medication code: methotrexate	G	A	0.185	0.0	0.0	1.50e-123	462933.0	ukb-b-12209	rs6605556
+Treatment/medication code: ventolin 100micrograms inhaler	G	A	0.185	0.01	0.0	5.70e-36	462933.0	ukb-b-13148	rs6605556
+Vascular/heart problems diagnosed by doctor: None of the above	G	A	0.185	-0.01	0.0	1.50e-06	461880.0	ukb-b-13352	rs6605556
+Long-standing illness, disability or infirmity	G	A	0.185	0.02	0.0	2.30e-34	451893.0	ukb-b-13764	rs6605556
+Impedance of leg (left)	G	A	0.185	0.01	0.0	2.30e-05	454857.0	ukb-b-14068	rs6605556
+Trunk fat-free mass	G	A	0.185	-0.01	0.0	2.50e-08	454508.0	ukb-b-17409	rs6605556
+Treatment/medication code: seretide 50 evohaler	G	A	0.185	0.0	0.0	5.20e-17	462933.0	ukb-b-17836	rs6605556
+Blood clot, DVT, bronchitis, emphysema, asthma, rhinitis, eczema, allergy diagnosed by doctor: None of the above	G	A	0.185	-0.01	0.0	6.70e-12	462013.0	ukb-b-18200	rs6605556
+Wheeze or whistling in the chest in last year	G	A	0.185	0.01	0.0	3.00e-39	453959.0	ukb-b-18335	rs6605556
+Main speciality of consultant (recoded): Ear, nose and throat (ENT)	G	A	0.185	0.0	0.0	1.60e-07	461270.0	ukb-b-18820	rs6605556
+Contra-indications for spirometry	G	A	0.185	0.01	0.0	2.50e-05	462551.0	ukb-b-19206	rs6605556
+Non-cancer illness code, self-reported: hypothyroidism/myxoedema	G	A	0.185	0.01	0.0	5.60e-67	462933.0	ukb-b-19732	rs6605556
+Taking other prescription medications	G	A	0.185	0.02	0.0	5.60e-42	461332.0	ukb-b-20292	rs6605556
+Operation code: hysterectomy	G	A	0.185	0.0	0.0	5.10e-06	462933.0	ukb-b-3700	rs6605556
+Attendance/disability/mobility allowance: None of the above	G	A	0.185	-0.0	0.0	3.30e-09	459354.0	ukb-b-3855	rs6605556
+Operative procedures - main OPCS: E08.1 Polypectomy of internal nose	G	A	0.185	0.0	0.0	2.90e-26	463010.0	ukb-b-46	rs6605556
+Operation code: male circumcision	G	A	0.185	0.0	0.0	8.00e-06	462933.0	ukb-b-5227	rs6605556
+Operation code: cone biopsy	G	A	0.185	0.0	0.0	2.30e-08	462933.0	ukb-b-5479	rs6605556
+Overall health rating	G	A	0.185	0.02	0.0	6.60e-21	460844.0	ukb-b-6306	rs6605556
+Trunk predicted mass	G	A	0.185	-0.01	0.0	3.70e-08	454463.0	ukb-b-9685	rs6605556
+Hearing difficulty/problems: No	G	A	0.188	-0.01	0.0	1.34e-05	346635.0	ukb-d-2247_0	rs6605556
+Breathing problems during period of job: No	G	A	0.186	-0.0	0.0	1.03e-06	91149.0	ukb-d-22616_0	rs6605556
+COPD differential diagnosis	G	A	0.188	0.01	0.0	8.31e-14	361194.0	ukb-d-COPD_EXCL	rs6605556
+Diagnoses - main ICD10: H00 Hordeolum and chalazion	G	A	0.188	0.0	0.0	3.35e-06	361194.0	ukb-d-H00	rs6605556
+Diagnoses - main ICD10: M06 Other rheumatoid arthritis	G	A	0.188	0.0	0.0	1.11e-98	361194.0	ukb-d-M06	rs6605556
+Hip circumference (UKB data field 49)	A	G	NA	0.02	0.0	8.58e-08	407662.0	ebi-a-GCST90014021	rs10947943
+Alzheimer's disease	A	G	0.142	-0.05	0.01	6.21e-06	85934.0	ebi-a-GCST90027158	rs10947943
+Alzheimer's disease	T	C	0.013	0.33	0.04	6.04e-19	85934.0	ebi-a-GCST90027158	rs143332484
+Daytime nap	C	T	0.654	0.01	0.0	9.30e-06	452633.0	ebi-a-GCST011494	rs785129
+Fractured bones in last 5 years (UKB data field 2463) (Firth correction)	C	T	NA	-0.03	0.01	4.36e-05	407746.0	ebi-a-GCST90013913	rs785129
+Alzheimer's disease	C	T	0.65	-0.04	0.01	2.94e-07	85934.0	ebi-a-GCST90027158	rs785129
+Alzheimer's disease	C	T	0.58	-0.04	0.01	2.98e-07	85934.0	ebi-a-GCST90027158	rs6943429
+Alzheimer's disease	C	T	0.886	-0.07	0.01	3.28e-07	85934.0	ebi-a-GCST90027158	rs10952097
+Alzheimer's disease	T	C	0.103	-0.08	0.01	1.51e-08	85934.0	ebi-a-GCST90027158	rs76928645
+wg_rh_intensity-contrast_precuneus	T	C	0.104	-0.06	0.01	1.04e-06	NA	ubm-b-1426	rs76928645
+aseg_global_volume_Brain-Stem	T	C	0.104	0.08	0.01	1.53e-09	NA	ubm-b-177	rs76928645
+IDP_dMRI_ProbtrackX_ICVF_slf_l	T	C	0.104	-0.11	0.01	5.52e-18	NA	ubm-b-1971	rs76928645
+IDP_T1_FIRST_brain_stem+4th_ventricle_volume	T	C	0.104	0.07	0.01	1.37e-08	NA	ubm-b-25	rs76928645
+ThalamNuclei_lh_volume_VLa	T	C	0.104	0.08	0.01	1.34e-10	NA	ubm-b-294	rs76928645
+Brainstem_global_volume_Pons	T	C	0.104	0.07	0.01	1.92e-08	NA	ubm-b-340	rs76928645
+Duration to first press of snap-button in each round	T	C	0.105	-0.01	0.0	1.60e-05	459281.0	ukb-b-19373	rs76928645
+Average total household income before tax	T	C	0.104	0.02	0.0	1.40e-05	397751.0	ukb-b-7408	rs76928645
+Hemoglobin concentration	T	C	0.683	0.02	0.0	8.13e-17	563946.0	ebi-a-GCST90002310	rs7384878
+Low density lipoprotein cholesterol levels	T	C	0.683	-0.01	0.0	1.80e-06	431167.0	ebi-a-GCST90002412	rs7384878
+Sex hormone-binding globulin levels adjusted for BMI	T	C	0.683	-0.01	0.0	6.60e-11	368929.0	ebi-a-GCST90012110	rs7384878
+Total testosterone levels	T	C	0.683	-0.01	0.0	8.90e-06	425097.0	ebi-a-GCST90012114	rs7384878
+Chronic obstructive pulmonary disease	T	C	0.618	-0.05	0.01	2.57e-05	468475.0	ebi-a-GCST90018807	rs7384878
+Medication use (calcium channel blockers)	T	C	0.566	-0.03	0.01	2.56e-05	204378.0	ebi-a-GCST90018987	rs7384878
+Alzheimer's disease	T	C	0.69	0.08	0.01	2.13e-18	85934.0	ebi-a-GCST90027158	rs7384878
+ThalamNuclei_lh_volume_VLa	T	C	0.684	0.05	0.01	1.32e-07	NA	ubm-b-294	rs7384878
+Neurociticism	A	G	0.351	0.01	0.0	2.12e-05	380506.0	ebi-a-GCST006940	rs11771145
+Gamma glutamyltransferase levels (UKB data field 30730)	A	G	NA	-0.01	0.0	2.26e-08	389672.0	ebi-a-GCST90014004	rs11771145
+Alzheimer's disease	A	G	0.348	-0.06	0.01	1.29e-12	85934.0	ebi-a-GCST90027158	rs11771145
+Alkaline phosphatase levels (UKB data field 30610)	C	G	NA	-0.02	0.0	7.04e-07	389883.0	ebi-a-GCST90013991	rs1065712
+Alzheimer's disease	C	G	0.053	0.11	0.02	5.46e-09	85934.0	ebi-a-GCST90027158	rs1065712
+White blood cell count	T	C	0.795	0.02	0.0	3.20e-14	408112.0	ebi-a-GCST90002407	rs6586028
+High blood pressure (UKB data field 6150) (Firth correction)	T	C	NA	-0.03	0.01	1.67e-05	407746.0	ebi-a-GCST90013916	rs6586028
+Asthma (SPA correction)	T	C	NA	-0.04	0.01	2.44e-06	401847.0	ebi-a-GCST90013938	rs6586028
+Alkaline phosphatase levels (UKB data field 30610)	T	C	NA	-0.01	0.0	4.97e-06	389883.0	ebi-a-GCST90013991	rs6586028
+Bone mineral density	T	C	NA	0.01	0.0	1.63e-05	365403.0	ebi-a-GCST90014022	rs6586028
+Serum creatinine levels	T	C	0.849	-0.01	0.0	7.76e-06	344104.0	ebi-a-GCST90018979	rs6586028
+Interleukin-1 receptor type 2 measurement	T	C	0.801	0.09	0.02	6.57e-08	10708.0	ebi-a-GCST90019391	rs6586028
+Alzheimer's disease	T	C	0.804	0.08	0.01	1.33e-14	85934.0	ebi-a-GCST90027158	rs6586028
+Heel bone mineral density	T	C	0.795	0.01	0.0	5.40e-06	583314.0	ebi-a-GCST90029004	rs6586028
+Respiratory or ear-nose-throat disease	T	C	0.795	-0.0	0.0	8.80e-06	452192.0	ebi-a-GCST90029023	rs6586028
+diastolic blood pressure	T	C	0.797	-0.1	0.02	1.38e-06	755483.0	ieu-b-39	rs6586028
+25 hydroxyvitamin D level	T	C	0.791	-0.01	0.0	1.90e-05	NA	ieu-b-4812	rs6586028
+3mm weak meridian (left)	T	C	0.797	-0.02	0.01	5.60e-06	95998.0	ukb-b-11113	rs6586028
+Corneal hysteresis (right)	T	C	0.797	-0.03	0.01	1.60e-06	97653.0	ukb-b-11480	rs6586028
+Hemoglobin concentration	A	G	0.379	0.01	0.0	4.97e-05	563946.0	ebi-a-GCST90002310	rs1582763
+White blood cell count	A	G	0.38	-0.01	0.0	6.10e-07	408112.0	ebi-a-GCST90002407	rs1582763
+C reactive protein levels (UKB data field 30710)	A	G	NA	-0.02	0.0	3.68e-18	389057.0	ebi-a-GCST90014002	rs1582763
+Bone mineral density	A	G	NA	-0.03	0.0	1.96e-35	365403.0	ebi-a-GCST90014022	rs1582763
+Lactadherin measurement	A	G	0.386	0.13	0.01	9.74e-23	10708.0	ebi-a-GCST90019448	rs1582763
+Alzheimer's disease	A	G	0.371	-0.09	0.01	1.65e-24	85934.0	ebi-a-GCST90027158	rs1582763
+Heel bone mineral density	A	G	0.38	-0.03	0.0	7.60e-42	583314.0	ebi-a-GCST90029004	rs1582763
+Alzheimer's disease	A	G	0.328	-0.07	0.01	2.08e-15	85934.0	ebi-a-GCST90027158	rs12590654
+Hair color	A	G	0.34	0.02	0.0	2.70e-20	713771.0	ebi-a-GCST90029030	rs12590654
+Hair color (blond)	A	G	0.34	0.0	0.0	2.00e-09	534365.0	ebi-a-GCST90029031	rs12590654
+Mean spheric corpuscular volume	G	A	0.663	-0.01	0.0	4.10e-05	408112.0	ebi-a-GCST90002397	rs7157106
+Hypothyroidism or myxoedema (SPA correction)	G	A	NA	-0.05	0.01	4.11e-07	405357.0	ebi-a-GCST90013943	rs7157106
+Albumin levels (UKB data field 30600)	G	A	NA	-0.03	0.0	3.52e-29	357968.0	ebi-a-GCST90013990	rs7157106
+Gamma glutamyltransferase levels (UKB data field 30730)	G	A	NA	0.01	0.0	4.10e-05	389672.0	ebi-a-GCST90014004	rs7157106
+Alzheimer's disease	G	A	0.64	-0.06	0.01	1.46e-07	85934.0	ebi-a-GCST90027158	rs7157106
+Non-cancer illness code, self-reported: hypothyroidism/myxoedema	G	A	0.664	-0.0	0.0	2.00e-07	462933.0	ukb-b-19732	rs7157106
+Treatment speciality of consultant (recoded): Accident & emergency (A&E)	G	A	0.664	0.0	0.0	1.70e-05	444900.0	ukb-b-997	rs7157106
+Alzheimer's disease	A	G	0.132	-0.07	0.01	1.98e-07	85934.0	ebi-a-GCST90027158	rs10131280
+Intelligence	G	A	NA	-0.01	0.0	1.03e-06	269867.0	ebi-a-GCST006250	rs8025980
+Cognitive performance	G	A	0.33	-0.01	0.0	8.55e-07	257841.0	ebi-a-GCST006572	rs8025980
+White blood cell count	G	A	0.344	-0.02	0.0	1.60e-25	408112.0	ebi-a-GCST90002407	rs8025980
+Sex hormone-binding globulin levels adjusted for BMI	G	A	0.345	0.01	0.0	5.20e-11	368929.0	ebi-a-GCST90012110	rs8025980
+Total testosterone levels	G	A	0.344	0.01	0.0	7.20e-08	425097.0	ebi-a-GCST90012114	rs8025980
+Weight	G	A	0.411	0.01	0.0	1.71e-07	360116.0	ebi-a-GCST90018949	rs8025980
+Serum uric acid levels	G	A	0.403	-0.01	0.0	3.39e-08	343836.0	ebi-a-GCST90018977	rs8025980
+Medication use (calcium channel blockers)	G	A	0.443	-0.02	0.01	2.60e-05	204378.0	ebi-a-GCST90018987	rs8025980
+Alzheimer's disease	G	A	0.345	-0.04	0.01	6.09e-06	85934.0	ebi-a-GCST90027158	rs8025980
+Heel bone mineral density	G	A	0.344	-0.01	0.0	3.20e-06	583314.0	ebi-a-GCST90029004	rs8025980
+Tyrosine levels	G	A	0.343	-0.02	0.0	4.30e-05	114913.0	ebi-a-GCST90092993	rs8025980
+Standing height	G	A	0.344	0.01	0.0	1.20e-06	461950.0	ukb-b-10787	rs8025980
+Place of birth in UK - north co-ordinate	G	A	0.344	0.01	0.0	8.70e-06	434576.0	ukb-b-1431	rs8025980
+Alzheimer's disease	A	T	0.28	-0.06	0.01	9.65e-12	85934.0	ebi-a-GCST90027158	rs602602
+apolipoprotein A-I	A	T	0.289	-0.01	0.0	6.40e-07	NA	ieu-b-107	rs602602
+diastolic blood pressure	A	T	0.292	-0.08	0.02	4.10e-05	752153.0	ieu-b-39	rs602602
+Schizophrenia	A	T	0.293	-0.05	0.01	5.31e-07	130644.0	ieu-b-5102	rs602602
+Neurociticism	T	C	0.292	-0.01	0.0	5.55e-06	380506.0	ebi-a-GCST006940	rs889555
+Mean spheric corpuscular volume	T	C	0.282	0.02	0.0	2.30e-24	408112.0	ebi-a-GCST90002397	rs889555
+Low density lipoprotein cholesterol levels	T	C	0.282	0.02	0.0	9.90e-13	431167.0	ebi-a-GCST90002412	rs889555
+Sex hormone-binding globulin levels adjusted for BMI	T	C	0.282	0.0	0.0	2.80e-06	368929.0	ebi-a-GCST90012110	rs889555
+High blood pressure (UKB data field 6150) (Firth correction)	T	C	NA	0.02	0.01	3.14e-05	407746.0	ebi-a-GCST90013916	rs889555
+Gamma glutamyltransferase levels (UKB data field 30730)	T	C	NA	-0.01	0.0	1.08e-06	389672.0	ebi-a-GCST90014004	rs889555
+IGF 1 (UKB data field 30770)	T	C	NA	-0.02	0.0	5.22e-16	387834.0	ebi-a-GCST90014008	rs889555
+Hip circumference (UKB data field 49)	T	C	NA	0.02	0.0	2.64e-17	407662.0	ebi-a-GCST90014021	rs889555
+Nasal polyps	T	C	0.243	0.1	0.02	1.41e-05	450059.0	ebi-a-GCST90018883	rs889555
+Weight	T	C	0.222	0.01	0.0	4.79e-13	360116.0	ebi-a-GCST90018949	rs889555
+Medication use (diuretics)	T	C	0.199	0.04	0.01	2.21e-06	229086.0	ebi-a-GCST90018985	rs889555
+Psoriasis	T	C	NA	0.1	0.02	2.92e-09	44161.0	ebi-a-GCST90019016	rs889555
+Insulin-like growth factor 1 levels	T	C	0.273	-0.02	0.0	6.50e-20	435516.0	ebi-a-GCST90025989	rs889555
+Serum total protein level	T	C	0.273	0.02	0.0	6.90e-16	400482.0	ebi-a-GCST90025995	rs889555
+Alzheimer's disease	T	C	0.281	-0.06	0.01	1.03e-09	85934.0	ebi-a-GCST90027158	rs889555
+Familial combined hyperlipidemia defined by Consensus criteria	T	C	0.282	0.04	0.01	2.53e-06	349222.0	ebi-a-GCST90104006	rs889555
+diastolic blood pressure	T	C	0.282	0.12	0.02	3.72e-10	729040.0	ieu-b-39	rs889555
+25 hydroxyvitamin D level	T	C	0.281	-0.01	0.0	1.60e-05	NA	ieu-b-4812	rs889555
+wg_rh_intensity-contrast_precuneus	T	C	0.283	-0.04	0.01	2.57e-05	NA	ubm-b-1426	rs889555
+Basal metabolic rate	T	C	0.281	0.01	0.0	8.07e-07	331307.0	ukb-a-268	rs889555
+Standing height	T	C	0.282	0.01	0.0	4.10e-06	461950.0	ukb-b-10787	rs889555
+Corneal hysteresis (right)	T	C	0.281	0.02	0.0	5.00e-05	97653.0	ukb-b-11480	rs889555
+Leg fat-free mass (left)	T	C	0.281	0.01	0.0	2.80e-07	454805.0	ukb-b-16099	rs889555
+Snoring	T	C	0.281	-0.01	0.0	1.10e-08	430438.0	ukb-b-17400	rs889555
+Trunk fat-free mass	T	C	0.281	0.01	0.0	7.10e-06	454508.0	ukb-b-17409	rs889555
+Number of full sisters	T	C	0.281	0.01	0.0	3.10e-05	455420.0	ukb-b-5593	rs889555
+Worrier / anxious feelings	T	C	0.282	-0.01	0.0	4.20e-07	450765.0	ukb-b-6519	rs889555
+Average total household income before tax	T	C	0.282	-0.01	0.0	2.30e-05	397751.0	ukb-b-7408	rs889555
+Trunk predicted mass	T	C	0.281	0.01	0.0	6.50e-06	454463.0	ukb-b-9685	rs889555
+Allergic disease (asthma, hay fever or eczema)	A	C	0.105	0.04	0.01	2.15e-05	360838.0	ebi-a-GCST005038	rs4985556
+IGF 1 (UKB data field 30770)	A	C	NA	0.01	0.0	2.11e-05	387834.0	ebi-a-GCST90014008	rs4985556
+Alzheimer's disease	A	C	0.115	0.06	0.01	5.65e-06	85934.0	ebi-a-GCST90027158	rs4985556
+Alanine levels	A	C	0.12	-0.03	0.01	2.90e-06	115078.0	ebi-a-GCST90092806	rs4985556
+Alzheimer's disease	C	T	0.373	-0.05	0.01	1.07e-07	85934.0	ebi-a-GCST90027158	rs450674
+IGF 1 (UKB data field 30770)	A	G	NA	0.01	0.0	6.76e-07	387834.0	ebi-a-GCST90014008	rs12446759
+Insulin-like growth factor 1 levels	A	G	0.607	0.01	0.0	2.00e-07	435516.0	ebi-a-GCST90025989	rs12446759
+Alzheimer's disease	A	G	0.597	0.06	0.01	3.60e-12	85934.0	ebi-a-GCST90027158	rs12446759
+Place of birth in UK - north co-ordinate	A	G	0.607	0.01	0.0	3.00e-10	434576.0	ukb-b-1431	rs12446759
+Home location at assessment - north co-ordinate (rounded)	A	G	0.607	0.01	0.0	3.70e-06	458557.0	ukb-b-4068	rs12446759
+Alzheimer's disease	G	C	0.008	-0.31	0.05	2.66e-10	85934.0	ebi-a-GCST90027158	rs72824905
+Platelet count	A	G	0.12	0.01	0.0	3.10e-05	408112.0	ebi-a-GCST90002402	rs7225151
+White blood cell count	A	G	0.12	0.02	0.0	4.60e-09	408112.0	ebi-a-GCST90002407	rs7225151
+Sex hormone-binding globulin levels adjusted for BMI	A	G	0.119	-0.01	0.0	1.10e-05	368929.0	ebi-a-GCST90012110	rs7225151
+Creatinine levels (UKB data field 30700)	A	G	NA	0.01	0.0	5.76e-07	389678.0	ebi-a-GCST90014001	rs7225151
+Alzheimer's disease	A	G	0.124	0.09	0.01	2.60e-12	85934.0	ebi-a-GCST90027158	rs7225151
+Alzheimer's disease	C	T	0.988	-0.29	0.04	5.38e-13	85934.0	ebi-a-GCST90027158	rs616338
+Hemoglobin concentration	G	A	0.675	0.01	0.0	6.16e-08	563946.0	ebi-a-GCST90002310	rs12151021
+Mean spheric corpuscular volume	G	A	0.675	-0.03	0.0	1.20e-46	408112.0	ebi-a-GCST90002397	rs12151021
+Red cell distribution width	G	A	0.675	-0.03	0.0	3.50e-39	408112.0	ebi-a-GCST90002404	rs12151021
+Mean platelet thrombocyte volume (UKB data field 30100)	G	A	NA	-0.01	0.0	1.83e-11	396616.0	ebi-a-GCST90013981	rs12151021
+Alzheimer's disease	G	A	0.664	-0.11	0.01	4.09e-30	85934.0	ebi-a-GCST90027158	rs12151021
+Mean spheric corpuscular volume	GC	G	0.537	0.01	0.0	3.60e-11	408112.0	ebi-a-GCST90002397	rs149080927
+Reticulocyte count	GC	G	0.537	-0.01	0.0	1.30e-08	408112.0	ebi-a-GCST90002405	rs149080927
+High blood pressure (UKB data field 6150) (Firth correction)	GC	G	NA	0.03	0.01	2.82e-07	407746.0	ebi-a-GCST90013916	rs149080927
+IGF 1 (UKB data field 30770)	GC	G	NA	-0.01	0.0	1.27e-05	387834.0	ebi-a-GCST90014008	rs149080927
+Hip circumference (UKB data field 49)	GC	G	NA	0.01	0.0	2.16e-12	407662.0	ebi-a-GCST90014021	rs149080927
+Weight	GC	G	0.436	0.01	0.0	2.33e-11	360116.0	ebi-a-GCST90018949	rs149080927
+Alzheimer's disease	GC	G	0.52	-0.05	0.01	6.14e-09	85934.0	ebi-a-GCST90027158	rs149080927
+Hypertension	G	GC	0.464	-0.0	0.0	9.90e-08	NA	ieu-b-5144	rs149080927
+Parental longevity (combined parental attained age, Martingale residuals)	T	C	0.081	-0.03	0.0	1.50e-14	389166.0	ebi-a-GCST006697	rs7412
+Early age-related macular degeneration	T	C	0.082	0.14	0.03	1.71e-07	105248.0	ebi-a-GCST010723	rs7412
+Mean spheric corpuscular volume	T	C	0.08	0.06	0.0	5.20e-49	408112.0	ebi-a-GCST90002397	rs7412
+Platelet count	T	C	0.08	0.03	0.0	8.80e-14	408112.0	ebi-a-GCST90002402	rs7412
+Red cell distribution width	T	C	0.08	0.1	0.0	1.20e-150	408112.0	ebi-a-GCST90002404	rs7412
+Reticulocyte count	T	C	0.08	-0.06	0.0	3.40e-53	408112.0	ebi-a-GCST90002405	rs7412
+Low density lipoprotein cholesterol levels	T	C	0.08	-0.54	0.0	0.00e+00	431167.0	ebi-a-GCST90002412	rs7412
+Sex hormone-binding globulin levels adjusted for BMI	T	C	0.081	0.01	0.0	1.60e-16	368929.0	ebi-a-GCST90012110	rs7412
+High blood pressure (UKB data field 6150) (Firth correction)	T	C	NA	-0.05	0.01	1.59e-07	407746.0	ebi-a-GCST90013916	rs7412
+High cholesterol (SPA correction)	T	C	NA	-0.4	0.01	3.11e-217	407746.0	ebi-a-GCST90013932	rs7412
+Albumin levels (UKB data field 30600)	T	C	NA	-0.02	0.0	6.99e-07	357968.0	ebi-a-GCST90013990	rs7412
+Alkaline phosphatase levels (UKB data field 30610)	T	C	NA	0.03	0.0	3.62e-14	389883.0	ebi-a-GCST90013991	rs7412
+Creatinine levels (UKB data field 30700)	T	C	NA	0.02	0.0	7.66e-07	389678.0	ebi-a-GCST90014001	rs7412
+C reactive protein levels (UKB data field 30710)	T	C	NA	0.1	0.0	6.25e-143	389057.0	ebi-a-GCST90014002	rs7412
+Cystatin C levels (UKB data field 30720)	T	C	NA	0.03	0.0	6.42e-19	389834.0	ebi-a-GCST90014003	rs7412
+Total bilirubin levels (UKB data field 30840)	T	C	NA	-0.02	0.0	1.15e-11	388303.0	ebi-a-GCST90014012	rs7412
+Systolic blood pressure automated reading (UKB data field 4080)	T	C	NA	-0.02	0.0	3.30e-06	385798.0	ebi-a-GCST90014018	rs7412
+Hip circumference (UKB data field 49)	T	C	NA	0.03	0.0	5.55e-12	407662.0	ebi-a-GCST90014021	rs7412
+Cholelithiasis	T	C	0.064	0.08	0.02	1.04e-06	487553.0	ebi-a-GCST90018819	rs7412
+Stable angina pectoris	T	C	0.068	-0.14	0.02	7.10e-16	343026.0	ebi-a-GCST90018915	rs7412
+Weight	T	C	0.068	0.02	0.0	1.95e-13	360116.0	ebi-a-GCST90018949	rs7412
+Serum creatinine levels	T	C	0.068	0.01	0.0	1.80e-05	344104.0	ebi-a-GCST90018979	rs7412
+Medication use (calcium channel blockers)	T	C	0.064	-0.08	0.01	9.56e-11	204378.0	ebi-a-GCST90018987	rs7412
+Medication use (agents acting on the renin-angiotensin system)	T	C	0.065	-0.09	0.01	7.76e-22	237530.0	ebi-a-GCST90018988	rs7412
+Medication use (HMG CoA reductase inhibitors)	T	C	0.065	-0.34	0.01	1.02e-276	290385.0	ebi-a-GCST90018989	rs7412
+Heme oxygenase 1 measurement	T	C	0.087	0.27	0.02	7.19e-27	10708.0	ebi-a-GCST90019406	rs7412
+Frailty index	T	C	0.081	-0.03	0.01	2.83e-05	175226.0	ebi-a-GCST90020053	rs7412
+Serum total protein level	T	C	0.08	-0.02	0.0	4.20e-05	400482.0	ebi-a-GCST90025995	rs7412
+Mitochondrial DNA copy number	T	C	NA	0.04	0.0	5.56e-23	383476.0	ebi-a-GCST90026372	rs7412
+Citrate levels	T	C	0.081	0.04	0.01	1.10e-06	115068.0	ebi-a-GCST90092813	rs7412
+Glycoprotein acetyls levels	T	C	0.081	0.03	0.01	4.70e-06	115082.0	ebi-a-GCST90092821	rs7412
+Sphingomyelin levels	T	C	0.081	-0.36	0.01	0.00e+00	115006.0	ebi-a-GCST90092982	rs7412
+Degree of unsaturation	T	C	0.081	-0.09	0.01	7.00e-36	115006.0	ebi-a-GCST90092994	rs7412
+Familial combined hyperlipidemia defined by Consensus criteria	T	C	0.08	-0.83	0.02	1.47e-280	349222.0	ebi-a-GCST90104006	rs7412
+apolipoprotein A-I	T	C	0.08	0.12	0.0	1.50e-223	NA	ieu-b-107	rs7412
+25 hydroxyvitamin D level	T	C	0.082	0.03	0.0	1.72e-12	NA	ieu-b-4812	rs7412
+telomere length	T	C	0.08	-0.02	0.0	2.20e-07	472174.0	ieu-b-4879	rs7412
+ferritin	T	C	0.059	0.04	0.01	1.29e-07	NA	ieu-b-5115	rs7412
+Ratio of bisallylic groups to total fatty acids	T	C	0.057	-0.14	0.03	7.61e-07	13167.0	met-c-845	rs7412
+Average number of methylene groups per double bond	T	C	0.057	0.19	0.03	3.27e-11	13526.0	met-c-847	rs7412
+Total cholines	T	C	0.081	-0.13	0.01	1.30e-70	NA	met-d-Cholines	rs7412
+Triglycerides to total lipids ratio in IDL	T	C	0.081	0.49	0.01	0.00e+00	NA	met-d-IDL_TG_pct	rs7412
+Phosphoglycerides	T	C	0.081	-0.08	0.01	1.60e-28	NA	met-d-Phosphoglyc	rs7412
+Remnant cholesterol (non-HDL, non-LDL -cholesterol)	T	C	0.081	-0.4	0.01	0.00e+00	NA	met-d-Remnant_C	rs7412
+Number of self-reported non-cancer illnesses	T	C	0.081	-0.02	0.0	1.21e-06	337159.0	ukb-a-22	rs7412
+Number of treatments/medications taken	T	C	0.081	-0.02	0.0	2.38e-08	337159.0	ukb-a-24	rs7412
+Diagnoses - main ICD10: M21 Other acquired deformities of limbs	T	C	0.081	0.0	0.0	4.11e-05	337199.0	ukb-a-565	rs7412
+Standing height	T	C	0.08	0.01	0.0	1.60e-05	461950.0	ukb-b-10787	rs7412
+Treatment/medication code: simvastatin	T	C	0.08	-0.03	0.0	3.90e-101	462933.0	ukb-b-11268	rs7412
+Non-cancer illness code, self-reported: deep venous thrombosis (dvt)	T	C	0.08	0.0	0.0	5.30e-07	462933.0	ukb-b-12040	rs7412
+Vascular/heart problems diagnosed by doctor: None of the above	T	C	0.08	0.01	0.0	1.90e-15	461880.0	ukb-b-13352	rs7412
+Non-cancer illness code, self-reported: heart attack/myocardial infarction	T	C	0.08	-0.0	0.0	8.10e-12	462933.0	ukb-b-15829	rs7412
+Leg fat-free mass (left)	T	C	0.08	0.01	0.0	1.40e-08	454805.0	ukb-b-16099	rs7412
+Diagnoses - main ICD10: I25.1 Atherosclerotic heart disease	T	C	0.08	-0.0	0.0	1.70e-13	463010.0	ukb-b-1668	rs7412
+Treatment speciality of consultant (recoded): Cardiology	T	C	0.08	-0.0	0.0	4.40e-07	445693.0	ukb-b-20300	rs7412
+Oily fish intake	T	C	0.08	-0.01	0.0	2.80e-05	460443.0	ukb-b-2209	rs7412
+Operation code: cholecystectomy/gall bladder removal	T	C	0.08	0.0	0.0	6.80e-06	462933.0	ukb-b-6235	rs7412
+Salt added to food	T	C	0.08	0.02	0.0	1.70e-06	462630.0	ukb-b-8121	rs7412
+Treatment/medication code: aspirin	T	C	0.08	-0.01	0.0	8.00e-15	462933.0	ukb-b-8755	rs7412
+Spread type: Butter/spreadable butter	T	C	0.08	0.02	0.0	1.01e-23	360291.0	ukb-d-1428_1	rs7412
+Major dietary changes in the last 5 years: No	T	C	0.08	0.01	0.0	8.75e-12	360294.0	ukb-d-1538_0	rs7412
+Ischaemic heart disease, wide definition	T	C	0.08	-0.01	0.0	5.47e-14	361194.0	ukb-d-I9_IHD	rs7412
+Alzheimer's disease	T	C	0.24	0.05	0.01	6.36e-06	85934.0	ebi-a-GCST90027158	rs9304690
+Sum eosinophil basophil counts	T	C	0.324	-0.02	0.0	5.95e-07	171771.0	ebi-a-GCST004624	rs12459419
+Mean spheric corpuscular volume	T	C	0.324	-0.01	0.0	4.70e-06	408112.0	ebi-a-GCST90002397	rs12459419
+Platelet count	T	C	0.324	-0.02	0.0	1.80e-26	408112.0	ebi-a-GCST90002402	rs12459419
+Red cell distribution width	T	C	0.324	-0.01	0.0	5.30e-08	408112.0	ebi-a-GCST90002404	rs12459419
+Reticulocyte count	T	C	0.324	0.02	0.0	6.90e-12	408112.0	ebi-a-GCST90002405	rs12459419
+White blood cell count	T	C	0.324	-0.03	0.0	9.10e-32	408112.0	ebi-a-GCST90002407	rs12459419
+Albumin levels (UKB data field 30600)	T	C	NA	0.01	0.0	6.75e-09	357968.0	ebi-a-GCST90013990	rs12459419
+C reactive protein levels (UKB data field 30710)	T	C	NA	-0.02	0.0	4.01e-17	389057.0	ebi-a-GCST90014002	rs12459419
+Total bilirubin levels (UKB data field 30840)	T	C	NA	0.01	0.0	1.63e-13	388303.0	ebi-a-GCST90014012	rs12459419
+Glycoprotein acetyls levels	T	C	0.324	-0.02	0.0	2.50e-05	115082.0	ebi-a-GCST90092821	rs12459419
+Creatine kinase M-type:Creatine kinase B-type heterodimer measurement	C	T	0.284	-0.08	0.01	4.56e-08	10708.0	ebi-a-GCST90019438	rs587709
+Alzheimer's disease	C	T	0.325	0.05	0.01	3.88e-08	85934.0	ebi-a-GCST90027158	rs587709
+apolipoprotein A-I	C	T	0.272	-0.02	0.0	1.90e-12	NA	ieu-b-107	rs587709
+Osteoarthritis (hip)	G	A	0.77	-0.06	0.01	1.39e-05	393873.0	ebi-a-GCST007091	rs1358782
+Alzheimer's disease	G	A	0.754	0.05	0.01	1.85e-06	85934.0	ebi-a-GCST90027158	rs1358782
+Alzheimer's disease	G	A	0.09	-0.12	0.01	4.84e-16	85934.0	ebi-a-GCST90027158	rs6014724
+Alzheimer's disease	T	C	0.281	-0.05	0.01	1.72e-09	85934.0	ebi-a-GCST90027158	rs2830489
+Home area population density - urban or rural: Scotland - Large Urban Area	T	C	0.275	-0.0	0.0	2.21e-05	333997.0	ukb-a-228	rs2830489
+Place of birth in UK - north co-ordinate	T	C	0.275	-0.01	0.0	9.50e-06	434576.0	ukb-b-1431	rs2830489

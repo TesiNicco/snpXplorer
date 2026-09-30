@@ -30,6 +30,7 @@ from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 from collections import Counter
 import smtplib
+import ssl
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import psutil
@@ -2193,6 +2194,25 @@ def derive_pathway_prs_weights(clustered_go_terms, merged_df, enrichment_df):
     return weights_df
 
 # ---------------------------------------------------------
+# Email delivery must not interrupt annotation or result packaging.
+# ---------------------------------------------------------
+def _send_notification(host, port, sender, password, recipients, message):
+    try:
+        if port == 587:
+            with smtplib.SMTP(host, port, timeout=10) as server:
+                server.starttls(context=ssl.create_default_context())
+                server.login(sender, password)
+                server.sendmail(sender, recipients, message.as_string())
+        else:
+            with smtplib.SMTP_SSL(host, port, timeout=10, context=ssl.create_default_context()) as server:
+                server.login(sender, password)
+                server.sendmail(sender, recipients, message.as_string())
+        return True
+    except (OSError, smtplib.SMTPException) as error:
+        print(f"[EMAIL] Delivery failed: {type(error).__name__}: {error}", file=sys.stderr, flush=True)
+        return False
+
+# ---------------------------------------------------------
 # Function to send email at start of analysis
 # ---------------------------------------------------------
 def email_at_start(email: str, output_folder: str, query: str, analysis_type: str, build: str, qtl_tissues: List[str], gsea_sets: List[str], ancestry: str = "European", random_number: str = None):
@@ -2223,11 +2243,8 @@ def email_at_start(email: str, output_folder: str, query: str, analysis_type: st
             all_emails.extend(cc_add)
         else:
             all_emails.append(cc_add)
-    # Send email using SSL
-    with smtplib.SMTP_SSL(host, port) as server:
-        server.login(sender, psw)
-        server.sendmail(sender, all_emails, msg.as_string())
-    print("Email sent successfully!")
+    if _send_notification(host, port, sender, psw, all_emails, msg):
+        print("Email sent successfully!")
 
 # ---------------------------------------------------------
 # Function to send email at end of analysis
@@ -2260,11 +2277,8 @@ def email_at_end(email: str, random_number: str = None, ancestry: str = "Europea
             all_emails.extend(cc_add)
         else:
             all_emails.append(cc_add)
-    # Send email using SSL
-    with smtplib.SMTP_SSL(host, port) as server:
-        server.login(sender, psw)
-        server.sendmail(sender, all_emails, msg.as_string())
-    print("Email sent successfully!")
+    if _send_notification(host, port, sender, psw, all_emails, msg):
+        print("Email sent successfully!")
 
 # ---------------------------------------------------------
 # Function to send email for errors
@@ -2297,10 +2311,7 @@ def send_email_error(email, q, output_folder, ancestry="European"):
             all_emails.extend(cc_add)
         else:
             all_emails.append(cc_add)
-    # Send email using SSL
-    with smtplib.SMTP_SSL(host, port) as server:
-        server.login(sender, psw)
-        server.sendmail(sender, all_emails, msg.as_string())
+    email_sent = _send_notification(host, port, sender, psw, all_emails, msg)
     # Move query file to error folder
     cmd = f"mv {q} {output_folder}/"
     os.system(cmd)
@@ -2310,7 +2321,8 @@ def send_email_error(email, q, output_folder, ancestry="European"):
     # Remove output folder
     cmd = f"rm -rf {output_folder}"
     os.system(cmd)
-    print("Error email sent successfully!")
+    if email_sent:
+        print("Error email sent successfully!")
 
 # ---------------------------------------------------------
 # Function to send email for errors when too many variants
@@ -2343,10 +2355,7 @@ def send_email_error_toomany(email, q, output_folder, ancestry="European"):
             all_emails.extend(cc_add)
         else:
             all_emails.append(cc_add)
-    # Send email using SSL
-    with smtplib.SMTP_SSL(host, port) as server:
-        server.login(sender, psw)
-        server.sendmail(sender, all_emails, msg.as_string())
+    email_sent = _send_notification(host, port, sender, psw, all_emails, msg)
     # Move query file to error folder
     cmd = f"mv {q} {output_folder}/"
     os.system(cmd)
@@ -2356,7 +2365,8 @@ def send_email_error_toomany(email, q, output_folder, ancestry="European"):
     # Remove output folder
     cmd = f"rm -rf {output_folder}"
     os.system(cmd)
-    print("Error email sent successfully!")
+    if email_sent:
+        print("Error email sent successfully!")
 
 # ---------------------------------------------------------
 # Check resources before starting the process

@@ -52,6 +52,30 @@
       padding:6px 9px;
     }
 
+    .overview-controls {
+      align-items: center;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 18px;
+      margin: 12px 0;
+    }
+
+    .overview-controls label {
+      align-items: center;
+      display: inline-flex;
+      gap: 5px;
+      white-space: nowrap;
+    }
+
+    .overview-controls select {
+      padding: 5px 8px;
+    }
+
+    #overview-status {
+      color: #555;
+      font-size: 0.85rem;
+    }
+
     /* Main white box for haplotype summaries */
     .haplo-card-table {
       background:#ffffff;
@@ -428,6 +452,20 @@
           </div>
       </div>
     <h3>Graphical overview of haplotypes</h3>
+    {% if region_ancestry %}
+      <div class="overview-controls" aria-label="Overview ancestries">
+        <strong>Show:</strong>
+        <label><input type="checkbox" class="overview-ancestry" value="European" {% if region_ancestry == 'European' %}checked{% endif %}> European</label>
+        <label><input type="checkbox" class="overview-ancestry" value="African" {% if region_ancestry == 'African' %}checked{% endif %}> African</label>
+        <label for="overview-limit">Haplotypes per ancestry:</label>
+        <select id="overview-limit">
+          <option value="10" selected>Top 10</option>
+          <option value="20">Top 20</option>
+        </select>
+        <span id="overview-status" role="status" aria-live="polite"></span>
+      </div>
+      <small class="muted">EUR and AFR letters rank haplotypes within each ancestry. The summary table and detail plots follow the ancestry selected above.</small>
+    {% endif %}
     <div id="plotly-haplotypes" style="width:100%; margin:24px 0; height:auto;">
       {{ plot_url | safe }}
     </div>
@@ -444,8 +482,7 @@
             {% else %}
               the selected genomic region
             {% endif %}.
-            It visualizes haplotype frequencies and their association signals (haplotypes shown: {{ haplo_summary|length if haplo_summary is defined else 'N/A' }}).
-            Hover over points for exact values, click legend entries to toggle traces, and use the Plotly modebar to zoom, pan, or download the plot as an image.
+            Each row is a haplotype and each point is one of its SNPs, positioned by genomic coordinate and colored by the number of associated traits. The two ancestry panels share the same genomic range, with one gene track below. Up to 10 haplotypes per ancestry are shown initially; choose Top 20 for more. Hover over a haplotype to highlight displayed haplotypes in the other ancestry that share exact SNPs. EUR and AFR ranks do not imply that similarly lettered haplotypes correspond. Association counts may reflect differences in available GWAS studies. Use the Plotly modebar to zoom, pan, or download the plot.
           {% endif %}
         </figcaption>
       </figure>
@@ -746,6 +783,81 @@
     const startPos = {{ start_pos|tojson if start_pos is defined else 'null' }};
     const endPos   = {{ end_pos|tojson if end_pos is defined else 'null' }};
     const regionAncestry = {{ (region_ancestry or 'European') | tojson | safe }};
+
+    const overviewOptions = Array.from(document.querySelectorAll('.overview-ancestry'));
+    const overviewLimit = document.getElementById('overview-limit');
+    const overviewStatus = document.getElementById('overview-status');
+    let overviewRequest = null;
+
+    function bindOverviewOverlap(graph) {
+      if (graph.dataset.overlapBound) return;
+      graph.dataset.overlapBound = 'true';
+      let hoveredCurve = null;
+      graph.on('plotly_hover', event => {
+        const curve = event.points[0].curveNumber;
+        if (curve === hoveredCurve) return;
+        const source = graph.data[curve].meta;
+        if (!source || source.kind !== 'haplotype') return;
+        hoveredCurve = curve;
+        const sourceSnps = new Set(source.snps);
+        const matches = [];
+        const opacities = graph.data.map(trace => {
+          const other = trace.meta;
+          if (!other || other.kind !== 'haplotype' || other.ancestry === source.ancestry) return 1;
+          const shared = other.snps.filter(snp => sourceSnps.has(snp)).length;
+          if (shared) matches.push(`${other.label}: ${shared} shared SNP${shared === 1 ? '' : 's'}`);
+          return shared ? 1 : 0.2;
+        });
+        Plotly.restyle(graph, { opacity: opacities });
+        overviewStatus.textContent = matches.length
+          ? `${source.label} overlaps ${matches.join('; ')}`
+          : `${source.label}: no shared SNPs among displayed haplotypes in the other ancestry`;
+      });
+      graph.on('plotly_unhover', () => {
+        if (hoveredCurve === null) return;
+        hoveredCurve = null;
+        Plotly.restyle(graph, { opacity: graph.data.map(() => 1) });
+        overviewStatus.textContent = '';
+      });
+    }
+
+    async function updateOverview(event) {
+      const ancestries = overviewOptions.filter(option => option.checked).map(option => option.value);
+      if (!ancestries.length) {
+        event.target.checked = true;
+        overviewStatus.textContent = 'Select at least one ancestry.';
+        return;
+      }
+      if (overviewRequest) overviewRequest.abort();
+      overviewRequest = new AbortController();
+      const currentRequest = overviewRequest;
+      overviewStatus.textContent = 'Loading overview…';
+      try {
+        const response = await fetch("{{ url_for('haplotype_ancestry_overview_plot') }}", {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ancestries, limit: Number(overviewLimit.value) }),
+          signal: currentRequest.signal
+        });
+        const figure = await response.json();
+        if (!response.ok) throw new Error(figure.error || 'Unable to load overview.');
+        if (currentRequest !== overviewRequest) return;
+        const graph = document.querySelector('#plotly-haplotypes .plotly-graph-div');
+        if (!graph) throw new Error('Overview plot is unavailable.');
+        await Plotly.react(graph, figure.data, figure.layout, {
+          responsive: true, displaylogo: false
+        });
+        bindOverviewOverlap(graph);
+        overviewStatus.textContent = '';
+      } catch (error) {
+        if (error.name === 'AbortError') return;
+        console.error(error);
+        overviewStatus.textContent = error.message;
+      }
+    }
+
+    overviewOptions.forEach(option => option.addEventListener('change', updateOverview));
+    if (overviewLimit) overviewLimit.addEventListener('change', updateOverview);
 
     // Regional LD haplotype selector
     const ldOptions = Array.from(document.querySelectorAll('.ld-haplotype-option'));

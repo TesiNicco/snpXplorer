@@ -1,0 +1,120 @@
+GWAS Trait	Effect Allele	Non-effect Allele	eaf	GWAS Beta	GWAS SE	p	Sample size	GWAS ID	RsID
+Insulin-like growth factor 1 levels	C	T	0.003	-0.07	0.02	2.80e-05	435516.0	ebi-a-GCST90025989	rs141749679
+Alzheimer's disease	C	T	0.004	0.31	0.07	7.99e-06	85934.0	ebi-a-GCST90027158	rs141749679
+Alzheimer's disease	C	T	0.005	0.39	0.06	7.88e-11	85934.0	ebi-a-GCST90027158	rs143080277
+Alzheimer's disease	T	C	0.389	0.17	0.01	6.48e-90	85934.0	ebi-a-GCST90027158	rs6733839
+Mean spheric corpuscular volume	T	TC	0.127	0.02	0.0	6.80e-08	408112.0	ebi-a-GCST90002397	rs139643391
+Low density lipoprotein cholesterol levels	T	TC	0.127	-0.03	0.0	4.60e-20	431167.0	ebi-a-GCST90002412	rs139643391
+High cholesterol (SPA correction)	T	TC	NA	-0.05	0.01	1.15e-05	407746.0	ebi-a-GCST90013932	rs139643391
+Asthma (SPA correction)	T	TC	NA	-0.04	0.01	4.74e-05	401847.0	ebi-a-GCST90013938	rs139643391
+Pain type(s) experienced in last month: Headache (UKB data field 6159_1) (SPA correction)	T	TC	NA	-0.04	0.01	9.55e-07	407746.0	ebi-a-GCST90013967	rs139643391
+Alkaline phosphatase levels (UKB data field 30610)	T	TC	NA	-0.03	0.0	1.29e-18	389883.0	ebi-a-GCST90013991	rs139643391
+Cystatin C levels (UKB data field 30720)	T	TC	NA	0.02	0.0	1.40e-16	389834.0	ebi-a-GCST90014003	rs139643391
+IGF 1 (UKB data field 30770)	T	TC	NA	0.02	0.0	1.07e-09	387834.0	ebi-a-GCST90014008	rs139643391
+Total bilirubin levels (UKB data field 30840)	T	TC	NA	0.01	0.0	1.48e-05	388303.0	ebi-a-GCST90014012	rs139643391
+Chronic obstructive pulmonary disease	T	TC	0.093	-0.09	0.02	1.04e-05	468475.0	ebi-a-GCST90018807	rs139643391
+Stable angina pectoris	T	TC	0.088	0.07	0.02	1.17e-05	343026.0	ebi-a-GCST90018915	rs139643391
+Alzheimer's disease	T	TC	0.131	-0.06	0.01	2.56e-07	85934.0	ebi-a-GCST90027158	rs139643391
+FVC	TC	T	0.872	-0.01	0.0	3.40e-06	NA	ieu-b-105	rs139643391
+Major dietary changes in the last 5 years: No	T	TC	0.127	0.01	0.0	3.66e-05	360294.0	ukb-d-1538_0	rs139643391
+Ischaemic heart disease, wide definition	T	TC	0.127	0.0	0.0	5.67e-10	361194.0	ukb-d-I9_IHD	rs139643391
+Mean spheric corpuscular volume	T	G	0.571	0.01	0.0	4.60e-06	408112.0	ebi-a-GCST90002397	rs3822030
+White blood cell count	T	G	0.571	0.01	0.0	4.90e-08	408112.0	ebi-a-GCST90002407	rs3822030
+Alzheimer's disease	T	G	0.571	0.05	0.01	5.04e-10	85934.0	ebi-a-GCST90027158	rs3822030
+apolipoprotein A-I	T	G	0.571	0.01	0.0	1.30e-05	NA	ieu-b-107	rs3822030
+Ever had prostate specific antigen (PSA) test	T	G	0.572	0.01	0.0	4.10e-05	200410.0	ukb-b-15695	rs3822030
+Ankle spacing width	T	G	0.571	-0.01	0.0	1.70e-07	265753.0	ukb-b-4080	rs3822030
+Alzheimer's disease	T	C	0.717	-0.07	0.01	1.25e-13	85934.0	ebi-a-GCST90027158	rs6846529
+Alzheimer's disease	C	G	0.657	-0.05	0.01	3.05e-07	85934.0	ebi-a-GCST90027158	rs2245466
+Alzheimer's disease	A	T	0.073	0.07	0.02	3.41e-06	85934.0	ebi-a-GCST90027158	rs112403360
+Rheumatoid arthritis	G	A	NA	0.97	0.01	1.00e-250	57284.0	ebi-a-GCST002318	rs6605556
+Sum eosinophil basophil counts	G	A	0.194	0.03	0.0	4.22e-15	171771.0	ebi-a-GCST004624	rs6605556
+Allergic disease (asthma, hay fever or eczema)	G	A	0.859	0.05	0.01	1.28e-07	360838.0	ebi-a-GCST005038	rs6605556
+Prostate cancer	G	A	0.168	0.06	0.01	9.09e-10	140254.0	ebi-a-GCST006085	rs6605556
+Asthma (childhood onset)	G	A	0.185	-0.87	0.02	1.00e-19	314633.0	ebi-a-GCST007800	rs6605556
+Appendicular lean mass	G	A	0.185	-0.02	0.0	9.40e-13	244730.0	ebi-a-GCST90000027	rs6605556
+Mean spheric corpuscular volume	G	A	0.186	-0.03	0.0	1.10e-24	408112.0	ebi-a-GCST90002397	rs6605556
+Reticulocyte count	G	A	0.186	0.02	0.0	3.50e-14	408112.0	ebi-a-GCST90002405	rs6605556
+White blood cell count	G	A	0.186	0.06	0.0	3.00e-101	408112.0	ebi-a-GCST90002407	rs6605556
+Low hand grip strength (60 years and older) (FNIH)	G	A	0.177	0.11	0.01	5.74e-15	256523.0	ebi-a-GCST90007529	rs6605556
+Sex hormone-binding globulin levels adjusted for BMI	G	A	0.186	-0.0	0.0	9.20e-06	368929.0	ebi-a-GCST90012110	rs6605556
+Basal cell carcinoma	G	A	0.182	-0.07	0.01	2.20e-06	392871.0	ebi-a-GCST90013410	rs6605556
+Asthma (SPA correction)	G	A	NA	0.15	0.01	8.05e-71	401847.0	ebi-a-GCST90013938	rs6605556
+Hypothyroidism or myxoedema (SPA correction)	G	A	NA	0.19	0.01	3.92e-54	405357.0	ebi-a-GCST90013943	rs6605556
+Mean platelet thrombocyte volume (UKB data field 30100)	G	A	NA	-0.01	0.0	2.35e-06	396616.0	ebi-a-GCST90013981	rs6605556
+Alkaline phosphatase levels (UKB data field 30610)	G	A	NA	0.02	0.0	3.26e-15	389883.0	ebi-a-GCST90013991	rs6605556
+Creatinine levels (UKB data field 30700)	G	A	NA	-0.02	0.0	3.18e-12	389678.0	ebi-a-GCST90014001	rs6605556
+C reactive protein levels (UKB data field 30710)	G	A	NA	0.04	0.0	4.58e-51	389057.0	ebi-a-GCST90014002	rs6605556
+Cystatin C levels (UKB data field 30720)	G	A	NA	-0.02	0.0	1.41e-14	389834.0	ebi-a-GCST90014003	rs6605556
+Gamma glutamyltransferase levels (UKB data field 30730)	G	A	NA	0.01	0.0	5.00e-09	389672.0	ebi-a-GCST90014004	rs6605556
+Hand grip strength left (UKB data field 46)	G	A	NA	-0.01	0.0	9.45e-14	406552.0	ebi-a-GCST90014019	rs6605556
+Chronic sinusitis	G	A	0.199	0.15	0.02	1.45e-18	452495.0	ebi-a-GCST90018823	rs6605556
+IgA nephropathy	G	A	0.199	0.07	0.02	4.04e-06	477784.0	ebi-a-GCST90018866	rs6605556
+Nasal polyps	G	A	0.199	0.31	0.03	4.62e-29	450059.0	ebi-a-GCST90018883	rs6605556
+Urolithiasis	G	A	0.199	-0.06	0.01	3.05e-05	488346.0	ebi-a-GCST90018935	rs6605556
+Weight	G	A	0.209	-0.01	0.0	5.37e-08	360116.0	ebi-a-GCST90018949	rs6605556
+Gamma glutamyl transpeptidase	G	A	0.207	0.01	0.0	9.76e-07	344104.0	ebi-a-GCST90018954	rs6605556
+Serum creatinine levels	G	A	0.208	-0.01	0.0	1.62e-10	344104.0	ebi-a-GCST90018979	rs6605556
+Medication use (thyroid preparations)	G	A	0.211	0.15	0.01	1.18e-42	305582.0	ebi-a-GCST90018990	rs6605556
+Medication use (immunosuppressants)	G	A	0.213	0.45	0.02	1.05e-106	272602.0	ebi-a-GCST90018991	rs6605556
+Medication use (drugs affecting bone structure and mineralization)	G	A	0.217	0.1	0.01	1.22e-11	215668.0	ebi-a-GCST90018993	rs6605556
+Medication use (adrenergics, inhalants)	G	A	0.22	0.14	0.01	1.07e-39	176445.0	ebi-a-GCST90018999	rs6605556
+Medication use (glucocorticoids)	G	A	0.217	0.1	0.01	2.38e-23	205700.0	ebi-a-GCST90019000	rs6605556
+Interleukin-1 receptor type 2 measurement	G	A	0.148	0.12	0.02	3.51e-09	10708.0	ebi-a-GCST90019391	rs6605556
+Coagulation Factor V measurement	G	A	0.147	-0.15	0.02	2.64e-13	10708.0	ebi-a-GCST90019453	rs6605556
+Frailty index	G	A	0.187	0.04	0.0	3.77e-22	175226.0	ebi-a-GCST90020053	rs6605556
+Alzheimer's disease	G	A	0.161	-0.1	0.01	1.05e-17	85934.0	ebi-a-GCST90027158	rs6605556
+Autoimmune traits	G	A	0.186	0.02	0.0	1.60e-32	469184.0	ebi-a-GCST90029015	rs6605556
+Respiratory or ear-nose-throat disease	G	A	0.186	0.02	0.0	2.30e-28	452192.0	ebi-a-GCST90029023	rs6605556
+Glycoprotein acetyls levels	G	A	0.185	0.03	0.01	6.80e-07	115082.0	ebi-a-GCST90092821	rs6605556
+FVC	G	A	0.185	-0.01	0.0	2.60e-07	NA	ieu-b-105	rs6605556
+apolipoprotein A-I	G	A	0.185	0.02	0.0	4.80e-15	NA	ieu-b-107	rs6605556
+multiple sclerosis	G	A	NA	-0.8	0.04	3.02e-84	115803.0	ieu-b-18	rs6605556
+diastolic blood pressure	G	A	0.181	0.14	0.02	4.38e-09	645880.0	ieu-b-39	rs6605556
+telomere length	G	A	0.18	0.01	0.0	1.10e-06	472174.0	ieu-b-4879	rs6605556
+Malignant non-melanoma skin cancer	G	A	0.184	-0.0	0.0	8.50e-06	395710.0	ieu-b-4959	rs6605556
+LRTI	G	A	0.185	0.1	0.02	8.05e-10	486484.0	ieu-b-4973	rs6605556
+ferritin	G	A	0.175	-0.02	0.0	3.96e-06	NA	ieu-b-5115	rs6605556
+HPV positive oropharyngeal cancer (excl. UKB)	G	A	0.189	0.24	0.04	7.02e-08	NA	ieu-b-5128	rs6605556
+Hypertension	G	A	0.185	0.01	0.0	7.10e-07	NA	ieu-b-5144	rs6605556
+IDP_dMRI_ProbtrackX_ICVF_slf_l	G	A	0.185	0.07	0.01	2.23e-10	NA	ubm-b-1971	rs6605556
+Non-cancer illness code  self-reported: malabsorption/coeliac disease	G	A	0.19	-0.0	0.0	7.96e-55	337159.0	ukb-a-101	rs6605556
+Treatment/medication code: becotide 50 inhaler	G	A	0.19	0.0	0.0	1.59e-06	337159.0	ukb-a-124	rs6605556
+Treatment/medication code: insulin product	G	A	0.19	0.01	0.0	1.16e-69	337159.0	ukb-a-153	rs6605556
+Treatment/medication code: paracetamol	G	A	0.19	0.01	0.0	5.32e-06	337159.0	ukb-a-194	rs6605556
+Number of self-reported non-cancer illnesses	G	A	0.19	0.02	0.0	9.47e-19	337159.0	ukb-a-22	rs6605556
+Number of treatments/medications taken	G	A	0.19	0.03	0.0	2.60e-29	337159.0	ukb-a-24	rs6605556
+Eye problems/disorders: Diabetes related eye disease	G	A	0.19	0.01	0.0	4.30e-16	108817.0	ukb-a-423	rs6605556
+Diagnoses - main ICD10: K51 Ulcerative colitis	G	A	0.19	-0.0	0.0	2.49e-06	337199.0	ukb-a-553	rs6605556
+Diagnoses - secondary ICD10: E10.9 Without complications	G	A	0.185	0.0	0.0	1.30e-54	463010.0	ukb-b-10694	rs6605556
+Standing height	G	A	0.185	-0.01	0.0	5.90e-08	461950.0	ukb-b-10787	rs6605556
+Medication for pain relief, constipation, heartburn: None of the above	G	A	0.185	-0.01	0.0	1.50e-09	457547.0	ukb-b-11085	rs6605556
+Treatment/medication code: simvastatin	G	A	0.185	0.0	0.0	2.20e-06	462933.0	ukb-b-11268	rs6605556
+Operation code: tonsillectomy +/- adenoids	G	A	0.185	0.0	0.0	6.80e-07	462933.0	ukb-b-11497	rs6605556
+Treatment/medication code: methotrexate	G	A	0.185	0.0	0.0	1.50e-123	462933.0	ukb-b-12209	rs6605556
+Treatment/medication code: ventolin 100micrograms inhaler	G	A	0.185	0.01	0.0	5.70e-36	462933.0	ukb-b-13148	rs6605556
+Vascular/heart problems diagnosed by doctor: None of the above	G	A	0.185	-0.01	0.0	1.50e-06	461880.0	ukb-b-13352	rs6605556
+Long-standing illness, disability or infirmity	G	A	0.185	0.02	0.0	2.30e-34	451893.0	ukb-b-13764	rs6605556
+Impedance of leg (left)	G	A	0.185	0.01	0.0	2.30e-05	454857.0	ukb-b-14068	rs6605556
+Trunk fat-free mass	G	A	0.185	-0.01	0.0	2.50e-08	454508.0	ukb-b-17409	rs6605556
+Treatment/medication code: seretide 50 evohaler	G	A	0.185	0.0	0.0	5.20e-17	462933.0	ukb-b-17836	rs6605556
+Blood clot, DVT, bronchitis, emphysema, asthma, rhinitis, eczema, allergy diagnosed by doctor: None of the above	G	A	0.185	-0.01	0.0	6.70e-12	462013.0	ukb-b-18200	rs6605556
+Wheeze or whistling in the chest in last year	G	A	0.185	0.01	0.0	3.00e-39	453959.0	ukb-b-18335	rs6605556
+Main speciality of consultant (recoded): Ear, nose and throat (ENT)	G	A	0.185	0.0	0.0	1.60e-07	461270.0	ukb-b-18820	rs6605556
+Contra-indications for spirometry	G	A	0.185	0.01	0.0	2.50e-05	462551.0	ukb-b-19206	rs6605556
+Non-cancer illness code, self-reported: hypothyroidism/myxoedema	G	A	0.185	0.01	0.0	5.60e-67	462933.0	ukb-b-19732	rs6605556
+Taking other prescription medications	G	A	0.185	0.02	0.0	5.60e-42	461332.0	ukb-b-20292	rs6605556
+Operation code: hysterectomy	G	A	0.185	0.0	0.0	5.10e-06	462933.0	ukb-b-3700	rs6605556
+Attendance/disability/mobility allowance: None of the above	G	A	0.185	-0.0	0.0	3.30e-09	459354.0	ukb-b-3855	rs6605556
+Operative procedures - main OPCS: E08.1 Polypectomy of internal nose	G	A	0.185	0.0	0.0	2.90e-26	463010.0	ukb-b-46	rs6605556
+Operation code: male circumcision	G	A	0.185	0.0	0.0	8.00e-06	462933.0	ukb-b-5227	rs6605556
+Operation code: cone biopsy	G	A	0.185	0.0	0.0	2.30e-08	462933.0	ukb-b-5479	rs6605556
+Overall health rating	G	A	0.185	0.02	0.0	6.60e-21	460844.0	ukb-b-6306	rs6605556
+Trunk predicted mass	G	A	0.185	-0.01	0.0	3.70e-08	454463.0	ukb-b-9685	rs6605556
+Hearing difficulty/problems: No	G	A	0.188	-0.01	0.0	1.34e-05	346635.0	ukb-d-2247_0	rs6605556
+Breathing problems during period of job: No	G	A	0.186	-0.0	0.0	1.03e-06	91149.0	ukb-d-22616_0	rs6605556
+COPD differential diagnosis	G	A	0.188	0.01	0.0	8.31e-14	361194.0	ukb-d-COPD_EXCL	rs6605556
+Diagnoses - main ICD10: H00 Hordeolum and chalazion	G	A	0.188	0.0	0.0	3.35e-06	361194.0	ukb-d-H00	rs6605556
+Diagnoses - main ICD10: M06 Other rheumatoid arthritis	G	A	0.188	0.0	0.0	1.11e-98	361194.0	ukb-d-M06	rs6605556
+Hip circumference (UKB data field 49)	A	G	NA	0.02	0.0	8.58e-08	407662.0	ebi-a-GCST90014021	rs10947943
+Alzheimer's disease	A	G	0.142	-0.05	0.01	6.21e-06	85934.0	ebi-a-GCST90027158	rs10947943
