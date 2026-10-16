@@ -462,9 +462,30 @@
           <option value="10" selected>Top 10</option>
           <option value="20">Top 20</option>
         </select>
+        <a id="download-region-haplotypes" class="btn-download"
+           href="{{ url_for('haplotype_region_download', ancestry=region_ancestry) }}"
+           data-base-url="{{ url_for('haplotype_region_download') }}">
+          Download selected haplotypes (CSV)
+        </a>
         <span id="overview-status" role="status" aria-live="polite"></span>
       </div>
-      <small class="muted">EUR and AFR letters rank haplotypes within each ancestry. The summary table and detail plots follow the ancestry selected above.</small>
+      <small class="muted">The CSV includes all haplotypes for the checked ancestries, regardless of the Top 10/Top 20 plot setting. EUR and AFR letters rank haplotypes within each ancestry. The summary table and detail plots follow the ancestry selected above.</small>
+    {% endif %}
+    {% if trait_ancestry %}
+      <div class="overview-controls" aria-label="Semantic UMAP controls">
+        <label for="semantic-umap-scope"><strong>UMAP ancestry:</strong></label>
+        <select id="semantic-umap-scope">
+          <option value="primary">{{ trait_ancestry }} only</option>
+          <option value="combined">{{ trait_ancestry }} + {{ 'African' if trait_ancestry == 'European' else 'European' }}</option>
+        </select>
+        <a id="download-semantic-neighborhood" class="btn-download"
+           href="{{ url_for('haplo_neighborhood_download', scope='primary') }}"
+           data-primary-url="{{ url_for('haplo_neighborhood_download', scope='primary') }}"
+           data-combined-url="{{ url_for('haplo_neighborhood_download', scope='combined') }}">
+          Download neighbourhood traits (CSV)
+        </a>
+      </div>
+      <small class="muted">The CSV includes every study in the displayed clusters; the UMAP shows up to 100 studies per cluster.</small>
     {% endif %}
     <div id="plotly-haplotypes" style="width:100%; margin:24px 0; height:auto;">
       {{ plot_url | safe }}
@@ -683,6 +704,26 @@
   const lastHaploDetail = {{ session.get('haplo_last_detail') | tojson if session.get('haplo_last_detail') else 'null' }};
 
   $(function () {
+    const semanticScope = document.getElementById('semantic-umap-scope');
+    const semanticDownload = document.getElementById('download-semantic-neighborhood');
+    if (semanticScope && semanticDownload) {
+      semanticScope.addEventListener('change', function () {
+        const plot = document.querySelector('#plotly-haplotypes .js-plotly-plot');
+        const visibility = plot && plot.layout && plot.layout.meta &&
+          plot.layout.meta.semantic_scope_visibility &&
+          plot.layout.meta.semantic_scope_visibility[this.value];
+        if (visibility) {
+          Plotly.update(plot, {visible: visibility}, {
+            'xaxis.autorange': true,
+            'yaxis.autorange': true
+          });
+        }
+        semanticDownload.href = this.value === 'combined'
+          ? semanticDownload.dataset.combinedUrl
+          : semanticDownload.dataset.primaryUrl;
+      });
+    }
+
     const $browse = $('#browse_option');
 
     function isCoord(term) { return /^\d{1,2}:\d+(-\d+)?$/i.test(term); }
@@ -788,6 +829,14 @@
     const overviewLimit = document.getElementById('overview-limit');
     const overviewStatus = document.getElementById('overview-status');
     let overviewRequest = null;
+    const regionDownload = document.getElementById('download-region-haplotypes');
+
+    function updateRegionDownload(ancestries) {
+      if (!regionDownload) return;
+      const url = new URL(regionDownload.dataset.baseUrl, window.location.href);
+      ancestries.forEach(ancestry => url.searchParams.append('ancestry', ancestry));
+      regionDownload.href = url.toString();
+    }
 
     function bindOverviewOverlap(graph) {
       if (graph.dataset.overlapBound) return;
@@ -828,6 +877,7 @@
         overviewStatus.textContent = 'Select at least one ancestry.';
         return;
       }
+      updateRegionDownload(ancestries);
       if (overviewRequest) overviewRequest.abort();
       overviewRequest = new AbortController();
       const currentRequest = overviewRequest;
@@ -856,6 +906,9 @@
       }
     }
 
+    updateRegionDownload(
+      overviewOptions.filter(option => option.checked).map(option => option.value)
+    );
     overviewOptions.forEach(option => option.addEventListener('change', updateOverview));
     if (overviewLimit) overviewLimit.addEventListener('change', updateOverview);
 

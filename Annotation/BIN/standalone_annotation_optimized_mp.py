@@ -2859,7 +2859,7 @@ def _send_notification(host, port, sender, password, recipients, message):
 def email_external_lookup_failure(email, run_id, error):
     """Tell the submitter that remote annotations could not be completed."""
     try:
-        cfg = pd.read_table(f"{DATA_PATH}/../Annotation/config_email.txt")
+        cfg = pd.read_table("/run/secrets/snpxplorer_email")
         sender = str(cfg["username"].values[0])
         port = int(cfg["port"].values[0])
         password = str(cfg["psw"].values[0])
@@ -2887,7 +2887,7 @@ def email_external_lookup_failure(email, run_id, error):
 # ---------------------------------------------------------
 def email_at_start(email: str, output_folder: str, query: str, analysis_type: str, build: str, qtl_tissues: List[str], gsea_sets: List[str], ancestry: str = "European", random_number: str = None):
     # First read configuration file values for the emails
-    cfg = pd.read_table(f"{DATA_PATH}/../Annotation/config_email.txt")
+    cfg = pd.read_table("/run/secrets/snpxplorer_email")
     sender = str(cfg['username'].values[0])
     port = int(cfg['port'].values[0])
     psw = str(cfg['psw'].values[0])
@@ -2921,7 +2921,7 @@ def email_at_start(email: str, output_folder: str, query: str, analysis_type: st
 # ---------------------------------------------------------
 def email_at_end(email: str, random_number: str = None, ancestry: str = "European"):
     # First read configuration file values for the emails
-    cfg = pd.read_table(f"{DATA_PATH}/../Annotation/config_email.txt")
+    cfg = pd.read_table("/run/secrets/snpxplorer_email")
     sender = str(cfg['username'].values[0])
     port = int(cfg['port'].values[0])
     psw = str(cfg['psw'].values[0])
@@ -2955,7 +2955,7 @@ def email_at_end(email: str, random_number: str = None, ancestry: str = "Europea
 # ---------------------------------------------------------
 def send_email_error(email, q, output_folder, ancestry="European"):
     # First read configuration file values for the emails
-    cfg = pd.read_table(f"{DATA_PATH}/../Annotation/config_email.txt")
+    cfg = pd.read_table("/run/secrets/snpxplorer_email")
     sender = str(cfg['username'].values[0])
     port = int(cfg['port'].values[0])
     psw = str(cfg['psw'].values[0])
@@ -2999,7 +2999,7 @@ def send_email_error(email, q, output_folder, ancestry="European"):
 # ---------------------------------------------------------
 def send_email_error_toomany(email, q, output_folder, ancestry="European"):
     # First read configuration file values for the emails
-    cfg = pd.read_table(f"{DATA_PATH}/../Annotation/config_email.txt")
+    cfg = pd.read_table("/run/secrets/snpxplorer_email")
     sender = str(cfg['username'].values[0])
     port = int(cfg['port'].values[0])
     psw = str(cfg['psw'].values[0])

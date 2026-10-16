@@ -219,6 +219,65 @@ def get_traits_info(data_path, traits_interest, representative, meta, ancestry='
     all_haplo_df.rename(columns={'CHR': 'Chromosome', 'BP1':'Start (hg38)', 'BP2':'End (hg38)', 'KB':'Size (kb)', 'NSNPS':'# SNPs', 'SNPS':'SNPs', 'assoc_count':'# Associations', 'rsids':'SNPs (RsIDs)', 'traits':'Traits'}, inplace=True)
     return all_gw_info, gwas_assoc_df, all_haplo_df
 
+
+def get_semantic_neighborhood_table(artifact, selected_row, scope, meta):
+    """Export the studies represented by each cluster in the selected UMAP view."""
+    context = build_semantic_context(artifact, selected_row, scope)
+    ancestry_rows = {
+        ancestry: rows.set_index('dataset_index')
+        for ancestry, rows in combined_trait_names.groupby('ancestry')
+    }
+    records = []
+    for cluster_order, group in enumerate(context['points']):
+        ancestry, cluster_id = group['key']
+        summary = artifact['summaries'][ancestry]
+        representative_rows = summary[summary['Cluster Label'].astype(int) == int(cluster_id)]
+        representative_id = ''
+        if not representative_rows.empty:
+            representative_file = representative_rows.iloc[0].get('Final Representative file')
+            if pd.notna(representative_file):
+                representative_id = re.sub(r'_hits_p5e-5\.txt(?:\.gz)?$', '', str(representative_file))
+        representative_trait = _cluster_name(artifact, group['key'])
+        code = SEMANTIC_ANCESTRY_CODES.get(ancestry, ancestry.upper())
+        # Export every study in each displayed cluster; the UMAP itself caps points at 100.
+        cluster_indices = np.flatnonzero(artifact['datasets'][ancestry]['labels'] == cluster_id)
+        for index in cluster_indices:
+            study = ancestry_rows[ancestry].loc[int(index)]
+            gwas_id = str(study['gwas_id'])
+            details = meta[gwas_id].to_dict() if gwas_id in meta.columns else {}
+            trait = details.get('trait')
+            if pd.isna(trait) or not str(trait).strip():
+                trait = study['name']
+            records.append({
+                'GWAS ID': gwas_id,
+                'Ancestry': ancestry,
+                'Cluster': int(cluster_id),
+                'Cluster Representative Trait': representative_trait,
+                'Trait': f'[{code}] {trait}',
+                'PubMed ID': details.get('pmid'),
+                'First Author': details.get('author'),
+                'Year': details.get('year'),
+                'Sample Size': details.get('sample_size'),
+                'Population': details.get('population'),
+                '__cluster_order': cluster_order,
+                '__is_representative': gwas_id == representative_id,
+            })
+
+    columns = [
+        'GWAS ID', 'Ancestry', 'Cluster', 'Cluster Representative Trait',
+        'Trait', 'PubMed ID', 'First Author', 'Year', 'Sample Size', 'Population',
+    ]
+    table = pd.DataFrame.from_records(records)
+    if table.empty:
+        return pd.DataFrame(columns=columns)
+    table['Sample Size'] = pd.to_numeric(table['Sample Size'], errors='coerce')
+    table = table.sort_values(
+        ['__cluster_order', '__is_representative', 'Sample Size'],
+        ascending=[True, False, False],
+        na_position='last',
+    )
+    return table[columns].reset_index(drop=True)
+
 # function to extract number from gwas id
 def extract_numeric_id(fname):
     try:
@@ -660,45 +719,20 @@ def plot_haplotype_traits(clusters_of_interest, all_indices, trait_list, cluster
         },
         margin=dict(t=150, b=80),
     )
-    other_ancestries = [name for name in artifact['datasets'] if name != ancestry]
-    combined_label = ' + '.join([ancestry] + other_ancestries)
     semantic_trace_indices = set(
         index
         for trace_indices in semantic_traces_by_context
         for index in trace_indices
     )
-    buttons = []
-    for label, active_indices in zip(
-        (f'{ancestry} only', combined_label),
-        semantic_traces_by_context,
+    visibility_by_scope = {}
+    for scope, active_indices in zip(
+        ('primary', 'combined'), semantic_traces_by_context
     ):
         visibility = [index not in semantic_trace_indices for index in range(len(fig.data))]
         for index in active_indices:
             visibility[index] = True
-        buttons.append(dict(
-            label=label,
-            method='update',
-            args=[
-                {'visible': visibility},
-                {
-                    'title.text': f"<b>Semantic Neighborhood of '{selected_row['name']}'</b>",
-                    'xaxis.autorange': True,
-                    'yaxis.autorange': True,
-                },
-            ],
-        ))
-    fig.update_layout(
-        updatemenus=[dict(
-            buttons=buttons,
-            direction='down',
-            showactive=True,
-            active=0,
-            x=0.0,
-            xanchor='left',
-            y=1.08,
-            yanchor='top',
-        )]
-    )
+        visibility_by_scope[scope] = visibility
+    fig.update_layout(meta={'semantic_scope_visibility': visibility_by_scope})
     # return as HTML
     plot_url = pio.to_html(fig, include_plotlyjs='cdn', full_html=False)
     # subset of the gwas_assoc_df to return
@@ -1412,6 +1446,30 @@ def build_haplotype_ld_roof(data_path, chrom, haplo_df, haplo_label_map, ancestr
         )
         return figure
 
+def summarize_region_haplotypes(haplo_df):
+    """Build the complete ranked table used for a regional haplotype query."""
+    columns = ['haplo_index', 'ID', 'n_snps', 'start_bp', 'end_bp', 'n_traits', 'traits']
+    if haplo_df.empty:
+        return pd.DataFrame(columns=columns)
+    summary = (
+        haplo_df.groupby('ID')
+        .agg(
+            n_snps=('NSNPS', 'max'),
+            start_bp=('BP1', 'min'),
+            end_bp=('BP2', 'max'),
+            n_traits=('n_traits', 'max'),
+            traits=('traits', 'max'),
+        )
+        .reset_index()
+    )
+    summary['traits'] = summary['traits'].apply(summarize_traits_with_counts)
+    summary = summary.sort_values(
+        by=['n_traits', 'start_bp'], ascending=[False, True]
+    ).reset_index(drop=True)
+    summary['haplo_index'] = summary.index.map(index_to_letters)
+    return summary[columns]
+
+
 # function to guide haplotype plots with snps/genes as inputs
 def guide_haplotypes_snps_genes(data_path, browse, window, refGen, ancestry='European'):
     # Derive chromosome and position
@@ -1432,15 +1490,7 @@ def guide_haplotypes_snps_genes(data_path, browse, window, refGen, ancestry='Eur
             hap_id_interest = haplo_df[haplo_df['SNPS'].str.contains(locus_pos, na=False)]['ID'].unique().tolist()
     # get genes
     genes = extract_genes(data_path, chrom, start_pos, end_pos, refGen)
-    haplo_summary = (haplo_df.groupby("ID").agg(n_snps=('NSNPS', 'max'), start_bp=('BP1', 'min'), end_bp=('BP2', 'max'), n_traits=('n_traits', 'max'), traits=('traits', 'max')).reset_index())
-    # format traits as deduplicated labels with SNP counts
-    haplo_summary['traits'] = haplo_summary['traits'].apply(summarize_traits_with_counts)
-    # sort haplotype summary by number of traits descending (tie-break by start position)
-    haplo_summary = haplo_summary.sort_values(by=['n_traits', 'start_bp'], ascending=[False, True]).reset_index(drop=True)
-    # assign letter-based index (A, B, C, ...)
-    haplo_summary['haplo_index'] = haplo_summary.index.map(index_to_letters)
-    # reorder columns for the table
-    haplo_summary = haplo_summary[['haplo_index', 'ID', 'n_snps', 'start_bp', 'end_bp', 'n_traits', 'traits']]
+    haplo_summary = summarize_region_haplotypes(haplo_df)
     # Start the regional LD panel with the six highest-ranked haplotypes. The
     # interactive selector can subsequently request any haplotypes in the
     # complete regional summary.

@@ -1184,7 +1184,7 @@ def derive_pathway_prs_weights(clustered_go_terms, merged_df, enrichment_df):
 # ---------------------------------------------------------
 def email_at_start(email: str, output_folder: str, query: str, analysis_type: str, build: str, qtl_tissues: List[str], gsea_sets: List[str], random_number: str = None):
     # First read configuration file values for the emails
-    cfg = pd.read_table(f"{DATA_PATH}/../Annotation/config_email.txt")
+    cfg = pd.read_table("/run/secrets/snpxplorer_email")
     sender = str(cfg['username'].values[0])
     port = int(cfg['port'].values[0])
     psw = str(cfg['psw'].values[0])
@@ -1221,7 +1221,7 @@ def email_at_start(email: str, output_folder: str, query: str, analysis_type: st
 # ---------------------------------------------------------
 def email_at_end(email: str, random_number: str = None):    
     # First read configuration file values for the emails
-    cfg = pd.read_table(f"{DATA_PATH}/../Annotation/config_email.txt")
+    cfg = pd.read_table("/run/secrets/snpxplorer_email")
     sender = str(cfg['username'].values[0])
     port = int(cfg['port'].values[0])
     psw = str(cfg['psw'].values[0])
@@ -1258,7 +1258,7 @@ def email_at_end(email: str, random_number: str = None):
 # ---------------------------------------------------------
 def send_email_error(email, q, output_folder):
     # First read configuration file values for the emails
-    cfg = pd.read_table(f"{DATA_PATH}/../Annotation/config_email.txt")
+    cfg = pd.read_table("/run/secrets/snpxplorer_email")
     sender = str(cfg['username'].values[0])
     port = int(cfg['port'].values[0])
     psw = str(cfg['psw'].values[0])

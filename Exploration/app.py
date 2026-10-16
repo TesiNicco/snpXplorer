@@ -1072,6 +1072,29 @@ def haplotypes():
     # First load
     return render_template("haplotypes.html", traits=trait_list, plot_url=None, ld_plot_url=None, fig_url=None, haplo_summary=[], chrom=None, start_pos=None, end_pos=None, hap_id_interest=None, table_traits=None, gwas_assoc_table=None, all_haplo_table=None, gwas_assoc_total=None, all_haplo_total=None)
 
+@app.get('/haplotype/neighborhood-download')
+def haplo_neighborhood_download():
+    last = session.get('haplo_last') or {}
+    if last.get('mode') != 'trait':
+        return ('No active trait query.', 404)
+    scope = request.args.get('scope', 'primary')
+    if scope not in ('primary', 'combined'):
+        return ('Invalid ancestry view.', 400)
+
+    selected_row = resolve_trait_selection(last['browse'])
+    ancestry = selected_row['ancestry']
+    semantic_scope = ancestry if scope == 'primary' else 'Combined'
+    table = get_semantic_neighborhood_table(
+        load_semantic_artifacts(), selected_row, semantic_scope, get_gwas_metadata()
+    )
+    filename = f"haplotype_semantic_neighborhood_{ancestry.lower()}_{scope}.csv"
+    return Response(
+        table.to_csv(index=False),
+        mimetype='text/csv',
+        headers={'Content-Disposition': f'attachment; filename="{filename}"'},
+    )
+
+
 @app.get("/haplotype/download/<which>")
 def haplo_download(which):
     blob = session.get("haplo_trait_full_csv", {})
@@ -1081,6 +1104,56 @@ def haplo_download(which):
     filename = f"{which}.tsv"
     return Response(table_text, mimetype="text/tab-separated-values", headers={"Content-Disposition": f"attachment; filename={filename}"})
 
+
+
+@app.get('/haplotypes/region-download')
+def haplotype_region_download():
+    """Download every regional haplotype for the selected overview ancestries."""
+    last = session.get('haplo_last') or {}
+    if last.get('mode') != 'region':
+        return ('No active regional haplotype query.', 404)
+
+    requested = request.args.getlist('ancestry')
+    if (not requested or len(requested) > 2
+            or any(value not in ('European', 'African') for value in requested)
+            or len(set(requested)) != len(requested)):
+        return ('Choose European and/or African ancestry.', 400)
+    chrom = last.get('chrom')
+    start_pos = last.get('start_pos')
+    end_pos = last.get('end_pos')
+    if chrom is None or start_pos is None or end_pos is None:
+        return ('The active regional query is incomplete.', 400)
+
+    primary = last.get('ancestry', 'European')
+    ancestries = [
+        value for value in (primary, 'African' if primary == 'European' else 'European')
+        if value in requested
+    ]
+    tables = []
+    for ancestry in ancestries:
+        haplo_df, _ = extract_haplo_data(
+            data_path, chrom, int(start_pos), int(end_pos), ancestry=ancestry
+        )
+        summary = summarize_region_haplotypes(haplo_df)
+        summary.insert(1, 'Ancestry', ancestry)
+        tables.append(summary)
+
+    table = pd.concat(tables, ignore_index=True).rename(columns={
+        'haplo_index': 'Haplotype Index',
+        'ID': 'Haplotype',
+        'n_snps': '# SNPs',
+        'start_bp': 'Start (bp)',
+        'end_bp': 'End (bp)',
+        'n_traits': '# Traits',
+        'traits': 'Traits',
+    })
+    suffix = '_'.join(value.lower() for value in ancestries)
+    filename = f'haplotypes_in_region_{suffix}.csv'
+    return Response(
+        table.to_csv(index=False),
+        mimetype='text/csv',
+        headers={'Content-Disposition': f'attachment; filename="{filename}"'},
+    )
 
 
 @app.post('/haplotypes/ancestry-overview')
@@ -1706,8 +1779,13 @@ def haplotype_detail():
     # Remember which detail was last opened
     session['haplo_last_detail'] = {"hap_id": hap_id, "chrom": chrom, "start_pos": start_pos, "end_pos": end_pos, "ancestry": ancestry}
 
-    # Return as Plotly JSON dict
-    return jsonify(fig=fig.to_dict(), haplo_table=haplo_table_html, snps_table=snps_table_html, snps_cadd_table=snps_cadd_table_html)
+    # Plotly's JSON encoder handles NumPy values in figure traces.
+    return jsonify(
+        fig=json.loads(pio.to_json(fig)),
+        haplo_table=haplo_table_html,
+        snps_table=snps_table_html,
+        snps_cadd_table=snps_cadd_table_html,
+    )
 
 if __name__ == "__main__":
     app.run()

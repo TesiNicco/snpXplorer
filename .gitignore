@@ -16,6 +16,7 @@ Annotation/.DS_Store
 Annotation/config_email.txt
 Annotation/BIN/__pycache__/
 dump.rdb
+info_for_running.sh
 Exploration/instance/
 Exploration/SNPbot/variants_info.sqlite
 Exploration/SNPbot/config.txt
@@ -24,3 +25,5 @@ Exploration/.ieugwaspy.json__pycache__/
 Annotation/RUNS/
 Data/monitor/feedback.jsonl
 Exploration/.ieugwaspy.json
+Annotation/LOGS/
+Data/monitor/opengwas_metadata.pkl.gz

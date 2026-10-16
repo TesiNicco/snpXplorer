@@ -118,17 +118,3 @@ CMD service redis-server start && python3 -m flask run --host=0.0.0.0 -p 8001
 
 # If you ever run this locally, usually you'd want:
 # CMD service redis-server start && python3 -m flask run --host=0.0.0.0 -p 8007
-
-# To build
-# docker build -t snpxplorer --name snpxplorer --network=host .
-# To run
-# docker run --name snpxplorer --restart unless-stopped -p 127.0.0.1:8001:8001 \
-# -v /root/100plus_snpxplorer/definite_standalone/snpXplorer/Exploration:/Exploration \
-# -v /root/100plus_snpxplorer/definite_standalone/snpXplorer/Annotation:/Annotation \
-# -v /root/100plus_snpxplorer/definite_standalone/snpXplorer/Data:/Data \
-# -v /home/nicco/snpxplorer-hail.json:/run/secrets/snpxplorer-hail.json:ro \
-# -e GOOGLE_APPLICATION_CREDENTIALS=/run/secrets/snpxplorer-hail.json \
-# snpxplorer
-
-# To run interactively
-# docker exec -it snpxplorer /bin/bash
