@@ -8,11 +8,14 @@ import subprocess
 import multiprocessing
 import fcntl
 import urllib.error
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+import urllib.parse
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from collections import deque
 from functools import lru_cache
 import json
 import math
+import shutil
+import tempfile
 from typing import Optional, List
 from liftover import get_lifter
 import argparse
@@ -22,6 +25,7 @@ import sys
 import numpy as np
 import os
 import time
+import threading
 from collections import defaultdict
 import pickle
 import random
@@ -160,7 +164,8 @@ def map_gtex_to_alphagenome_terms(tissues):
 
 def alphagenome_annotation(info, tissues=None):
     """
-    Run AlphaGenome scoring for a single variant and return a list of dicts.
+    Run AlphaGenome scoring for a single variant and return (rows, status),
+    where rows is a list of dicts and status is ok|no_gene|no_tissue|failed.
     """
     try:
         chrom = str(info["chr_hg38"]).upper().replace("CHR", "")
@@ -183,21 +188,27 @@ def alphagenome_annotation(info, tissues=None):
         alpha_terms = map_gtex_to_alphagenome_terms(tissues)
         if alpha_terms:
             cmd.extend(["--tissue", ",".join(alpha_terms)])
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            check=True,
-            cwd=str(alphagenome_dir),
-        )
+        with tempfile.TemporaryDirectory() as status_dir:
+            status_path = Path(status_dir) / "alphagenome_status.json"
+            cmd.extend(["--status-file", str(status_path)])
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                check=True,
+                cwd=str(alphagenome_dir),
+            )
+            status = read_alphagenome_status(status_path).get(variant_id)
         if not result.stdout:
-            return []
+            return [], status or "no_gene"
         df = pickle.loads(result.stdout)
         if isinstance(df, pd.DataFrame):
-            return df.to_dict(orient="records")
-        return pd.DataFrame(df).to_dict(orient="records")
+            rows = df.to_dict(orient="records")
+        else:
+            rows = pd.DataFrame(df).to_dict(orient="records")
+        return rows, status or ("ok" if rows else "no_gene")
     except Exception as e:
         print(f"Error in alphagenome_annotation: {e}", file=sys.stderr, flush=True)
-        return []
+        return [], "failed"
 
 def alphagenome_annotation_cached(info, tissues=None):
     """
@@ -207,26 +218,37 @@ def alphagenome_annotation_cached(info, tissues=None):
     per-variant subprocess call if the variant is missing from the cache
     (e.g. prefetch failed or was skipped).
     """
-    if _ALPHAGENOME_ANNOTATIONS:
-        try:
-            chrom = str(info["chr_hg38"]).upper().replace("CHR", "")
-            pos38 = int(info["pos_hg38"])
-            ref = str(info["ref"]).upper()
-            alt = str(info["alt"]).upper()
-            variant_id = f"chr{chrom}:{pos38}:{ref}:{alt}"
-        except Exception:
-            variant_id = None
-        if variant_id is not None and variant_id in _ALPHAGENOME_ANNOTATIONS:
-            return _ALPHAGENOME_ANNOTATIONS[variant_id]
-    return alphagenome_annotation(info, tissues=tissues)
+    try:
+        chrom = str(info["chr_hg38"]).upper().replace("CHR", "")
+        pos38 = int(info["pos_hg38"])
+        ref = str(info["ref"]).upper()
+        alt = str(info["alt"]).upper()
+        variant_id = f"chr{chrom}:{pos38}:{ref}:{alt}"
+    except Exception:
+        variant_id = None
+    hit = _alphagenome_cache_lookup(variant_id) if (_ALPHAGENOME_CACHE_PATH and variant_id is not None) else None
+    if hit is None:
+        rows, status = alphagenome_annotation(info, tissues=tissues)
+    else:
+        rows, status = hit
+    if rows or variant_id is None:
+        return rows
+    return [alphagenome_note_row(chrom, pos38, ref, alt, status)]
 
-def alphagenome_likely_genes(alpha_rows, top_n=100, min_fraction=0.20):
+def _alphagenome_quantile_col(df):
+    return next((c for c in ("quantile_score", "Quantile Score") if c in df.columns), None)
+
+def alphagenome_likely_genes(alpha_rows, top_n=100, min_fraction=0.20, min_abs_quantile=None):
     """
-    Identify recurrent AlphaGenome-supported genes from the top absolute scores.
+    Keep rows with |quantile score| >= min_abs_quantile (NaN and note rows dropped), take the top_n by
+    |quantile| descending, and return genes whose share among those rows >= min_fraction; [] if none pass
+    (caller falls through).
     """
     if not alpha_rows:
         return []
     try:
+        if min_abs_quantile is None:
+            min_abs_quantile = ALPHAGENOME_MIN_ABS_QUANTILE
         alpha_df = pd.DataFrame(alpha_rows)
         if alpha_df.empty or "gene_name" not in alpha_df.columns:
             return []
@@ -236,11 +258,12 @@ def alphagenome_likely_genes(alpha_rows, top_n=100, min_fraction=0.20):
         alpha_df = alpha_df[alpha_df["gene_name"].str.lower() != "nan"]
         if alpha_df.empty:
             return []
-        if "score" in alpha_df.columns:
-            alpha_df["score_numeric"] = pd.to_numeric(alpha_df["score"], errors="coerce")
-            alpha_df["abs_score"] = alpha_df["score_numeric"].abs()
-            alpha_df = alpha_df.sort_values(by="abs_score", ascending=False, na_position="last")
-        alpha_top = alpha_df.head(top_n)
+        q_col = _alphagenome_quantile_col(alpha_df)
+        if q_col is None:
+            return []
+        alpha_df["abs_quantile"] = pd.to_numeric(alpha_df[q_col], errors="coerce").abs()
+        alpha_df = alpha_df[alpha_df["abs_quantile"] >= min_abs_quantile]  # NaN fails
+        alpha_top = alpha_df.sort_values("abs_quantile", ascending=False, kind="mergesort").head(top_n)
         if alpha_top.empty:
             return []
         gene_counts = alpha_top["gene_name"].value_counts(normalize=True)
@@ -257,10 +280,98 @@ def alphagenome_likely_genes(alpha_rows, top_n=100, min_fraction=0.20):
 GNOMAD_MIN_INTERVAL_SECONDS = 6.1
 GNOMAD_MAX_ATTEMPTS = 3
 GNOMAD_RATE_LOCK = Path("/Annotation/RUNS/.gnomad_api.lock")
-HAIL_PREFETCH_LOCK = Path("/Annotation/RUNS/.hail_prefetch.lock")
+# Concurrency limits across jobs sharing /Annotation/RUNS (flock slot files).
+MAX_CONCURRENT_JOBS = 4
+HAIL_MAX_CONCURRENT = 8
+JOB_SLOT_PREFIX = "/Annotation/RUNS/.job_slot_"
+HAIL_SLOT_PREFIX = "/Annotation/RUNS/.hail_prefetch_slot_"
+_JOB_SLOT = None  # kept open for the whole job; the kernel releases it on exit
+# Persistent gnomAD/ClinVar lookup cache shared by annotation jobs (created at
+# runtime inside Docker). Entries are invalidated when any version changes.
+HAIL_CACHE_PATH = Path("/Annotation/cache/hail_cache.sqlite")
+HAIL_GNOMAD_VERSION = "4.1"
+HAIL_CLINVAR_DEFAULT_TABLE = "gs://gcp-public-data--gnomad/resources/grch38/clinvar/clinvar_20250504.ht"
+HAIL_CACHE_SCHEMA = "2"
 GNOMAD_SOURCE = os.environ.get("GNOMAD_SOURCE", "api").strip().lower()
+# Local gnomAD/ClinVar source (--gnomad-source local): sqlite cache under /Data,
+# remote gnomAD VCFs read through local tabix indexes, local ClinVar VCF.
+LOCAL_GNOMAD_CACHE = Path(os.environ.get("LOCAL_GNOMAD_CACHE", "/Data/databases/gnomad_db/gnomad_cache.sqlite"))
+LOCAL_TBI_DIR = os.environ.get("LOCAL_TBI_DIR", "/Data/databases/gnomad_v4.1_tbi")
+LOCAL_VCF_BASE_URL = os.environ.get(
+    "LOCAL_VCF_BASE_URL", "https://storage.googleapis.com/gcp-public-data--gnomad/release/4.1/vcf")
+LOCAL_CLINVAR_VCF = os.environ.get("LOCAL_CLINVAR_VCF", "/Data/databases/clinvar/current/clinvar.vcf.gz")
+LOCAL_TABIX_THREADS = int(os.environ.get("LOCAL_TABIX_THREADS", "8"))
+LOCAL_TABIX_ATTEMPTS = int(os.environ.get("LOCAL_TABIX_ATTEMPTS", "3"))
+LOCAL_TABIX_BACKOFF = (1, 4, 10)
+LOCAL_CACHE_META = {"schema_version": "1", "gnomad_version": "4.1"}
+
+
+def _open_tabix(path, index=None):
+    """Open a (local or remote) bgzipped VCF with tabix; pysam is imported lazily."""
+    import pysam
+    return pysam.TabixFile(path, index=index)
+
 _HAIL_ANNOTATIONS = None
-_ALPHAGENOME_ANNOTATIONS = None
+_ALPHAGENOME_CACHE_PATH = None
+_ALPHAGENOME_DB = None
+_ALPHAGENOME_DB_PATH = None
+INTERMEDIATE_DIRNAME = "intermediate_files"
+ALPHAGENOME_MIN_ABS_QUANTILE = 0.95
+ALPHAGENOME_NOTES = {
+    "no_gene": "No gene within the 16 kb AlphaGenome window",
+    "no_tissue": "No AlphaGenome scores for the selected tissues",
+    "failed": "AlphaGenome scoring failed",
+    "below_threshold": f"No AlphaGenome score with |quantile score| >= {ALPHAGENOME_MIN_ABS_QUANTILE:g}",
+}
+ALPHAGENOME_IDENTITY_COLUMNS = ["Variant Id", "Query Locus", "Ref Base", "Alt Base", "Variant"]
+# Fixed column list to keep the appended TSV aligned (note-only rows and real rows
+# share one header). Update it if the AlphaGenome output columns change.
+ALPHAGENOME_TARGET_COLUMNS = ["Variant Id", "Scored Interval", "Gene Id", "Gene Name", "Gene Type", "Gene Strand", "Junction Start", "Junction End", "Output Type", "Variant Scorer", "Track Name", "Track Strand", "Assay Title", "Ontology Curie", "Biosample Name", "Biosample Type", "Biosample Life Stage", "Data Source", "Endedness", "Genetically Modified", "Transcription Factor", "Histone Mark", "Gtex Tissue", "Raw Score", "Quantile Score", "Query Locus", "Ref Base", "Alt Base", "Variant", "Note"]
+
+def intermediate_folder(output_folder):
+    """Return (and create) the folder holding intermediate caches, removed before zipping."""
+    folder = Path(output_folder) / INTERMEDIATE_DIRNAME
+    folder.mkdir(parents=True, exist_ok=True)
+    return folder
+
+def read_alphagenome_status(path):
+    """Read a status JSON written by alphagenome_score.py; {} if missing or unreadable."""
+    try:
+        return json.loads(Path(path).read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+def alphagenome_note_row(chrom, pos38, ref, alt, status):
+    """Note-only row (tidy column names, see prettify_columns) for variants without AlphaGenome scores."""
+    variant = f"chr{chrom}:{pos38}:{ref}>{alt}"
+    return {
+        "variant_id": variant,
+        "query_locus": f"chr{chrom}:{pos38}",
+        "ref_base": ref,
+        "alt_base": alt,
+        "variant": variant,
+        "note": ALPHAGENOME_NOTES.get(status, ALPHAGENOME_NOTES["no_gene"]),
+    }
+
+
+def acquire_slot(prefix, n, poll_seconds=15, label="SLOTS", what="slot"):
+    """Lock the first free file in {prefix}{0..n-1}.lock and return the open file (close it to release)."""
+    Path(prefix).parent.mkdir(parents=True, exist_ok=True)
+    announced = False
+    while True:
+        for i in range(n):
+            handle = open(f"{prefix}{i}.lock", "a+")
+            try:
+                fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                handle.close()
+                continue
+            print(f"[{label}] acquired {what} {i}", file=sys.stderr, flush=True)
+            return handle
+        if not announced:
+            print(f"[{label}] waiting for a free {what} (max {n})", file=sys.stderr, flush=True)
+            announced = True
+        time.sleep(poll_seconds)
 
 
 class GnomadLookupError(RuntimeError):
@@ -381,9 +492,9 @@ def query_gnomad_info(info):
     variant_id = f"{chrom}-{int(pos38)}-{ref}-{alt}"
     result["variant_id"] = variant_id
     result["links"]["gnomad"] = f"https://gnomad.broadinstitute.org/variant/{variant_id}?dataset=gnomad_r4"
-    if GNOMAD_SOURCE == "hail":
+    if GNOMAD_SOURCE in ("hail", "local"):
         if _HAIL_ANNOTATIONS is None or variant_id not in _HAIL_ANNOTATIONS:
-            raise GnomadLookupError(f"Hail job lookup has no result for {variant_id}")
+            raise GnomadLookupError(f"{GNOMAD_SOURCE.capitalize()} job lookup has no result for {variant_id}")
         return _HAIL_ANNOTATIONS[variant_id]
     population_map = {
         "afr": "african",
@@ -609,7 +720,9 @@ def _combined_af(exome, genome, key):
 
 def _clinvar_text(value):
     if isinstance(value, list):
-        value = "|".join(str(item) for item in value if item is not None)
+        # Hail/local split Number=. fields on ',', but ClinVar uses '|' between values and ',' inside
+        # them, so rejoining with ',' restores ClinVar's own text.
+        value = ",".join(str(item) for item in value if item is not None)
     return str(value).replace("_", " ") if value not in (None, "", ".") else None
 
 
@@ -670,8 +783,169 @@ def _hail_annotation_from_row(variant_id, row):
     return annotation
 
 
-def prefetch_hail_annotations(selected_items, output_folder):
-    """Query the public gnomAD and ClinVar Hail tables once for this job."""
+def _hail_clinvar_table():
+    # Pin the public ClinVar snapshot explicitly: the PyPI gnomad package
+    # predates the current default resource definition in gnomad_methods.
+    return os.environ.get("GNOMAD_CLINVAR_HAIL_TABLE", HAIL_CLINVAR_DEFAULT_TABLE)
+
+
+def _hail_cache_versions():
+    table = _hail_clinvar_table()
+    match = re.search(r"(?<!\d)(\d{8})(?!\d)", table.rsplit("/", 1)[-1])
+    return {
+        "schema": str(HAIL_CACHE_SCHEMA),
+        "gnomad_version": str(HAIL_GNOMAD_VERSION),
+        "clinvar_release": match.group(1) if match else table,
+    }
+
+
+_HAIL_CACHE_CLINVAR_FIELDS = (
+    ("variation_id", "clinvar_variation_id"), ("ref", "clinvar_ref"),
+    ("alt", "clinvar_alt"), ("gene_symbol", "gene_symbol"),
+    ("conditions", "clinvar_conditions"),
+    ("germline_classification", "clinvar_germline_classification"),
+    ("clinical_significance", "clinvar_clinical_significance"),
+    ("major_consequence", "major_consequence"), ("transcript_id", "transcript_id"),
+    ("hgvsc", "hgvsc"), ("hgvsp", "hgvsp"),
+    ("last_evaluated", "clinvar_last_evaluated"),
+    ("review_status", "clinvar_review_status"),
+)
+
+
+def _hail_cache_columns():
+    """Column names of the hail_cache table, in storage order."""
+    return (["variant_key", "total_af"]
+            + [f"af_{label}" for label in HAIL_POPULATIONS.values()]
+            + [column for _, column in _HAIL_CACHE_CLINVAR_FIELDS])
+
+
+def _hail_cache_row(annotation):
+    """Flatten one annotation (as built by _hail_annotation_from_row) to a row tuple."""
+    clinvar = annotation["clinvar"]
+    values = [annotation["variant_id"], annotation["total_af"]]
+    values.extend(annotation["ancestry_af"][label] for label in HAIL_POPULATIONS.values())
+    for field, _ in _HAIL_CACHE_CLINVAR_FIELDS:
+        value = clinvar[field]
+        values.append(json.dumps(value) if field == "conditions" else value)
+    return tuple(values)
+
+
+def _hail_annotation_from_cache(row):
+    """Rebuild the annotation dict (same keys, order and values) from a cache row."""
+    variant_id, total_af = row[0], row[1]
+    labels = list(HAIL_POPULATIONS.values())
+    ancestry = {label: row[2 + index] for index, label in enumerate(labels)}
+    offset = 2 + len(labels)
+    clinvar = {}
+    for index, (field, _) in enumerate(_HAIL_CACHE_CLINVAR_FIELDS):
+        value = row[offset + index]
+        if field == "conditions":
+            value = json.loads(value) if value is not None else []
+        clinvar[field] = value
+    variation_id = clinvar["variation_id"]
+    return {
+        "variant_id": variant_id, "dataset": "gnomad_r4",
+        "total_af": total_af,
+        "ancestry_af": ancestry,
+        "clinvar": clinvar,
+        "links": {
+            "gnomad": f"https://gnomad.broadinstitute.org/variant/{variant_id}?dataset=gnomad_r4",
+            "clinvar": (
+                f"https://www.ncbi.nlm.nih.gov/clinvar/variation/{variation_id}/"
+                if variation_id and variation_id != "." else None
+            ),
+        },
+    }
+
+
+_HAIL_CACHE_ERRORS = (sqlite3.Error, OSError, ValueError, TypeError,
+                      KeyError, IndexError, AttributeError)
+
+
+def _hail_cache_read(variant_ids):
+    """Return {variant_id: annotation} for cached ids. Never raises."""
+    variant_ids = list(variant_ids)
+    if not variant_ids or not Path(HAIL_CACHE_PATH).exists():
+        return {}
+    connection = None
+    try:
+        uri = "file:" + urllib.parse.quote(str(HAIL_CACHE_PATH)) + "?mode=ro"
+        connection = sqlite3.connect(uri, uri=True, timeout=30)
+        connection.execute("PRAGMA busy_timeout=30000")
+        tables = {name for (name,) in connection.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'")}
+        if not {"hail_cache", "hail_cache_meta"} <= tables:
+            return {}
+        meta = dict(connection.execute("SELECT key, value FROM hail_cache_meta"))
+        if meta != _hail_cache_versions():
+            return {}
+        select = "SELECT " + ", ".join(_hail_cache_columns()) + " FROM hail_cache WHERE variant_key IN "
+        found = {}
+        for start in range(0, len(variant_ids), 500):
+            chunk = variant_ids[start:start + 500]
+            marks = ",".join("?" * len(chunk))
+            for row in connection.execute(select + "(" + marks + ")", chunk):
+                found[row[0]] = _hail_annotation_from_cache(row)
+        return found
+    except _HAIL_CACHE_ERRORS as error:
+        print(f"[HAIL] cache read failed: {error}", file=sys.stderr, flush=True)
+        return {}
+    finally:
+        if connection is not None:
+            connection.close()
+
+
+def _hail_cache_write(annotations):
+    """Store found annotations (total_af known) in the cache. Never raises."""
+    connection = None
+    try:
+        # Normalise to plain JSON types first: this is exactly what downstream reads.
+        normalised = json.loads(json.dumps(list(annotations)))
+        rows = [_hail_cache_row(item) for item in normalised if item["total_af"] is not None]
+        if not rows:
+            return
+        versions = _hail_cache_versions()
+        columns = _hail_cache_columns()
+        Path(HAIL_CACHE_PATH).parent.mkdir(parents=True, exist_ok=True)
+        connection = sqlite3.connect(str(HAIL_CACHE_PATH), timeout=30, isolation_level=None)
+        connection.execute("PRAGMA busy_timeout=30000")
+        connection.execute("PRAGMA journal_mode=WAL")
+        connection.execute("BEGIN IMMEDIATE")
+        try:
+            tables = {name for (name,) in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'")}
+            meta = None
+            if "hail_cache_meta" in tables and "hail_cache" in tables:
+                meta = dict(connection.execute("SELECT key, value FROM hail_cache_meta"))
+            if meta != versions:
+                connection.execute("DROP TABLE IF EXISTS hail_cache")
+                connection.execute("DROP TABLE IF EXISTS hail_cache_meta")
+                definition = ["variant_key TEXT PRIMARY KEY", "total_af REAL"]
+                definition += [f"af_{label} REAL" for label in HAIL_POPULATIONS.values()]
+                definition += [column for _, column in _HAIL_CACHE_CLINVAR_FIELDS]
+                connection.execute(
+                    "CREATE TABLE hail_cache (" + ", ".join(definition) + ") WITHOUT ROWID")
+                connection.execute(
+                    "CREATE TABLE hail_cache_meta (key TEXT PRIMARY KEY, value TEXT)")
+                connection.executemany(
+                    "INSERT INTO hail_cache_meta(key, value) VALUES (?, ?)",
+                    sorted(versions.items()))
+            connection.executemany(
+                "INSERT OR REPLACE INTO hail_cache(" + ", ".join(columns) + ") VALUES ("
+                + ",".join("?" * len(columns)) + ")", rows)
+            connection.execute("COMMIT")
+        except BaseException:
+            connection.execute("ROLLBACK")
+            raise
+    except _HAIL_CACHE_ERRORS as error:
+        print(f"[HAIL] cache write failed: {error}", file=sys.stderr, flush=True)
+    finally:
+        if connection is not None:
+            connection.close()
+
+
+def _query_hail(keys):
+    """Query the public gnomAD and ClinVar Hail tables for keys; return {variant_id: annotation}."""
     try:
         import hail as hl
         from gnomad_toolbox.load_data import get_gnomad_release
@@ -680,36 +954,26 @@ def prefetch_hail_annotations(selected_items, output_folder):
             "Hail mode requires hail and gnomad-toolbox (use Docker_hail)"
         ) from error
 
-    keys = sorted({tuple(item["variant_key"]) for item in selected_items
-                   if item.get("variant_key") is not None})
-    cache_path = Path(output_folder) / "hail_annotations.json"
-    if not keys:
-        cache_path.write_text("{}", encoding="utf-8")
-        return cache_path
-
-    print(f"[HAIL] Reading gnomAD v4.1 and ClinVar for {len(keys)} variants",
+    print(f"[HAIL] Reading gnomAD v{HAIL_GNOMAD_VERSION} and ClinVar for {len(keys)} variants",
           file=sys.stderr, flush=True)
     HAIL_LOG_DIR.mkdir(parents=True, exist_ok=True)
     log_path = HAIL_LOG_DIR / (
-        f"hail-{Path(output_folder).name}-{os.getpid()}-{time.time_ns()}.log"
+        f"hail-prefetch-{os.getpid()}-{time.time_ns()}.log"
     )
     print(f"[HAIL] Log file: {log_path}", file=sys.stderr, flush=True)
     try:
         hl.init(backend="local", quiet=True, log=str(log_path))
         exome = _hail_gnomad_projection(
-            get_gnomad_release(dataset="variant", data_type="exomes", version="4.1"),
+            get_gnomad_release(dataset="variant", data_type="exomes", version=HAIL_GNOMAD_VERSION),
             "exome", hl,
         )
         genome = _hail_gnomad_projection(
-            get_gnomad_release(dataset="variant", data_type="genomes", version="4.1"),
+            get_gnomad_release(dataset="variant", data_type="genomes", version=HAIL_GNOMAD_VERSION),
             "genome", hl,
         )
         # Pin the public ClinVar snapshot explicitly: the PyPI gnomad package
         # predates the current default resource definition in gnomad_methods.
-        clinvar_path = os.environ.get(
-            "GNOMAD_CLINVAR_HAIL_TABLE",
-            "gs://gcp-public-data--gnomad/resources/grch38/clinvar/clinvar_20250504.ht",
-        )
+        clinvar_path = _hail_clinvar_table()
         print(f"[HAIL] ClinVar table: {clinvar_path}", file=sys.stderr, flush=True)
         clinvar = hl.read_table(clinvar_path)
         clinvar = clinvar.select(
@@ -771,10 +1035,9 @@ def prefetch_hail_annotations(selected_items, output_folder):
             raise GnomadLookupError(
                 f"Hail returned {len(annotations)} of {len(keys)} selected variants"
             )
-        cache_path.write_text(json.dumps(annotations), encoding="utf-8")
-        print(f"[HAIL] Saved {len(annotations)} variant annotations",
+        print(f"[HAIL] Queried {len(annotations)} variant annotations",
               file=sys.stderr, flush=True)
-        return cache_path
+        return annotations
     except GnomadLookupError:
         raise
     except Exception as error:
@@ -784,6 +1047,570 @@ def prefetch_hail_annotations(selected_items, output_folder):
             hl.stop()
         except Exception:
             pass
+
+
+
+
+def prefetch_hail_annotations(selected_items, output_folder):
+    """Resolve gnomAD/ClinVar annotations for this job (persistent cache, then Hail for misses)."""
+    keys = sorted({tuple(item["variant_key"]) for item in selected_items
+                   if item.get("variant_key") is not None})
+    cache_path = intermediate_folder(output_folder) / "hail_annotations.json"
+    if not keys:
+        cache_path.write_text("{}", encoding="utf-8")
+        return cache_path
+
+    def variant_id_of(key):
+        return f"{key[0]}-{key[1]}-{key[2]}-{key[3]}"
+
+    cached = _hail_cache_read([variant_id_of(key) for key in keys])
+    misses = [key for key in keys if variant_id_of(key) not in cached]
+    print(f"[HAIL] cache hits={len(keys) - len(misses)} misses={len(misses)}",
+          file=sys.stderr, flush=True)
+    fresh = {}
+    if misses:
+        # Each local Hail session uses substantial memory: at most
+        # HAIL_MAX_CONCURRENT queries across jobs sharing /Annotation/RUNS.
+        gate = acquire_slot(HAIL_SLOT_PREFIX, HAIL_MAX_CONCURRENT, poll_seconds=10,
+                            label="HAIL", what="Hail query slot")
+        try:
+            # Another job may have filled the cache while we waited.
+            cached.update(_hail_cache_read([variant_id_of(key) for key in misses]))
+            misses = [key for key in misses if variant_id_of(key) not in cached]
+            if misses:
+                fresh = _query_hail(misses)
+                _hail_cache_write(fresh.values())
+        finally:
+            gate.close()
+
+    annotations = {}
+    for key in keys:
+        variant_id = variant_id_of(key)
+        if variant_id in fresh:
+            annotations[variant_id] = fresh[variant_id]
+        elif variant_id in cached:
+            annotations[variant_id] = cached[variant_id]
+    if len(annotations) != len(keys):
+        raise GnomadLookupError(
+            f"Hail returned {len(annotations)} of {len(keys)} selected variants"
+        )
+    cache_path.write_text(json.dumps(annotations), encoding="utf-8")
+    print(f"[HAIL] Saved {len(annotations)} variant annotations",
+          file=sys.stderr, flush=True)
+    return cache_path
+
+
+# ---------------------------------------------------------
+# Local lookup (--gnomad-source local): sqlite cache + remote gnomAD VCFs via
+# local tabix indexes + local ClinVar VCF. No Hail, no JVM, no slots.
+# Parsing helpers are copied from Exploration/accessory/populate_gnomad_cache.py.
+# ---------------------------------------------------------
+def _local_variant_id(key):
+    return "%s-%s-%s-%s" % (key[0], key[1], key[2], key[3])
+
+
+def _local_frequency_parts(info, suffix):
+    """(AC, AN) of one record for '' (total) or '_afr' etc.; missing/invalid -> 0, 0."""
+    if info is None:
+        return 0, 0
+    try:
+        ac = int(info.get("AC" + suffix) or 0)
+    except (TypeError, ValueError):
+        ac = 0
+    try:
+        an = int(info.get("AN" + suffix) or 0)
+    except (TypeError, ValueError):
+        an = 0
+    return ac, an
+
+
+def _combined_counts(exome, genome, suffix):
+    """Sum AC and AN over the records that exist (missing key -> 0/0)."""
+    counts = [_local_frequency_parts(item, suffix) for item in (exome, genome) if item is not None]
+    return sum(c[0] for c in counts), sum(c[1] for c in counts)
+
+
+def _local_combined_af(exome, genome, suffix):
+    if exome is None and genome is None:
+        return None
+    ac, an = _combined_counts(exome, genome, suffix)
+    return ac / an if an > 0 else None
+
+
+def parse_info(text):
+    """INFO column -> dict; flags -> True, '.' -> None."""
+    result = {}
+    if not text or text == ".":
+        return result
+    for item in text.split(";"):
+        if not item:
+            continue
+        name, sep, value = item.partition("=")
+        if not sep:
+            result[name] = True
+        else:
+            result[name] = None if value == "." else value
+    return result
+
+
+def parse_vep_format(header_lines):
+    """Field names of the VEP INFO field from the ##INFO=<ID=vep ...> header line, or None."""
+    for text in header_lines:
+        if str(text).startswith("##INFO=<ID=vep,"):
+            match = re.search(r'Format: ([^"]+)', text)
+            if match:
+                return [name.strip() for name in match.group(1).strip().split("|")]
+    return None
+
+
+def pick_transcript(entries):
+    """First entry with MANE_SELECT, else first CANONICAL == YES, else the first; None if empty."""
+    for entry in entries:
+        if entry.get("MANE_SELECT"):
+            return entry
+    for entry in entries:
+        if entry.get("CANONICAL") == "YES":
+            return entry
+    return entries[0] if entries else None
+
+
+def _number(value):
+    if value is None or value is True:
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return None if math.isnan(number) else number
+
+
+def _text(value):
+    return value if value not in (None, "", ".") else None
+
+
+def _first(*values):
+    for value in values:
+        if value is not None:
+            return value
+    return None
+
+
+def _vep_transcript(record):
+    """Chosen VEP entry dict of a record {'info', 'vep_format'}, or None."""
+    if record is None or not record["vep_format"]:
+        return None
+    raw = record["info"].get("vep")
+    if not raw or raw is True:
+        return None
+    fmt = record["vep_format"]
+    entries = [dict(zip(fmt, part.split("|"))) for part in raw.split(",") if part]
+    return pick_transcript(entries)
+
+
+LOCAL_PREDICTIONS = ["cadd_phred", "revel_max", "spliceai_ds_max", "pangolin_largest_ds",
+                     "phylop", "sift_max", "polyphen_max"]
+
+
+def build_row(key, exome, genome):
+    """Cache row (dict of gnomad_cache columns) from the exome/genome records ({'info', 'vep_format'} or None)."""
+    ex = exome["info"] if exome else None
+    ge = genome["info"] if genome else None
+    row = {"variant_key": _local_variant_id(key)}
+    row["total_af"] = _local_combined_af(ex, ge, "")
+    for ancestry, label in HAIL_POPULATIONS.items():
+        row["af_%s" % label] = _local_combined_af(ex, ge, "_" + ancestry)
+    row["ac"], row["an"] = _combined_counts(ex, ge, "")
+    nhomalt = 0
+    for info in (ex, ge):
+        if info is not None:
+            try:
+                nhomalt += int(info.get("nhomalt") or 0)
+            except (TypeError, ValueError):
+                pass
+    row["nhomalt"] = nhomalt
+    row["in_exomes"] = 1 if exome else 0
+    row["in_genomes"] = 1 if genome else 0
+    for name in LOCAL_PREDICTIONS:
+        row[name] = _number(_first((ex or {}).get(name), (ge or {}).get(name)))
+    chosen = None
+    for record in (exome, genome):
+        if record is not None and record["info"].get("vep") not in (None, "", True):
+            chosen = _vep_transcript(record)
+            break
+    names = {"gene_symbol": "SYMBOL", "gene_id": "Gene", "transcript_id": "Feature", "consequence": "Consequence",
+             "impact": "IMPACT", "biotype": "BIOTYPE", "hgvsc": "HGVSc", "hgvsp": "HGVSp",
+             "mane_select": "MANE_SELECT", "lof": "LoF"}
+    for column, field in names.items():
+        value = _text(chosen.get(field)) if chosen else None
+        if value is not None and column in ("hgvsc", "hgvsp") and "%" in value:
+            value = urllib.parse.unquote(value)
+        row[column] = value
+    row["canonical"] = (1 if chosen.get("CANONICAL") == "YES" else 0) if chosen else None
+    return row
+
+
+class _LocalLookupFailed(Exception):
+    """A tabix lookup still failed after all retries."""
+
+
+class _LocalGnomadSource:
+    """Looks up one variant in the gnomAD exomes and genomes VCFs.
+
+    Each thread keeps two handles per (dataset, chrom): a primary one and a
+    verify one (opened lazily). A primary miss is re-checked on the verify
+    handle, which guards against a stale remote handle silently returning
+    nothing; if verify finds the record the primary handle is replaced.
+    """
+
+    def __init__(self, tbi_dir, opener, base_url):
+        self.tbi_dir = str(tbi_dir)
+        self.opener = opener
+        self.base_url = str(base_url).rstrip("/")
+        self._local = threading.local()
+        self._lock = threading.Lock()
+        self._formats = {}
+        self._opened = []
+        self.found = 0
+        self.not_found = 0
+        self.recovered = 0
+        self.failed = 0
+
+    @staticmethod
+    def file_name(dataset, chrom):
+        return "gnomad.%s.v4.1.sites.chr%s.vcf.bgz" % (dataset, chrom)
+
+    def url(self, dataset, chrom):
+        return "%s/%s/%s" % (self.base_url, dataset, self.file_name(dataset, chrom))
+
+    def index_path(self, dataset, chrom):
+        return os.path.join(self.tbi_dir, dataset, self.file_name(dataset, chrom) + ".tbi")
+
+    def _count(self, name):
+        with self._lock:
+            setattr(self, name, getattr(self, name) + 1)
+
+    def _handle(self, dataset, chrom, role):
+        handles = getattr(self._local, "handles", None)
+        if handles is None:
+            handles = self._local.handles = {}
+        handle = handles.get((dataset, chrom, role))
+        if handle is None:
+            handle = self.opener(self.url(dataset, chrom), self.index_path(dataset, chrom))
+            handles[(dataset, chrom, role)] = handle
+            with self._lock:
+                self._opened.append(handle)
+        return handle
+
+    def _drop(self, dataset, chrom, role):
+        handle = getattr(self._local, "handles", {}).pop((dataset, chrom, role), None)
+        if handle is not None:
+            with self._lock:
+                self._opened = [item for item in self._opened if item is not handle]
+            try:
+                handle.close()
+            except Exception:
+                pass
+
+    def close_all(self):
+        """Close every handle opened by any thread."""
+        with self._lock:
+            handles, self._opened = self._opened, []
+        for handle in handles:
+            try:
+                handle.close()
+            except Exception:
+                pass
+
+    def _vep_format(self, dataset, chrom, handle):
+        url = self.url(dataset, chrom)
+        with self._lock:
+            if url not in self._formats:
+                self._formats[url] = parse_vep_format(list(handle.header))
+            return self._formats[url]
+
+    def _scan(self, dataset, key, role):
+        chrom, pos, ref, alt = key
+        ref, alt = str(ref).upper(), str(alt).upper()
+        handle = self._handle(dataset, chrom, role)
+        if "chr" + chrom not in list(handle.contigs):
+            return None
+        fmt = self._vep_format(dataset, chrom, handle)
+        for text in handle.fetch("chr" + chrom, pos - 1, pos):
+            fields = text.split("\t")
+            if int(fields[1]) == pos and fields[3].upper() == ref and fields[4].upper() == alt:
+                return {"info": parse_info(fields[7] if len(fields) > 7 else "."), "vep_format": fmt}
+        return None
+
+    def _find(self, dataset, key):
+        chrom = key[0]
+        last = None
+        for attempt in range(LOCAL_TABIX_ATTEMPTS):
+            try:
+                record = self._scan(dataset, key, "primary")
+                if record is not None:
+                    self._count("found")
+                    return record
+                record = self._scan(dataset, key, "verify")
+                if record is not None:
+                    self._count("recovered")
+                    self._drop(dataset, chrom, "primary")
+                    return record
+                self._count("not_found")
+                return None
+            except (OSError, ValueError) as error:
+                last = error
+                self._drop(dataset, chrom, "primary")
+                self._drop(dataset, chrom, "verify")
+                if attempt + 1 < LOCAL_TABIX_ATTEMPTS:
+                    time.sleep(LOCAL_TABIX_BACKOFF[min(attempt, len(LOCAL_TABIX_BACKOFF) - 1)])
+        self._count("failed")
+        raise _LocalLookupFailed("%s %s: %s: %s" % (
+            dataset, _local_variant_id(key), type(last).__name__, last))
+
+    def lookup(self, key):
+        """Cache-row dict for key, or None when the variant is in neither file."""
+        if key[0] == "MT":  # gnomAD v4.1 has no MT sites VCF
+            self._count("not_found")
+            self._count("not_found")
+            return None
+        exome = self._find("exomes", key)
+        genome = self._find("genomes", key)
+        if exome is None and genome is None:
+            return None
+        return build_row(key, exome, genome)
+
+
+def _local_cache_read(variant_ids):
+    """Return ({variant_id: row dict}, writable). Never raises."""
+    ids = list(variant_ids)
+    if not ids:
+        return {}, False
+    connection = None
+    try:
+        uri = "file:" + urllib.parse.quote(str(LOCAL_GNOMAD_CACHE)) + "?mode=ro"
+        connection = sqlite3.connect(uri, uri=True, timeout=30)
+        connection.execute("PRAGMA busy_timeout=30000")
+        meta = dict(connection.execute("SELECT key, value FROM gnomad_cache_meta"))
+        if any(meta.get(name) != value for name, value in LOCAL_CACHE_META.items()):
+            print("[GNOMAD] cache metadata mismatch (found %s, expected %s); ignoring cache" % (
+                {name: meta.get(name) for name in LOCAL_CACHE_META}, LOCAL_CACHE_META),
+                file=sys.stderr, flush=True)
+            return {}, False
+        found = {}
+        for start in range(0, len(ids), 500):
+            chunk = ids[start:start + 500]
+            cursor = connection.execute(
+                "SELECT * FROM gnomad_cache WHERE variant_key IN (" + ",".join("?" * len(chunk)) + ")", chunk)
+            names = [column[0] for column in cursor.description]
+            for values in cursor:
+                row = dict(zip(names, values))
+                found[row["variant_key"]] = row
+        return found, True
+    except Exception as error:
+        print(f"[GNOMAD] cache read failed: {error}", file=sys.stderr, flush=True)
+        return {}, False
+    finally:
+        if connection is not None:
+            try:
+                connection.close()
+            except Exception:
+                pass
+
+
+def _local_cache_write(rows):
+    """INSERT OR IGNORE found rows into the existing cache (no DDL). Never raises."""
+    rows = list(rows)
+    if not rows:
+        return
+    connection = None
+    try:
+        if not Path(LOCAL_GNOMAD_CACHE).exists():
+            raise OSError(f"{LOCAL_GNOMAD_CACHE} does not exist")
+        connection = sqlite3.connect(str(LOCAL_GNOMAD_CACHE), timeout=30, isolation_level=None)
+        connection.execute("PRAGMA busy_timeout=30000")
+        connection.execute("PRAGMA journal_mode=WAL")
+        existing = [item[1] for item in connection.execute("PRAGMA table_info(gnomad_cache)")]
+        columns = [name for name in existing if name in rows[0]]
+        if "variant_key" not in columns:
+            raise sqlite3.Error("gnomad_cache table has no usable columns")
+        statement = ("INSERT OR IGNORE INTO gnomad_cache(" + ", ".join(columns) + ") VALUES ("
+                     + ",".join("?" * len(columns)) + ")")
+        for start in range(0, len(rows), 200):
+            batch = [tuple(row.get(name) for name in columns) for row in rows[start:start + 200]]
+            connection.execute("BEGIN IMMEDIATE")
+            try:
+                connection.executemany(statement, batch)
+                connection.execute("COMMIT")
+            except BaseException:
+                connection.execute("ROLLBACK")
+                raise
+    except Exception as error:
+        print(f"[GNOMAD] cache write failed: {error}", file=sys.stderr, flush=True)
+    finally:
+        if connection is not None:
+            try:
+                connection.close()
+            except Exception:
+                pass
+
+
+def _open_clinvar():
+    """Open the local ClinVar VCF -> (handle, {INFO id: Number}, contig style, release)."""
+    real = os.path.realpath(str(LOCAL_CLINVAR_VCF))
+    handle = None
+    try:
+        handle = _open_tabix(real)
+        header = [str(line) for line in handle.header]
+        if not header:
+            raise ValueError("empty header")
+        style = "bare" if "1" in list(handle.contigs) else "chr"
+    except Exception as error:
+        if handle is not None:
+            try:
+                handle.close()
+            except Exception:
+                pass
+        raise GnomadLookupError(f"ClinVar VCF unreadable: {real}: {error}") from error
+    release = None
+    numbers = {}
+    for line in header:
+        if line.startswith("##fileDate="):
+            digits = re.sub(r"\D", "", line.split("=", 1)[1])
+            release = digits or None
+        match = re.match(r"##INFO=<ID=([^,>]+),Number=([^,>]+)", line)
+        if match:
+            numbers[match.group(1)] = match.group(2)
+    if release is None:
+        match = re.search(r"clinvar_(\d{8})", real)
+        release = match.group(1) if match else "unknown"
+    return handle, numbers, style, release
+
+
+def _clinvar_lookup(handle, keys, numbers, style):
+    """{variant_id: Hail-shaped ClinVar row} for the keys present in the ClinVar VCF."""
+    contigs = set(handle.contigs)
+    result = {}
+    try:
+        for key in keys:
+            chrom, pos, ref, alt = key
+            if style == "bare":
+                contig = chrom
+            else:
+                contig = "chrM" if chrom == "MT" else "chr" + chrom
+            if contig not in contigs:
+                continue
+            ref, alt = str(ref).upper(), str(alt).upper()
+            for text in handle.fetch(contig, int(pos) - 1, int(pos)):
+                fields = text.split("\t")
+                if (int(fields[1]) != int(pos) or fields[3].upper() != ref
+                        or alt not in fields[4].upper().split(",")):
+                    continue
+                info = {}
+                for name, value in parse_info(fields[7] if len(fields) > 7 else ".").items():
+                    if value is True or value is None or numbers.get(name) == "1":
+                        info[name] = value
+                    else:
+                        info[name] = [None if part == "." else part for part in value.split(",")]
+                result[_local_variant_id(key)] = {
+                    "rsid": None if fields[2] == "." else fields[2],
+                    "info": info, "transcript": None,
+                }
+                break
+    except Exception as error:
+        raise GnomadLookupError(f"ClinVar lookup failed: {error}") from error
+    return result
+
+
+def _local_annotation(variant_id, cache_row, clinvar):
+    """Annotation dict identical in shape to the Hail path, AF taken from the cache row."""
+    transcript = None
+    if cache_row is not None and (cache_row.get("gene_symbol") or cache_row.get("transcript_id")):
+        transcript = {
+            "gene_symbol": cache_row.get("gene_symbol"),
+            "transcript_id": cache_row.get("transcript_id"),
+            "hgvsc": cache_row.get("hgvsc"),
+            "hgvsp": cache_row.get("hgvsp"),
+            "major_consequence": (cache_row.get("consequence") or "").split("&")[0] or None,
+        }
+    annotation = _hail_annotation_from_row(variant_id, {
+        "exome": {"transcript": transcript} if transcript else None,
+        "genome": None,
+        "clinvar": clinvar,
+    })
+    if cache_row is not None:
+        annotation["total_af"] = cache_row.get("total_af")
+        for label in HAIL_POPULATIONS.values():
+            annotation["ancestry_af"][label] = cache_row.get("af_" + label)
+    return annotation
+
+
+def prefetch_local_annotations(selected_items, output_folder):
+    """Resolve gnomAD/ClinVar annotations for this job from the local sources."""
+    keys = sorted({tuple(item["variant_key"]) for item in selected_items
+                   if item.get("variant_key") is not None})
+    cache_path = intermediate_folder(output_folder) / "hail_annotations.json"
+    if not keys:
+        cache_path.write_text("{}", encoding="utf-8")
+        return cache_path
+
+    cached, writable = _local_cache_read([_local_variant_id(key) for key in keys])
+    misses = [key for key in keys if _local_variant_id(key) not in cached]
+    fresh = {}
+    found = not_found = recovered = 0
+    if misses:
+        source = _LocalGnomadSource(LOCAL_TBI_DIR, _open_tabix, LOCAL_VCF_BASE_URL)
+        needed = sorted({(dataset, key[0]) for key in misses if key[0] != "MT"
+                         for dataset in ("exomes", "genomes")})
+        absent = [source.index_path(dataset, chrom) for dataset, chrom in needed
+                  if not os.path.exists(source.index_path(dataset, chrom))]
+        if absent:
+            raise GnomadLookupError("gnomAD tabix index missing: " + ", ".join(absent[:5]))
+        failures = []
+        try:
+            with ThreadPoolExecutor(max_workers=max(1, LOCAL_TABIX_THREADS)) as executor:
+                futures = [(key, executor.submit(source.lookup, key))
+                           for key in sorted(misses, key=lambda item: (str(item[0]), int(item[1])))]
+                for key, future in futures:
+                    try:
+                        row = future.result()
+                    except _LocalLookupFailed as error:
+                        failures.append(str(error))
+                        continue
+                    if row is not None:
+                        fresh[_local_variant_id(key)] = row
+        finally:
+            source.close_all()
+        found, not_found, recovered = source.found, source.not_found, source.recovered
+        if fresh and writable:
+            _local_cache_write(list(fresh.values()))
+        if failures:
+            raise GnomadLookupError(
+                f"tabix lookup failed for {len(failures)} variants: " + "; ".join(failures[:5]))
+
+    handle, numbers, style, release = _open_clinvar()
+    try:
+        clinvar = _clinvar_lookup(handle, keys, numbers, style)
+    finally:
+        try:
+            handle.close()
+        except Exception:
+            pass
+
+    annotations = {}
+    for key in keys:
+        variant_id = _local_variant_id(key)
+        row = cached.get(variant_id) or fresh.get(variant_id)
+        annotations[variant_id] = _local_annotation(variant_id, row, clinvar.get(variant_id))
+    if len(annotations) != len(keys):
+        raise GnomadLookupError(
+            f"Local lookup returned {len(annotations)} of {len(keys)} selected variants"
+        )
+    cache_path.write_text(json.dumps(annotations), encoding="utf-8")
+    print(f"[GNOMAD] cache hits={len(keys) - len(misses)} misses={len(misses)}; "
+          f"tabix found={found} not_found={not_found} recovered={recovered}; "
+          f"clinvar hits={len(clinvar)} (release {release} from ##fileDate)",
+          file=sys.stderr, flush=True)
+    return cache_path
 
 
 @lru_cache(maxsize=1)
@@ -796,17 +1623,35 @@ def prefetch_alphagenome_annotations(selected_items, output_folder, qtl_tissues,
     Score AlphaGenome for all selected variants using a handful of warm model
     clients run concurrently (one subprocess per chunk, up to max_parallel),
     instead of one subprocess + model client per single variant. Returns the
-    path to a pickled cache file mapping variant_id -> list[dict] (the same
-    row shape alphagenome_annotation already returns per variant).
-    already returns per variant).
+    path to a per-job SQLite file with tables rows(variant_id, payload) holding
+    the pickled list[dict] per variant (the same row shape alphagenome_annotation
+    returns) and status(variant_id, status). Each chunk is written as it
+    arrives so the parent never holds all rows at once, and each worker later
+    reads only the variant it processes.
     """
     keys = sorted({tuple(item["variant_key"]) for item in selected_items
                    if item.get("variant_key") is not None})
-    cache_path = Path(output_folder) / "alphagenome_annotations.pkl"
-    if not keys:
-        with cache_path.open("wb") as fh:
-            pickle.dump({}, fh)
-        return cache_path
+    cache_path = intermediate_folder(output_folder) / "alphagenome_annotations.sqlite"
+    try:
+        cache_path.unlink()
+    except FileNotFoundError:
+        pass
+    conn = sqlite3.connect(str(cache_path))
+    try:
+        conn.execute("PRAGMA journal_mode=OFF")
+        conn.execute("PRAGMA synchronous=OFF")
+        conn.execute("CREATE TABLE rows (variant_id TEXT PRIMARY KEY, payload BLOB)")
+        conn.execute("CREATE TABLE status (variant_id TEXT PRIMARY KEY, status TEXT)")
+        if not keys:
+            conn.commit()
+            return cache_path
+        _prefetch_alphagenome_into(conn, keys, selected_items, output_folder, qtl_tissues, max_parallel)
+    finally:
+        conn.close()
+    return cache_path
+
+
+def _prefetch_alphagenome_into(conn, keys, selected_items, output_folder, qtl_tissues, max_parallel):
 
     variant_ids = [f"chr{chrom}:{position}:{str(ref).upper()}:{str(alt).upper()}"
                    for chrom, position, ref, alt in keys]
@@ -827,7 +1672,8 @@ def prefetch_alphagenome_annotations(selected_items, output_folder, qtl_tissues,
           f"parallel warm client(s)", file=sys.stderr, flush=True)
 
     def score_chunk(index, chunk):
-        variants_file = Path(output_folder) / f"alphagenome_variants_{index}.txt"
+        variants_file = intermediate_folder(output_folder) / f"alphagenome_variants_{index}.txt"
+        status_file = intermediate_folder(output_folder) / f"alphagenome_status_{index}.json"
         variants_file.write_text("\n".join(chunk) + "\n", encoding="utf-8")
         cmd = [
             sys.executable, str(script_path),
@@ -837,47 +1683,102 @@ def prefetch_alphagenome_annotations(selected_items, output_folder, qtl_tissues,
             "--output-root", "./",
             "--genes",
             "--stdout",
+            "--status-file", str(status_file),
         ]
         if alpha_terms:
             cmd.extend(["--tissue", ",".join(alpha_terms)])
         try:
             result = subprocess.run(cmd, capture_output=True, check=True, cwd=str(alphagenome_dir))
-            return pickle.loads(result.stdout) if result.stdout else pd.DataFrame()
+            df = pickle.loads(result.stdout) if result.stdout else pd.DataFrame()
+            return df, read_alphagenome_status(status_file)
         except Exception as error:
             stderr_tail = ""
             if isinstance(error, subprocess.CalledProcessError) and error.stderr:
                 stderr_tail = error.stderr.decode(errors="replace")[-500:]
             print(f"[ALPHAGENOME] Chunk {index} failed ({len(chunk)} variants), "
-                  f"those will fall back to per-variant calls: {error} {stderr_tail}",
+                  f"those will be retried per variant: {error} {stderr_tail}",
                   file=sys.stderr, flush=True)
-            return pd.DataFrame()
+            return pd.DataFrame(), {v: "failed" for v in chunk}
 
-    combined_frames = []
+    statuses = {}
+    row_counts = {}
     with ThreadPoolExecutor(max_workers=len(chunks)) as pool:
-        for df in pool.map(lambda pair: score_chunk(*pair), enumerate(chunks)):
+        futures = [pool.submit(score_chunk, index, chunk) for index, chunk in enumerate(chunks)]
+        for future in as_completed(futures):
+            df, chunk_statuses = future.result()
+            statuses.update(chunk_statuses)
             if isinstance(df, pd.DataFrame) and not df.empty:
-                combined_frames.append(df)
-
-    annotations = {}
-    if combined_frames:
-        combined = pd.concat(combined_frames, ignore_index=True)
-        for (query_locus, ref_base, alt_base), group in combined.groupby(
-            ["query_locus", "ref_base", "alt_base"]
-        ):
-            variant_id = f"{query_locus}:{ref_base}:{alt_base}"
-            annotations[variant_id] = group.reset_index(drop=True).to_dict(orient="records")
-
-    with cache_path.open("wb") as fh:
-        pickle.dump(annotations, fh)
-    print(f"[ALPHAGENOME] Cached AlphaGenome results for {len(annotations)}/{len(variant_ids)} variants",
+                for (query_locus, ref_base, alt_base), group in df.groupby(
+                    ["query_locus", "ref_base", "alt_base"]
+                ):
+                    variant_id = f"{query_locus}:{ref_base}:{alt_base}"
+                    records = group.reset_index(drop=True).to_dict(orient="records")
+                    if variant_id in row_counts:
+                        previous = conn.execute(
+                            "SELECT payload FROM rows WHERE variant_id=?", (variant_id,)
+                        ).fetchone()
+                        records = pickle.loads(previous[0]) + records
+                    conn.execute(
+                        "INSERT OR REPLACE INTO rows (variant_id, payload) VALUES (?, ?)",
+                        (variant_id, pickle.dumps(records, pickle.HIGHEST_PROTOCOL)),
+                    )
+                    row_counts[variant_id] = len(records)
+            del df
+    for variant_id in row_counts:
+        statuses.setdefault(variant_id, "ok")
+    # Explicit empty marker for variants without scores so they are not retried;
+    # failed variants stay absent and get one per-variant retry.
+    for variant_id, status in statuses.items():
+        if status in ("no_gene", "no_tissue") and variant_id not in row_counts:
+            conn.execute(
+                "INSERT OR IGNORE INTO rows (variant_id, payload) VALUES (?, ?)",
+                (variant_id, pickle.dumps([], pickle.HIGHEST_PROTOCOL)),
+            )
+            row_counts[variant_id] = 0
+    conn.executemany(
+        "INSERT OR REPLACE INTO status (variant_id, status) VALUES (?, ?)",
+        list(statuses.items()),
+    )
+    conn.commit()
+    n_ok = sum(1 for count in row_counts.values() if count)
+    n_empty = len(row_counts) - n_ok
+    print(f"[ALPHAGENOME] Cached AlphaGenome results for {len(row_counts)}/{len(variant_ids)} variants "
+          f"(ok={n_ok}, empty={n_empty}, failed={len(variant_ids) - len(row_counts)})",
           file=sys.stderr, flush=True)
-    return cache_path
-
-
-@lru_cache(maxsize=1)
-def _load_alphagenome_annotations(path):
-    with open(path, "rb") as fh:
-        return pickle.load(fh)
+def _alphagenome_cache_lookup(variant_id):
+    """
+    Read one variant from the per-job AlphaGenome SQLite cache. Returns
+    (rows, status) or None on any miss/error (caller falls back to the
+    per-variant call). Uses a lazy per-process read-only connection.
+    """
+    global _ALPHAGENOME_DB, _ALPHAGENOME_DB_PATH
+    try:
+        path = _ALPHAGENOME_CACHE_PATH
+        if not path:
+            return None
+        if _ALPHAGENOME_DB is None or _ALPHAGENOME_DB_PATH != str(path):
+            if _ALPHAGENOME_DB is not None:
+                try:
+                    _ALPHAGENOME_DB.close()
+                except Exception:
+                    pass
+                _ALPHAGENOME_DB = None
+            _ALPHAGENOME_DB = sqlite3.connect(Path(path).resolve().as_uri() + "?mode=ro", uri=True)
+            _ALPHAGENOME_DB_PATH = str(path)
+        row = _ALPHAGENOME_DB.execute(
+            "SELECT payload FROM rows WHERE variant_id=?", (variant_id,)
+        ).fetchone()
+        if row is None:
+            return None
+        rows = pickle.loads(row[0])
+        srow = _ALPHAGENOME_DB.execute(
+            "SELECT status FROM status WHERE variant_id=?", (variant_id,)
+        ).fetchone()
+        status = srow[0] if srow and srow[0] else None
+        return rows, status or ("ok" if rows else "no_gene")
+    except (sqlite3.Error, OSError, pickle.UnpicklingError, EOFError, AttributeError,
+            ImportError, IndexError, TypeError, ValueError):
+        return None
 
 
 # ---------------------------------------------------------
@@ -1543,25 +2444,36 @@ def query_eqtls_batch(chrom, positions, qtl_tissues):
         for pos, group in df.groupby("pos")
     }
 
-def filter_alphagenome_output(alpha_df: pd.DataFrame, quantile: float = 0.97) -> pd.DataFrame:
+def filter_alphagenome_output(alpha_df: pd.DataFrame, min_abs_quantile: float = ALPHAGENOME_MIN_ABS_QUANTILE) -> pd.DataFrame:
     """
-    Keep only the top tail of AlphaGenome rows by absolute score for batch output.
-    Default quantile 0.97 keeps the top 3% by absolute score.
+    Output-only filter on prettified AlphaGenome target rows: keep rows with
+    |Quantile Score| >= min_abs_quantile (NaN scores dropped). A variant whose
+    scored rows all fail gets one "below_threshold" note row (identity copied
+    from its first row). Existing note rows pass unchanged. Gene prioritisation
+    uses the unfiltered rows (identify_most_likely_gene runs earlier).
     """
-    if alpha_df is None or alpha_df.empty or "score" not in alpha_df.columns:
+    if alpha_df is None or alpha_df.empty or "Quantile Score" not in alpha_df.columns:
         return alpha_df
-
-    filtered = alpha_df.copy()
-    filtered["score_numeric"] = pd.to_numeric(filtered["score"], errors="coerce")
-    filtered = filtered.dropna(subset=["score_numeric"])
-    if filtered.empty:
-        return filtered.drop(columns=["score_numeric"], errors="ignore")
-
-    filtered["abs_score"] = filtered["score_numeric"].abs()
-    threshold = filtered["abs_score"].quantile(quantile)
-    filtered = filtered[filtered["abs_score"] >= threshold].copy()
-    filtered = filtered.drop(columns=["score_numeric", "abs_score"], errors="ignore")
-    return filtered.reset_index(drop=True)
+    if "Note" in alpha_df.columns:
+        is_note = alpha_df["Note"].fillna("").astype(str).str.strip() != ""
+    else:
+        is_note = pd.Series(False, index=alpha_df.index)
+    abs_q = pd.to_numeric(alpha_df["Quantile Score"], errors="coerce").abs()
+    keep = is_note | (abs_q >= min_abs_quantile)
+    scored = alpha_df[~is_note]
+    # Variant Id holds AlphaGenome Variant objects (unhashable) -- group on their string form
+    groups = scored.groupby(scored["Variant Id"].astype(str), sort=False, dropna=False) if "Variant Id" in scored.columns else [(None, scored)]
+    notes = []
+    for _, group in groups:
+        if not group.empty and not keep.loc[group.index].any():
+            first = group.iloc[0]
+            row = {c: first[c] for c in ALPHAGENOME_IDENTITY_COLUMNS if c in group.columns}
+            row["Note"] = ALPHAGENOME_NOTES["below_threshold"]
+            notes.append(row)
+    out = alpha_df[keep]
+    if notes:
+        out = pd.concat([out, pd.DataFrame(notes)], ignore_index=True)
+    return out.reset_index(drop=True)
 
 def qtl_target_ids(qtl_df):
     """
@@ -2355,7 +3267,7 @@ def identify_most_likely_gene(info: dict):
                 if len(ld_qtl_combined) >0:
                     likely_genes[rsid] = {'genes': ld_qtl_combined, 'source': 'qtl_ld'}
                     continue
-            # Next check AlphaGenome recurrence among top absolute scores
+            # Next check AlphaGenome recurrence among top |quantile| scores
             alpha_genes = alphagenome_likely_genes(alphagenome_df.to_dict(orient="records") if not alphagenome_df.empty else [])
             if len(alpha_genes) > 0:
                 likely_genes[rsid] = {'genes': alpha_genes, 'source': 'alphagenome'}
@@ -2986,6 +3898,8 @@ def send_email_error(email, q, output_folder, ancestry="European"):
     cmd = f"mv {q} {output_folder}/"
     os.system(cmd)
     # Compress output folder
+    # Remove intermediate caches so they are not zipped
+    shutil.rmtree(os.path.join(output_folder, INTERMEDIATE_DIRNAME), ignore_errors=True)
     cmd = f"cd {os.path.dirname(output_folder)} && zip -r {os.path.basename(output_folder)}.zip {os.path.basename(output_folder)}"
     os.system(cmd)
     # Remove output folder
@@ -3030,6 +3944,8 @@ def send_email_error_toomany(email, q, output_folder, ancestry="European"):
     cmd = f"mv {q} {output_folder}/"
     os.system(cmd)
     # Compress output folder
+    # Remove intermediate caches so they are not zipped
+    shutil.rmtree(os.path.join(output_folder, INTERMEDIATE_DIRNAME), ignore_errors=True)
     cmd = f"cd {os.path.dirname(output_folder)} && zip -r {os.path.basename(output_folder)}.zip {os.path.basename(output_folder)}"
     os.system(cmd)
     # Remove output folder
@@ -3182,8 +4098,8 @@ def process_selected_variant(task):
         global _HAIL_ANNOTATIONS
         _HAIL_ANNOTATIONS = _load_hail_annotations(hail_cache_path)
     if alphagenome_cache_path:
-        global _ALPHAGENOME_ANNOTATIONS
-        _ALPHAGENOME_ANNOTATIONS = _load_alphagenome_annotations(alphagenome_cache_path)
+        global _ALPHAGENOME_CACHE_PATH
+        _ALPHAGENOME_CACHE_PATH = alphagenome_cache_path
     info_single = run_variant_query(
         query_item["query"],
         query_item["build"],
@@ -3204,7 +4120,10 @@ def process_selected_variant(task):
         ld_df, gwas_df, ld_cadd_df, ld_eqtl_df, ld_sqtl_df, most_likely_gene,
         pd.DataFrame(), sv_df,
     )
-    alphagenome_m = filter_alphagenome_output(alphagenome_m, quantile=0.97)
+    alphagenome_m = filter_alphagenome_output(alphagenome_m)
+    if not alphagenome_m.empty:
+        alphagenome_m = alphagenome_m.reindex(columns=ALPHAGENOME_TARGET_COLUMNS)
+        alphagenome_m["Note"] = alphagenome_m["Note"].fillna("")
     tables = (merged, cadd_m, gnomad_m, clinvar_m, alphagenome_m, eqtl_m, sqtl_m,
               gwas_m, ld_m, ld_cadd_m, ld_eqtl_m, ld_sqtl_m, sv_m)
     return most_likely_gene, invalid_queries, tables
@@ -3227,7 +4146,7 @@ def iter_variant_results(selected_items, qtl_tissues, ancestry, ld_threshold, wo
 # CLI entrypoint
 # ---------------------------------------------------------
 def main():
-    global GNOMAD_SOURCE
+    global GNOMAD_SOURCE, _JOB_SLOT
     # Parse arguments
     parser = argparse.ArgumentParser(description="Variant annotation query (standalone CLI).")
     parser.add_argument("-q", "--query", required=True, help="Variant query (rsID, coordinate, or interval) or a file containing one mixed input per line.")
@@ -3239,7 +4158,7 @@ def main():
     parser.add_argument("-ts", "--qtl-tissues", default="all", help="Comma-separated list of tissues to consider for eQTL/sQTL annotation (default: all).")
     parser.add_argument("-gs", "--gsea-sets", default="GO:BP", help="Comma-separated list of gene sets to use for gene-set enrichment analysis (default: GO:BP). Options: GO:BP, KEGG, REAC, WP.")
     parser.add_argument("-e", "--email", required=False, default="", help="Optional email address to send results to.")
-    parser.add_argument("--gnomad-source", choices=["api", "hail"],
+    parser.add_argument("--gnomad-source", choices=["api", "hail", "local"],
                         default=GNOMAD_SOURCE,
                         help="gnomAD/ClinVar lookup source (default: GNOMAD_SOURCE or api).")
     parser.add_argument("--workers", type=int, default=4, help="Variant worker processes (1-4; default: 4).")
@@ -3311,10 +4230,14 @@ def main():
     else:
         print(f"Output folder {output_folder} already exists. Please remove it or provide a different random number.", file=sys.stderr, flush=True)
         sys.exit(1)
+    intermediate_folder(output_folder)
 
     # Email notification
     if email:
         email_at_start(email, output_folder, query, analysis_type, build, qtl_tissues, gsea_sets, ancestry, random_number)
+
+    # At most MAX_CONCURRENT_JOBS annotation jobs run at once; others queue here.
+    _JOB_SLOT = acquire_slot(JOB_SLOT_PREFIX, MAX_CONCURRENT_JOBS, poll_seconds=20, what="job slot")
 
     # Decide whether to run the process or not
     wait_for_memory(analysis_type)
@@ -3340,22 +4263,20 @@ def main():
     os.makedirs(f"{output_folder}/ld_partner_annotations", exist_ok=True)
     write_selection_audit(output_folder, selected_items, selection_audit, selection_summary)
     hail_cache_path = None
-    if GNOMAD_SOURCE == "hail":
+    if GNOMAD_SOURCE in ("hail", "local"):
+        log_prefix = "HAIL" if GNOMAD_SOURCE == "hail" else "GNOMAD"
         try:
-            # Each local Hail session can use substantial memory. Allow one
-            # prefetch at a time across jobs sharing /Annotation/RUNS.
-            HAIL_PREFETCH_LOCK.parent.mkdir(parents=True, exist_ok=True)
-            with HAIL_PREFETCH_LOCK.open("a+") as gate:
-                fcntl.flock(gate, fcntl.LOCK_EX)
-                try:
-                    hail_cache_path = prefetch_hail_annotations(selected_items, output_folder)
-                finally:
-                    fcntl.flock(gate, fcntl.LOCK_UN)
+            # Hail slots (HAIL_MAX_CONCURRENT) are taken inside prefetch only for cache misses;
+            # the local source needs no slots.
+            if GNOMAD_SOURCE == "local":
+                hail_cache_path = prefetch_local_annotations(selected_items, output_folder)
+            else:
+                hail_cache_path = prefetch_hail_annotations(selected_items, output_folder)
         except (GnomadLookupError, OSError) as error:
             (Path(output_folder) / "gnomad_lookup_failure.txt").write_text(
                 str(error) + "\n", encoding="utf-8"
             )
-            print(f"[HAIL] Annotation stopped: {error}", file=sys.stderr, flush=True)
+            print(f"[{log_prefix}] Annotation stopped: {error}", file=sys.stderr, flush=True)
             if email:
                 email_external_lookup_failure(email, random_number, error)
             raise
@@ -3569,6 +4490,8 @@ def main():
         cmd = f"mv {query} {output_folder}/"
         os.system(cmd)
         # Compress output folder
+        # Remove intermediate caches so they are not zipped
+        shutil.rmtree(os.path.join(output_folder, INTERMEDIATE_DIRNAME), ignore_errors=True)
         cmd = f"cd {os.path.dirname(output_folder)} && zip -r {os.path.basename(output_folder)}.zip {os.path.basename(output_folder)}"
         os.system(cmd)
         # Remove output folder after compression

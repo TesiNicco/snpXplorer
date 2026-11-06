@@ -21,6 +21,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 from io import StringIO
 import subprocess
+import shlex
 import math
 import textwrap
 import pickle
@@ -955,6 +956,14 @@ def annotation():
             messageSubmission = 'Genomic intervals are available for Annotation only. Please remove the interval or select Annotation.'
         elif len(set(explicit_inputs)) > snp_limit:
             messageSubmission = f'Too many explicit variants provided for the selected analysis. {limit_message}'
+        elif str(refGeno).lower() not in ANNOT_REF_GENOMES or analType not in ANNOT_ANALYSIS_TYPES:
+            messageSubmission = 'Invalid reference genome or analysis type. Please check your selection.'
+        elif analType == 'GSEA' and not gsea_source:
+            messageSubmission = 'Please select at least one enrichment gene-set.'
+        elif any(x not in ANNOT_ENRICH_SOURCES for x in gsea_source):
+            messageSubmission = 'Invalid enrichment gene-set selected. Please check your selection.'
+        elif any(x not in ANNOT_GTEX_TISSUES for x in qtl_tissues if x):
+            messageSubmission = 'Invalid GTEx tissue selected. Please check your selection.'
         elif emailResponse == True:
             # run the script here
             command, run_id = run_annotation(
@@ -967,8 +976,8 @@ def annotation():
                 email,
                 ancestry,
             )
-            print(command)
-            subprocess.Popen(command, shell=True)
+            print(shlex.join(command))
+            subprocess.Popen(command)
             messageSubmission = f'Your job has been submitted. Save Run ID {run_id} to download the results when ready.'
         else:
             messageSubmission = 'Email is not correct. Please check!'

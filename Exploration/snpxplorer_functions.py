@@ -19,6 +19,7 @@ import io
 from pathlib import Path
 from io import StringIO
 import subprocess
+import shlex
 import math
 import textwrap
 import pickle
@@ -2326,13 +2327,25 @@ def readBrowseOption(data_path, browse, window, refGen):
         browse_type = 'RsID'
     else:
         genes_path = '%s/databases/Genes/genes_hg19.txt.gz' %(Path(data_path)) if refGen == 'GRCh37' else '%s/databases/Genes/genes_hg38.txt.gz' %(Path(data_path))
-        line = list(os.popen('zgrep -i -w %s %s' % (browse.replace(' ', ''), genes_path.replace(' ', '\ '))))[0].strip()
+        gene = browse.replace(' ', '')
+        # only plain gene symbols are searched; anything else behaves like a gene that is not found
+        lines = []
+        if re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]*', gene):
+            lines = subprocess.run(['zgrep', '-i', '-w', '--', gene, genes_path], capture_output=True, text=True).stdout.splitlines()
+        line = lines[0].strip()
         genes = re.split(r'[\t ]+', line)  # split on 1+ tabs or spaces
         if refGen == "GRCh37":
             chrom, start_pos, end_pos, browse_type = genes[2].replace('chr', ''), int(genes[4]) - window, int(genes[5]) + window, 'Gene'
         else:
             chrom, start_pos, end_pos, browse_type = genes[1].replace('chr', ''), int(genes[3]) - window, int(genes[4]) + window, 'Gene'
     return chrom, start_pos, end_pos, browse_type
+
+# allowed values of the annotation form (keep in sync with templates/annotation.html)
+ANNOT_REF_GENOMES = ('grch37', 'grch38')
+ANNOT_ANALYSIS_TYPES = ('Annot', 'GSEA')
+# enrichment sources of the form -> g:Profiler source codes
+ANNOT_ENRICH_SOURCES = {'Default': 'GO:BP', 'KEGG': 'KEGG', 'Reactome': 'REAC', 'Wiki': 'WP'}
+ANNOT_GTEX_TISSUES = ('all_tissues', 'Adipose_Subcutaneous', 'Adipose_Visceral_Omentum', 'Adrenal_Gland', 'Artery_Aorta', 'Artery_Tibial', 'Brain_Amygdala', 'Brain_Anterior_cingulate_cortex_BA24', 'Brain_Caudate_basal_ganglia', 'Brain_Cerebellar_Hemisphere', 'Brain_Cerebellum', 'Brain_Cortex', 'Brain_Frontal_Cortex_BA9', 'Brain_Hippocampus', 'Brain_Hypothalamus', 'Brain_Nucleus_accumbens_basal_ganglia', 'Brain_Spinal_cord_cervical_c-1', 'Brain_Substantia_nigra', 'Breast_Mammary_Tissue', 'Cells_Cultured_fibroblasts', 'Cells_EBV-transformed_lymphocytes', 'Colon_Sigmoid', 'Colon_Transverse', 'Esophagus_Gastroesophageal_Junction', 'Esophagus_Mucosa', 'Esophagus_Muscularis', 'Heart_Atrial_Appendage', 'Heart_Left_Ventricle', 'Kidney_Cortex', 'Liver', 'Lung', 'Minor_Salivary_Gland', 'Muscle_Skeletal', 'Nerve_Tibial', 'Ovary', 'Pancreas', 'Pituitary', 'Prostate', 'Skin_Not_Sun_Exposed_Suprapubic', 'Skin_Sun_Exposed_Lower_leg', 'Small_Intestine_Terminal_Ileum', 'Spleen', 'Stomach', 'Testis', 'Thyroid', 'Uterus', 'Vagina', 'Whole_Blood')
 
 # function to run annotation analysis
 def run_annotation(
@@ -2356,18 +2369,20 @@ def run_annotation(
     # Define log file
     #log_filename_server = '/Annotation/RUNS/snpXplorer_run_%s.log' %(random_number)
     # Take analysis type
-    analysis_type = str(analType)
-    analysis_type = 'annotation' if analysis_type == 'Annot' else 'enrichment'
-    analysis_mode = ','.join(list(gsea_source)) if analysis_type == 'enrichment' else 'None'
-    analysis_mode = analysis_mode.replace('Default', 'GO:BP')
-    # Take gtex tissues
-    gtex_tissues = ','.join(list(qtl_tissues))
+    analysis_type = 'annotation' if str(analType) == 'Annot' else 'enrichment'
+    # map form names to g:Profiler source codes (Default->GO:BP, Reactome->REAC, Wiki->WP)
+    analysis_mode = ','.join([ANNOT_ENRICH_SOURCES.get(x, x) for x in gsea_source]) if analysis_type == 'enrichment' else 'None'
+    # Take gtex tissues -- no selection means all tissues
+    gtex_tissues = ','.join([x for x in qtl_tissues if x]) or 'all_tissues'
     refGeno = str(refGeno).lower()
     ancestry = 'African' if str(ancestry).strip().lower() == 'african' else 'European'
     # Then run annotate me externally in background -- this depends on the analysis_type requested
     #command = "Rscript /Annotation/BIN/MAIN.R %s %s %s %s %s %s %s %s > %s" %(filename, ftype, email, analysis_type, analysis_mode, gtex_tissues, refGeno, random_number, log_filename_server)
-    command = f"python {path_server}/Annotation/BIN/standalone_annotation_optimized_mp.py -q {fpath_server} -t {analysis_type} -o {path_server}/Annotation/RUNS/ -r {random_number} -b {refGeno} -a {ancestry} -ts {gtex_tissues} -gs {analysis_mode} -e {email} --workers 2 --gsea-workers 2 --gnomad-source hail "
-    print(command)
+    command = ['python', f'{path_server}/Annotation/BIN/standalone_annotation_optimized_mp.py',
+               '-q', fpath_server, '-t', analysis_type, '-o', f'{path_server}/Annotation/RUNS/',
+               '-r', str(random_number), '-b', refGeno, '-a', ancestry, '-ts', gtex_tissues,
+               '-gs', analysis_mode, '-e', email, '--workers', '4', '--gsea-workers', '2', '--gnomad-source', 'local']
+    print(shlex.join(command))
     return command, str(random_number)
 
 # function to extract GTEx information

@@ -31,6 +31,9 @@ snpbot_bp = Blueprint('snpbot', __name__, template_folder='templates')
 DATA_PATH = Path('/Data')
 DB_FILE = DATA_PATH / "databases/Genes/variant_info.db"
 
+# Keep in sync with ALPHAGENOME_MIN_ABS_QUANTILE in Annotation/BIN/standalone_annotation_optimized_mp.py
+ALPHAGENOME_MIN_ABS_QUANTILE = 0.95
+
 # Liftover object (hg19 → hg38)
 lifter = get_lifter("hg19", "hg38")
 
@@ -956,7 +959,7 @@ def identify_most_likely_gene(info: dict):
                 # return most likely gene
                 info['likely_gene'] = likely_genes
                 return info
-        # Next check AlphaGenome recurrence among top absolute scores
+        # Next check AlphaGenome recurrence among top |quantile| scores
         alpha_genes = alphagenome_likely_genes(info.get("alphagenome", []))
         if len(alpha_genes) > 0:
             likely_genes = {'genes': alpha_genes, 'source': 'AlphaGenome'}
@@ -981,13 +984,20 @@ def identify_most_likely_gene(info: dict):
         info['likely_gene'] = likely_genes
         return info
 
-def alphagenome_likely_genes(alpha_rows, top_n=100, min_fraction=0.20):
+def _alphagenome_quantile_col(df):
+    return next((c for c in ("quantile_score", "Quantile Score") if c in df.columns), None)
+
+def alphagenome_likely_genes(alpha_rows, top_n=100, min_fraction=0.20, min_abs_quantile=None):
     """
-    Identify recurrent AlphaGenome-supported genes from the top absolute scores.
+    Keep rows with |quantile score| >= min_abs_quantile (NaN and note rows dropped), take the top_n by
+    |quantile| descending, and return genes whose share among those rows >= min_fraction; [] if none pass
+    (caller falls through).
     """
     if not alpha_rows:
         return []
     try:
+        if min_abs_quantile is None:
+            min_abs_quantile = ALPHAGENOME_MIN_ABS_QUANTILE
         alpha_df = pd.DataFrame(alpha_rows)
         if alpha_df.empty or "gene_name" not in alpha_df.columns:
             return []
@@ -997,11 +1007,12 @@ def alphagenome_likely_genes(alpha_rows, top_n=100, min_fraction=0.20):
         alpha_df = alpha_df[alpha_df["gene_name"].str.lower() != "nan"]
         if alpha_df.empty:
             return []
-        if "score" in alpha_df.columns:
-            alpha_df["score_numeric"] = pd.to_numeric(alpha_df["score"], errors="coerce")
-            alpha_df["abs_score"] = alpha_df["score_numeric"].abs()
-            alpha_df = alpha_df.sort_values(by="abs_score", ascending=False, na_position="last")
-        alpha_top = alpha_df.head(top_n)
+        q_col = _alphagenome_quantile_col(alpha_df)
+        if q_col is None:
+            return []
+        alpha_df["abs_quantile"] = pd.to_numeric(alpha_df[q_col], errors="coerce").abs()
+        alpha_df = alpha_df[alpha_df["abs_quantile"] >= min_abs_quantile]  # NaN fails
+        alpha_top = alpha_df.sort_values("abs_quantile", ascending=False, kind="mergesort").head(top_n)
         if alpha_top.empty:
             return []
         gene_counts = alpha_top["gene_name"].value_counts(normalize=True)

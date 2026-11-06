@@ -140,6 +140,11 @@ def _build_parser() -> argparse.ArgumentParser:
             'e.g. --tissue brain or --tissue blood,brain,liver.'
         ),
     )
+    parser.add_argument(
+        "--status-file",
+        default=None,
+        help="Optional JSON path; writes {variant: ok|no_gene|no_tissue|failed}.",
+    )
     return parser
 
 def _score_one_variant(dna_model, organism, sequence_length, args, variant_str):
@@ -199,6 +204,21 @@ def _score_one_variant(dna_model, organism, sequence_length, args, variant_str):
     merged_scores["variant"] = str(variant)
     return merged_scores, stats, (chrom, pos, ref_base, alt_base)
 
+def _variant_status(merged_scores, stats, args):
+    """Classify a scored variant as ok / no_tissue / no_gene based on the filters."""
+    if len(merged_scores) > 0:
+        return "ok"
+    if args.tissue:
+        rows_before_tissue = stats["n_rows_after_genes_filter"] if args.genes else stats["n_rows_before_filter"]
+        if rows_before_tissue:
+            return "no_tissue"
+    return "no_gene"
+
+def _write_status_file(path, statuses) -> None:
+    """Write the per-variant status mapping as JSON (only if a path was given)."""
+    if path:
+        Path(path).write_text(json.dumps(statuses))
+
 # Main function
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s", datefmt="%Y-%m-%d %H:%M:%S",)
@@ -234,17 +254,21 @@ def main() -> None:
         ]
         LOGGER.info("Batch mode: scoring %d variants with one warm client", len(variant_strings))
         all_scores = []
+        statuses = {}
         for variant_str in variant_strings:
             try:
                 merged_scores_one, _stats, _coords = _score_one_variant(
                     dna_model, organism, sequence_length, args, variant_str
                 )
                 all_scores.append(merged_scores_one)
+                statuses[variant_str] = _variant_status(merged_scores_one, _stats, args)
             except Exception as e:
                 LOGGER.warning("Failed to score variant %s: %s", variant_str, e)
+                statuses[variant_str] = "failed"
         combined = pd.concat(all_scores, ignore_index=True) if all_scores else pd.DataFrame()
         LOGGER.info("Writing pickled combined dataframe to stdout (%d/%d variants scored)",
                     len(all_scores), len(variant_strings))
+        _write_status_file(args.status_file, statuses)
         pickle.dump(combined, sys.stdout.buffer, protocol=pickle.HIGHEST_PROTOCOL)
         return
 
@@ -263,6 +287,7 @@ def main() -> None:
     n_rows_after_genes_filter = _stats["n_rows_after_genes_filter"]
     n_rows_after_tissue_filter = _stats["n_rows_after_tissue_filter"]
     LOGGER.info("- variant: %s:%s:%s>%s", chrom, pos, ref_base, alt_base)
+    _write_status_file(args.status_file, {args.variant: _variant_status(merged_scores, _stats, args)})
 
     if args.stdout:
         LOGGER.info("Writing pickled dataframe to stdout")

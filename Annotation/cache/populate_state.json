@@ -1,0 +1,13 @@
+{
+ "entries": {
+  "genome|maf=0.01": {
+   "rowid": 27973
+  },
+  "gwas|maf=0.01": {
+   "fingerprint": "1374b7d791e26a8782abcd0649a6d915b53c5fc68750eb967b70d4d8e505bdf1",
+   "index": 157071,
+   "total": 182400
+  }
+ },
+ "version": 1
+}
